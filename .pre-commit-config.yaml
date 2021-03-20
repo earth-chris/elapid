@@ -3,25 +3,25 @@ default_language_version:
 
 repos:
   - repo: https://github.com/ambv/black
-    rev: stable
+    rev: 20.8b1
     hooks:
       - id: black
         args: ["elapid", "--line-length=120", "--target-version=py37"]
 
   - repo: https://github.com/pycqa/flake8
-    rev: master
+    rev: 3.9.0
     hooks:
       - id: flake8
         args: ["--select=C,E,F,W,B,B950", "--max-line-length=88", "--ignore=E203,E501,W503,F401,F403"]
         
   - repo: https://github.com/timothycrosley/isort
-    rev: master
+    rev: 5.7.0
     hooks:
       - id: isort
         args: ["-l 88", "-m2", "."]
         
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.4.0
+    rev: v3.4.0
     hooks:
       - id: check-yaml
       - id: check-added-large-files

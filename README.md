@@ -6,9 +6,17 @@ Species distribution modeling tools in python. This includes a custom [MaxEnt][h
 
 The name was chosen as homage to the paper by H.A. Nix, *A Biogeographic Analysis of Australian Elapid Snakes* (1986), which is widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
 
+## Installation
+
+```bash
+pip install -e .
+```
+
+It's not ready yet!
+
 ## Contact
 
-* Christopher Anderson is the primary developer [[web][home-cba]] [[email][email-cba]] [[github][github-cba]].
+* Christopher Anderson [[web][home-cba]] [[email][email-cba]] [[github][github-cba]].
 
 
 [email-cba]: mailto:cbanders@stanford.edu
