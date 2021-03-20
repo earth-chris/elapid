@@ -94,5 +94,53 @@ class Maxent(object):
                 feature_df = pd.DataFrame(thresholds, columns=feature_names)
                 feature_list.append(feature_df)
 
+            if "product" in self.feature_types_:
+
+                idx_cov = continuous_covariates.index(covariate)
+                for i in range(idx_cov, len(continuous_covariates) - 1):
+                    feature_name = f"{covariate}_x_{continuous_covariates[i+1]}"
+                    product = series * continuous[continuous_covariates[i + 1]]
+                    feature_df = pd.DataFrame(product, columns=[feature_name])
+                    feature_list.append(feature_df)
+
         features = pd.concat(feature_list, axis=1)
         return features
+
+    def compute_regularization(self, x, y):
+        """
+        Applies variable regularization to all feature data.
+
+        :param x: pandas dataframe with feature transformations applied
+        :param y: pandas series with binary present/background
+        """
+
+        mm = x[y == 1]
+        n_points = len(mm)
+        features = list(x.columns)
+        n_features = len(features)
+        regularization = np.zeros(n_features)
+
+        q_features = len([i for i in features if "_squared" in i])
+        p_features = len([i for i in features if "_x_" in i])
+        if q_features > 0:
+            regtable = [[0, 10, 17, 30, 100], [1.3, 0.8, 0.5, 0.25, 0.05]]
+        elif p_features > 0:
+            regtable = [[0, 10, 17, 30, 100], [2.6, 1.6, 0.9, 0.55, 0.05]]
+        else:
+            regtable = [[0, 10, 30, 100], [1, 1, 0.2, 0.05]]
+
+        for i, feature in enumerate(features):
+
+            if "_linear" in feature or "_quadratic" in feature or "product" in feature:
+                freg = regtable
+            elif "_hinge" in feature:
+                freg = [[0, 1], [0.5, 0.5]]
+            elif "_threshold" in feature:
+                freg = [[0, 100], [2, 1]]
+            elif "_class" in feature:
+                freg = [[0, 10, 17], [0.65, 0.5, 0.25]]
+
+            ap = np.interp(n_points, freg[0], freg[1])
+            regularization[i] = ap / np.sqrt(n_points)
+
+        return regularization
