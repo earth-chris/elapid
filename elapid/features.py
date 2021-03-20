@@ -40,8 +40,7 @@ def threshold(x, n_thresholds=30, range=None):
     """"""
     mn = range[0] if range is not None else np.min(x)
     mx = range[1] if range is not None else np.max(x)
-    step = (mx - mn) / (n_thresholds + 1.0)
-    k = np.arange(mn, mx + step, step)[2:-2]
+    k = np.linspace(mn, mx, n_thresholds + 2)[2:-2]
 
     xarr = repeat_array(x, len(k), axis=1)
     tarr = repeat_array(k, len(x), axis=0)
