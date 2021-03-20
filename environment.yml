@@ -1,0 +1,27 @@
+name: elapid
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python>3.7
+  - black
+  - descartes
+  - flake8
+  - gdal
+  - geopandas
+  - ipython
+  - isort
+  - matplotlib
+  - pandas
+  - pre-commit
+  - pytest
+  - pytest-cov
+  - rtree
+  - scikit-learn
+  - scipy
+  - shapely
+  - pip
+  - pip:
+    - -r requirements.txt

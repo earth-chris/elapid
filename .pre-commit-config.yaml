@@ -18,7 +18,7 @@ repos:
     rev: master
     hooks:
       - id: isort
-        args: ["-l 88", "-m 2", "."]
+        args: ["-l 88", "-m2", "."]
         
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.4.0
