@@ -109,17 +109,17 @@ class Maxent(object):
         features = pd.concat(feature_list, axis=1)
         return features
 
-    def compute_regularization(self, x, y):
+    def compute_regularization(self, f, y):
         """
         Applies variable regularization to all feature data.
 
-        :param x: pandas dataframe with feature transformations applied
+        :param f: pandas dataframe with feature transformations applied
         :param y: pandas series with binary present/background
         """
 
-        mm = x[y == 1]
+        mm = f[y == 1]
         n_points = len(mm)
-        features = list(x.columns)
+        features = list(f.columns)
         n_features = len(features)
         regularization = np.zeros(n_features)
 
@@ -169,7 +169,7 @@ class Maxent(object):
             threshold_reg[threshold_idx] = 1 if all_zeros or all_ones else 0
 
         # report the max regularization value
-        default_reg = 0.001 * (np.max(x, axis=0) - np.min(x, axis=0))
+        default_reg = 0.001 * (np.max(f, axis=0) - np.min(f, axis=0))
         variance_reg = np.std(mm, axis=0, ddof=1) * regularization
         max_reg = np.max([default_reg, variance_reg, hinge_reg, threshold_reg], axis=0)
 
