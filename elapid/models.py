@@ -12,9 +12,10 @@ MAXENT_DEFAULTS = {
     "beta_hinge": 1.0,
     "beta_lqp": 1.0,
     "beta_threshold": 1.0,
+    "beta_categorical": 1.0,
     "feature_types": ["linear", "hinge", "product"],
-    "n_hinge_features": 30,
-    "n_threshold_features": 30,
+    "n_hinge_features": 50,
+    "n_threshold_features": 50,
     "tau": 0.5,
 }
 
@@ -26,9 +27,10 @@ class Maxent(object):
         tau=MAXENT_DEFAULTS["tau"],
         clamp=MAXENT_DEFAULTS["clamp"],
         beta_multiplier=MAXENT_DEFAULTS["beta_multiplier"],
-        beta_hinge=MAXENT_DEFAULTS["beta_hinge"],
         beta_lqp=MAXENT_DEFAULTS["beta_lqp"],
+        beta_hinge=MAXENT_DEFAULTS["beta_hinge"],
         beta_threshold=MAXENT_DEFAULTS["beta_lqp"],
+        beta_categorical=MAXENT_DEFAULTS["beta_categorical"],
         n_hinge_features=MAXENT_DEFAULTS["n_hinge_features"],
         n_threshold_features=MAXENT_DEFAULTS["n_threshold_features"],
     ):
@@ -42,6 +44,7 @@ class Maxent(object):
         self.beta_hinge_ = beta_hinge
         self.beta_lqp_ = beta_lqp
         self.beta_threshold_ = beta_threshold
+        self.beta_categorical_ = beta_categorical
         self.n_hinge_features_ = n_hinge_features
         self.n_threshold_features_ = n_threshold_features
 
@@ -120,6 +123,7 @@ class Maxent(object):
         n_features = len(features)
         regularization = np.zeros(n_features)
 
+        # set the default regularization values
         q_features = len([i for i in features if "_squared" in i])
         p_features = len([i for i in features if "_x_" in i])
         if q_features > 0:
@@ -133,14 +137,44 @@ class Maxent(object):
 
             if "_linear" in feature or "_quadratic" in feature or "product" in feature:
                 freg = regtable
+                multiplier = self.beta_lqp_
             elif "_hinge" in feature:
                 freg = [[0, 1], [0.5, 0.5]]
+                multiplier = self.beta_hinge_
             elif "_threshold" in feature:
                 freg = [[0, 100], [2, 1]]
+                multiplier = self.beta_threshold_
             elif "_class" in feature:
                 freg = [[0, 10, 17], [0.65, 0.5, 0.25]]
+                multiplier = self.beta_categorical_
 
             ap = np.interp(n_points, freg[0], freg[1])
-            regularization[i] = ap / np.sqrt(n_points)
+            regularization[i] = multiplier * ap / np.sqrt(n_points)
 
-        return regularization
+        # increase regularization for extreme hinge values
+        hinge_features = [i for i in features if "_hinge_" in i]
+        hinge_reg = np.zeros(n_features)
+        for hinge_feature in hinge_features:
+            hinge_idx = features.index(hinge_feature)
+            std = np.max([np.std(mm[hinge_feature], ddof=1), (1 / np.sqrt(n_points))])
+            hinge_reg[hinge_idx] = (0.5 * std) / np.sqrt(n_points)
+
+        # increase threshold regularization for uniform values
+        threshold_features = [i for i in features if "_threshold_" in i]
+        threshold_reg = np.zeros(n_features)
+        for threshold_feature in threshold_features:
+            threshold_idx = features.index(threshold_feature)
+            all_zeros = np.all(mm[threshold_feature] == 0)
+            all_ones = np.all(mm[threshold_feature] == 1)
+            threshold_reg[threshold_idx] = 1 if all_zeros or all_ones else 0
+
+        # report the max regularization value
+        default_reg = 0.001 * (np.max(x, axis=0) - np.min(x, axis=0))
+        variance_reg = np.std(mm, axis=0, ddof=1) * regularization
+        max_reg = np.max([default_reg, variance_reg, hinge_reg, threshold_reg], axis=0)
+
+        # and scale it
+        max_reg *= self.beta_multiplier_
+        reg = pd.DataFrame(max_reg.reshape(-1, 1).transpose(), columns=features)
+
+        return reg
