@@ -1,5 +1,6 @@
 gdal
 geopandas>=0.7.0
+glmnet
 matplotlib>=3.2.1
 numpy>=1.18
 pandas>=1.0.3
