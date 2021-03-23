@@ -125,7 +125,7 @@ class Maxent(object):
         elif transform == "cloglog":
             return 1 - np.exp(0 - np.exp(self.entropy_ + link))
 
-    def initialize(
+    def initialize_model(
         self,
         lambdas,
         alpha=1,
@@ -139,7 +139,7 @@ class Maxent(object):
         :param alpha: the elasticnet mixing parameter. alpha=1 for lasso, alpha=0 for ridge
         :param standardize: boolean flag to specify coefficient normalization
         :param fit_intercept: boolean flag to include an intercept parameter
-        :return estimator: an sklearn model estimator
+        :return none: updates the self.estimator with an sklearn model estimator
         """
         estimator = LogitNet(
             alpha=alpha,
@@ -150,7 +150,7 @@ class Maxent(object):
             n_jobs=self.n_cpus_,
         )
 
-        return estimator
+        self.estimator = estimator
 
     def compute_features(self, df):
         """
