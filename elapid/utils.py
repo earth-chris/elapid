@@ -1,5 +1,9 @@
 """Backend helper functions that don't need to be exposed to users"""
+import multiprocessing as mp
+
 import numpy as np
+
+_ncpus = mp.cpu_count()
 
 
 def repeat_array(x, length=1, axis=0):
