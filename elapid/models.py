@@ -5,23 +5,7 @@ import pandas as pd
 from glmnet.logistic import LogitNet
 
 from elapid import features as _features
-from elapid.utils import _ncpus, _validate_feature_types
-
-MAXENT_DEFAULTS = {
-    "clamp": True,
-    "beta_multiplier": 1.0,
-    "beta_hinge": 1.0,
-    "beta_lqp": 1.0,
-    "beta_threshold": 1.0,
-    "beta_categorical": 1.0,
-    "feature_types": ["linear", "hinge", "product"],
-    "n_hinge_features": 50,
-    "n_threshold_features": 50,
-    "scorer": "roc_auc",
-    "tau": 0.5,
-    "tolerance": 1e-7,
-    "use_lambdas": "last",
-}
+from elapid.utils import MAXENT_DEFAULTS, _ncpus
 
 
 class Maxent(object):
@@ -46,7 +30,7 @@ class Maxent(object):
 
         :param use_lambdas: Select from ["best", "last"]
         """
-        self.feature_types_ = _validate_feature_types(feature_types)
+        self.feature_types_ = _features.validate_feature_types(feature_types)
         self.tau_ = tau
         self.clamp_ = clamp
         self.beta_multiplier_ = beta_multiplier
@@ -104,7 +88,7 @@ class Maxent(object):
         :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
         :param is_reatures: boolean to specify that the x data has already been transformed from covariates to features
         """
-        assert self.initialized_
+        assert self.initialized_, "Model must be fit first"
 
         if is_features:
             features = x
@@ -151,64 +135,3 @@ class Maxent(object):
         )
 
         self.estimator = estimator
-
-    def compute_features(self, df):
-        """
-        Transforms input data into the features used for model training.
-
-        :param df: a pandas dataframe encoded with numeric and categorical covariates
-        :param features: a dataframe with the feature transformations applied to each column
-        """
-        categorical = df.select_dtypes(include="category")
-        continuous = df.select_dtypes(exclude="category")
-
-        categorical_covariates = list(categorical.columns)
-        continuous_covariates = list(continuous.columns)
-
-        feature_list = list()
-        for covariate in categorical_covariates:
-
-            series = categorical[covariate]
-            classes = list(series.unique())
-            classes.sort()
-            feature_names = [f"{covariate}_class_{clas}" for clas in classes]
-            one_hot_encoded = _features.categorical(series.to_numpy())
-            feature_df = pd.DataFrame(one_hot_encoded, columns=feature_names)
-            feature_list.append(feature_df)
-
-        for covariate in continuous_covariates:
-            series = continuous[covariate]
-
-            if "linear" in self.feature_types_:
-
-                feature_list.append(series.rename(f"{covariate}_linear"))
-
-            if "quadratic" in self.feature_types_:
-
-                feature_list.append((series ** 2).rename(f"{covariate}_squared"))
-
-            if "hinge" in self.feature_types_:
-
-                feature_names = [f"{covariate}_hinge_{i+1:03d}" for i in range((self.n_hinge_features_ - 1) * 2)]
-                hinges = _features.hinge(series.to_numpy(), n_hinges=self.n_hinge_features_)
-                feature_df = pd.DataFrame(hinges, columns=feature_names)
-                feature_list.append(feature_df)
-
-            if "threshold" in self.feature_types_:
-
-                feature_names = [f"{covariate}_threshold_{i+1:03d}" for i in range(self.n_threshold_features_ - 2)]
-                thresholds = _features.threshold(series.to_numpy(), n_thresholds=self.n_threshold_features_)
-                feature_df = pd.DataFrame(thresholds, columns=feature_names)
-                feature_list.append(feature_df)
-
-            if "product" in self.feature_types_:
-
-                idx_cov = continuous_covariates.index(covariate)
-                for i in range(idx_cov, len(continuous_covariates) - 1):
-                    feature_name = f"{covariate}_x_{continuous_covariates[i+1]}"
-                    product = series * continuous[continuous_covariates[i + 1]]
-                    feature_df = pd.DataFrame(product, columns=[feature_name])
-                    feature_list.append(feature_df)
-
-        features = pd.concat(feature_list, axis=1)
-        return features
