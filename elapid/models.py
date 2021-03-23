@@ -282,13 +282,3 @@ class Maxent(object):
         max_reg *= self.beta_multiplier_
 
         return max_reg
-
-    def compute_weights(self, y):
-        """
-        Uses Maxent's weight formulation to compute per-sample model weights.
-
-        :param y: pandas series or 1d array with binary presence/background (1/0) values
-        """
-        weights = np.array(y + (1 - y) * 100)
-
-        return weights

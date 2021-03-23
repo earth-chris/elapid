@@ -72,3 +72,14 @@ def compute_lambdas(y, weights, reg, n_lambda=200):
     lambdas = 10 ** (seed_range) * mean_regularization * (n_presence / total_weight)
 
     return lambdas
+
+
+def compute_weights(y):
+    """
+    Uses Maxent's weight formulation to compute per-sample model weights.
+
+    :param y: pandas series or 1d array with binary presence/background (1/0) values
+    """
+    weights = np.array(y + (1 - y) * 100)
+
+    return weights
