@@ -53,3 +53,22 @@ def clamp(x):
     Clamps feature data to the range of features previously estimated ranges
     """
     pass
+
+
+def compute_lambdas(y, weights, reg, n_lambda=200):
+    """
+    Computes lambda parameter values for elastic lasso fits.
+
+    :param y: pandas series or array with binary presence/background (1/0) values
+    :param weights: per-sample model weights
+    :param reg: per-feature regularization coefficients
+    :param n_lambda: the number of lambda values to estimate
+    :return lambdas: a numpy array of lambda scores of length n_lambda
+    """
+    n_presence = np.sum(y)
+    mean_regularization = np.mean(reg)
+    total_weight = np.sum(weights)
+    seed_range = np.linspace(4, 0, n_lambda)
+    lambdas = 10 ** (seed_range) * mean_regularization * (n_presence / total_weight)
+
+    return lambdas
