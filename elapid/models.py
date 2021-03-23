@@ -196,3 +196,13 @@ class Maxent(object):
         lambdas = 10 ** (seed_range) * mean_regularization * (n_presence / total_weight)
 
         return lambdas
+
+    def compute_weights(self, y):
+        """
+        Uses Maxent's weight formulation to compute per-sample model weights.
+
+        :param y: pandas series or 1d array with binary presence/background (1/0) values
+        """
+        weights = np.array(y + (1 - y) * 100)
+
+        return weights
