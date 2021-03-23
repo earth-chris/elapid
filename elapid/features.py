@@ -46,3 +46,10 @@ def threshold(x, n_thresholds=30, range=None):
     tarr = repeat_array(k, len(x), axis=0)
 
     return (xarr > tarr).astype(np.uint8)
+
+
+def clamp(x):
+    """
+    Clamps feature data to the range of features previously estimated ranges
+    """
+    pass
