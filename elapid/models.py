@@ -72,10 +72,10 @@ class Maxent(object):
 
         # data pre-processing
         # TODO df = create_covariate_df(x)
-        features = self.compute_features(x)
-        weights = self.compute_weights(y)
-        regularization = self.compute_regularization(features, y)
-        lambdas = self.compute_lambdas(y, weights, regularization)
+        features = _features.compute_features(x)
+        weights = _features.compute_weights(y)
+        regularization = _features.compute_regularization(features, y)
+        lambdas = _features.compute_lambdas(y, weights, regularization)
 
         # model fitting
         if not self.initialized_:
@@ -212,73 +212,3 @@ class Maxent(object):
 
         features = pd.concat(feature_list, axis=1)
         return features
-
-    def compute_regularization(self, f, y):
-        """
-        Applies variable regularization to all feature data.
-
-        :param f: pandas dataframe with feature transformations applied
-        :param y: pandas series with binary presence/background (1/0) values
-        :returns reg: a numpy array with per-feature regularization parameters
-        """
-
-        mm = f[y == 1]
-        n_points = len(mm)
-        features = list(f.columns)
-        n_features = len(features)
-        regularization = np.zeros(n_features)
-
-        # set the default regularization values
-        q_features = len([i for i in features if "_squared" in i])
-        p_features = len([i for i in features if "_x_" in i])
-        if q_features > 0:
-            regtable = [[0, 10, 17, 30, 100], [1.3, 0.8, 0.5, 0.25, 0.05]]
-        elif p_features > 0:
-            regtable = [[0, 10, 17, 30, 100], [2.6, 1.6, 0.9, 0.55, 0.05]]
-        else:
-            regtable = [[0, 10, 30, 100], [1, 1, 0.2, 0.05]]
-
-        for i, feature in enumerate(features):
-
-            if "_linear" in feature or "_squared" in feature or "_x_" in feature:
-                freg = regtable
-                multiplier = self.beta_lqp_
-            elif "_hinge" in feature:
-                freg = [[0, 1], [0.5, 0.5]]
-                multiplier = self.beta_hinge_
-            elif "_threshold" in feature:
-                freg = [[0, 100], [2, 1]]
-                multiplier = self.beta_threshold_
-            elif "_class" in feature:
-                freg = [[0, 10, 17], [0.65, 0.5, 0.25]]
-                multiplier = self.beta_categorical_
-
-            ap = np.interp(n_points, freg[0], freg[1])
-            regularization[i] = multiplier * ap / np.sqrt(n_points)
-
-        # increase regularization for extreme hinge values
-        hinge_features = [i for i in features if "_hinge_" in i]
-        hinge_reg = np.zeros(n_features)
-        for hinge_feature in hinge_features:
-            hinge_idx = features.index(hinge_feature)
-            std = np.max([np.std(mm[hinge_feature], ddof=1), (1 / np.sqrt(n_points))])
-            hinge_reg[hinge_idx] = (0.5 * std) / np.sqrt(n_points)
-
-        # increase threshold regularization for uniform values
-        threshold_features = [i for i in features if "_threshold_" in i]
-        threshold_reg = np.zeros(n_features)
-        for threshold_feature in threshold_features:
-            threshold_idx = features.index(threshold_feature)
-            all_zeros = np.all(mm[threshold_feature] == 0)
-            all_ones = np.all(mm[threshold_feature] == 1)
-            threshold_reg[threshold_idx] = 1 if all_zeros or all_ones else 0
-
-        # report the max regularization value
-        default_reg = 0.001 * (np.max(f, axis=0) - np.min(f, axis=0))
-        variance_reg = np.std(mm, axis=0, ddof=1) * regularization
-        max_reg = np.max([default_reg, variance_reg, hinge_reg, threshold_reg], axis=0)
-
-        # and scale it
-        max_reg *= self.beta_multiplier_
-
-        return max_reg
