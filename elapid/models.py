@@ -114,7 +114,8 @@ class Maxent(object):
         Applies variable regularization to all feature data.
 
         :param f: pandas dataframe with feature transformations applied
-        :param y: pandas series with binary present/background
+        :param y: pandas series with binary presence/background (1/0) values
+        :returns reg: a numpy array with per-feature regularization parameters
         """
 
         mm = f[y == 1]
@@ -135,7 +136,7 @@ class Maxent(object):
 
         for i, feature in enumerate(features):
 
-            if "_linear" in feature or "_quadratic" in feature or "product" in feature:
+            if "_linear" in feature or "_squared" in feature or "_x_" in feature:
                 freg = regtable
                 multiplier = self.beta_lqp_
             elif "_hinge" in feature:
@@ -175,6 +176,23 @@ class Maxent(object):
 
         # and scale it
         max_reg *= self.beta_multiplier_
-        reg = pd.DataFrame(max_reg.reshape(-1, 1).transpose(), columns=features)
 
-        return reg
+        return max_reg
+
+    def compute_lambdas(self, y, weights, reg, n_lambda=200):
+        """
+        Computes lambda parameter values for elastic lasso fits.
+
+        :param y: pandas series with binary presence/background (1/0) values
+        :param weights: per-sample model weights
+        :param reg: per-feature regularization coefficients
+        :param n_lambda: the number of lambda values to estimate
+        :return lambdas: a numpy array of lambda scores of length n_lambda
+        """
+        n_presence = np.sum(y)
+        mean_regularization = np.mean(reg)
+        total_weight = np.sum(weights)
+        seed_range = np.linspace(4, 0, n_lambda)
+        lambdas = 10 ** (seed_range) * mean_regularization * (n_presence / total_weight)
+
+        return lambdas
