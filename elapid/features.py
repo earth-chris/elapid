@@ -7,7 +7,7 @@ from sklearn.preprocessing import OneHotEncoder
 from elapid.utils import MAXENT_DEFAULTS, repeat_array
 
 
-class MaxentTransformer(object):
+class MaxentFeatureTransformer(object):
     def __init__(
         self,
         feature_types=MAXENT_DEFAULTS["feature_types"],
