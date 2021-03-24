@@ -210,6 +210,8 @@ class MaxentFeatureTransformer(object):
         """"""
         assert self.initialized_, "Transformer must be fit first"
 
+        return features.apply(clamp_row, axis=1, raw=True, mins=self.feature_mins_, maxs=self.feature_maxs_)
+
 
 def hingeval(x, mn, mx):
     """
@@ -253,11 +255,16 @@ def threshold(x, n_thresholds=30, range=None):
     return (xarr > tarr).astype(np.uint8)
 
 
-def clamp(x):
+def clamp_row(row, mins, maxs):
     """
-    Clamps feature data to the range of features previously estimated ranges
+    Clamps feature data to the range of features previously estimated ranges. Designed to run with pandas df.apply()
+
+    :param row: a row / 1-d array of feature values
+    :param mins: an array of global feature minimum values
+    :param maxs: an array of global ffeature maximum values
+    :returns: an array of feature values clamped to the min/max range
     """
-    pass
+    return np.min([maxs, np.max([row, mins], axis=0)], axis=0)
 
 
 def compute_lambdas(y, weights, reg, n_lambda=200):

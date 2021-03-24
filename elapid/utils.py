@@ -32,13 +32,3 @@ def repeat_array(x, length=1, axis=0):
     :return: an n+1 dimensional numpy array
     """
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
-
-
-def row_min(row, mins):
-    """"""
-    return np.min([row, mins], axis=0)
-
-
-def row_max(row, maxs):
-    """"""
-    return np.max([row, maxs], axis=0)
