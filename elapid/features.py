@@ -319,7 +319,7 @@ def compute_lambdas(y, weights, reg, n_lambda=200):
     """
     Computes lambda parameter values for elastic lasso fits.
 
-    :param y: 1-d array-like with binary presence/background (1/0) values
+    :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
     :param weights: per-sample model weights
     :param reg: per-feature regularization coefficients
     :param n_lambda: the number of lambda values to estimate
@@ -338,7 +338,7 @@ def compute_weights(y, pbr=100):
     """
     Uses Maxent's weight formulation to compute per-sample model weights.
 
-    :param y: 1-d array-like with binary presence/background (1/0) values
+    :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
     :param pbr: the presence-to-background weight ratio. pbr=100 sets background samples to 1/100 weight of presence samples.
     :returns weights: 1-d array-like with glmnet-formatted
     """
@@ -354,7 +354,7 @@ def compute_regularization(
     Computes variable regularization values for all feature data.
 
     :param f: pandas dataframe with feature transformations applied
-    :param y: 1-d array-like with binary presence/background (1/0) values
+    :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
     :param beta_multiplier: scalar for all regularization parameters, where higher values exclude more features
     :param beta_lqp: scalar for linear, quadratic and product feature regularization parameters
     :param beta_threshold: scalar for threshold feature regularization parameters

@@ -61,31 +61,38 @@ class Maxent(object):
         self.estimator = None
         self.transformer = None
 
-    def fit(self, x, y, labels=None):
+    def fit(self, x, y, categorical=None, labels=None):
         """
         Trains a maxent model using a set of covariates and presence/background points.
 
         :param x: array-like of shape (n_samples, n_features) with covariate data
-        :param y: 1-d array-like with binary presence/background (1/0) values
+        :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        :param categorical: either a 2D a array-like akin to "x", or a 1d array-like of column indices indicating which columns are categorical
         :param labels: covariate labels. Ignored if x is a pandas dataframe.
         :returns: none. updates the model object
         """
         # data pre-processing
-        # TODO df = create_covariate_df(x)
-        features = _features.compute_features(x)
+        self.transformer = _features.MaxentFeatureTransformer(
+            feature_types=self.feature_types_,
+            clamp=self.clamp_,
+            n_hinge_features=self.n_hinge_features_,
+            n_threshold_features=self.n_threshold_features,
+        )
+        features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
         weights = _features.compute_weights(y)
         regularization = _features.compute_regularization(features, y)
         lambdas = _features.compute_lambdas(y, weights, regularization)
 
         # model fitting
-        if not self.initialized_:
-            self.initialize(lambdas=lambdas)
+        self.initialize(lambdas=lambdas)
+
         self.estimator.fit(
             features,
             y,
             sample_weight=weights,
             relative_penalties=regularization,
         )
+
         if self.use_lambdas_ == "last":
             self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
         elif self.use_lambdas_ == "best":
@@ -103,18 +110,17 @@ class Maxent(object):
         :param x: array-like of shape (n_samples, n_features) with covariate data
         :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
         :param is_reatures: boolean to specify that the x data has already been transformed from covariates to features
+        :returns predictions: array-like of shape (n_samples,) with model predictions
         """
         assert self.initialized_, "Model must be fit first"
 
+        # feature transformations
         if is_features:
             features = x
         else:
-            features = self.transform_features(x)
+            features = self.transformer.transform(x)
 
-        if self.clamp_:
-            features = _features.clamp(features)
-
-        # applly the transformations
+        # applly the model
         link = np.matmul(features, self.beta_scores_)
         if transform == "raw":
             return link
@@ -124,6 +130,20 @@ class Maxent(object):
             return 1 / (1 + np.exp(-self.entropy_ - link))
         elif transform == "cloglog":
             return 1 - np.exp(0 - np.exp(self.entropy_ + link))
+
+    def fit_predict(self, x, y, categorical=None, labels=None, transform="logistic"):
+        """
+        :param x: array-like of shape (n_samples, n_features) with covariate data
+        :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        :param categorical: either a 2D a array-like akin to "x", or a 1d array-like of column indices indicating which columns are categorical
+        :param labels: covariate labels. Ignored if x is a pandas dataframe.
+        :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
+        :returns predictions: array-like of shape (n_samples,) with model predictions
+        """
+        self.fit(x, y, categorical=categorical, labels=labels)
+        predictions = self.predict(x, y, transform=transform, is_features=False)
+
+        return predictions
 
     def initialize_model(
         self,
