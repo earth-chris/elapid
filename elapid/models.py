@@ -76,7 +76,7 @@ class Maxent(object):
             feature_types=self.feature_types_,
             clamp=self.clamp_,
             n_hinge_features=self.n_hinge_features_,
-            n_threshold_features=self.n_threshold_features,
+            n_threshold_features=self.n_threshold_features_,
         )
         features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
         weights = _features.compute_weights(y)
@@ -84,7 +84,7 @@ class Maxent(object):
         lambdas = _features.compute_lambdas(y, weights, regularization)
 
         # model fitting
-        self.initialize(lambdas=lambdas)
+        self.initialize_model(lambdas=lambdas)
 
         self.estimator.fit(
             features,
@@ -99,7 +99,7 @@ class Maxent(object):
             self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_best_inx_]
 
         # maxent specific transformations
-        rr = self.predict(features[y == 0], transform="exponential")
+        rr = self.predict(features[y == 0], transform="raw", is_features=True)
         raw = rr / np.sum(rr)
         self.entropy_ = -np.sum(raw * np.log(raw))
 
@@ -120,7 +120,7 @@ class Maxent(object):
         else:
             features = self.transformer.transform(x)
 
-        # applly the model
+        # apply the model
         link = np.matmul(features, self.beta_scores_)
         if transform == "raw":
             return link
@@ -141,7 +141,7 @@ class Maxent(object):
         :returns predictions: array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
-        predictions = self.predict(x, y, transform=transform, is_features=False)
+        predictions = self.predict(x, transform=transform, is_features=False)
 
         return predictions
 
@@ -171,3 +171,4 @@ class Maxent(object):
         )
 
         self.estimator = estimator
+        self.initialized_ = True

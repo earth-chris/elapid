@@ -31,7 +31,7 @@ class MaxentFeatureTransformer(object):
         self.n_threshold_features_ = validate_numeric_scalar(n_threshold_features)
 
         # data-driven parameters
-        self.initalized_ = False
+        self.initialized_ = False
         self.hinge_ranges_ = dict()
         self.threshold_ranges_ = dict()
         self.categorical_encoders_ = dict()
@@ -50,6 +50,7 @@ class MaxentFeatureTransformer(object):
         """
         con, cat = self._format_covariate_data(x, categorical=categorical, labels=labels)
         self._compute_features(con, cat, transform=False)
+        self.initialized_ = True
 
     def transform(self, x, categorical=None, labels=None):
         """
@@ -84,6 +85,7 @@ class MaxentFeatureTransformer(object):
         """
         con, cat = self._format_covariate_data(x, categorical=categorical, labels=labels)
         features = self._compute_features(con, cat, transform=False)
+        self.initialized_ = True
 
         return features
 
@@ -176,7 +178,7 @@ class MaxentFeatureTransformer(object):
 
             if transform:
                 encoder = self.categorical_encoders_[covariate]
-                one_hot_encoded = encoder.transform(series.to_numpy())
+                one_hot_encoded = encoder.transform(series.to_numpy().reshape(-1, 1))
             else:
                 encoder = OneHotEncoder(sparse=False, dtype=np.uint8)
                 one_hot_encoded = encoder.fit_transform(series.to_numpy().reshape(-1, 1))
