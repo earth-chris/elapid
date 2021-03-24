@@ -29,6 +29,6 @@ def repeat_array(x, length=1, axis=0):
     :param x: the n-dimensional array to repeat
     :param length: the number of times to repeat the array
     :param axis: the axis along which to repeat the array (valid values include 0 to n+1)
-    :return: an n+1 dimensional numpy array
+    :returns: an n+1 dimensional numpy array
     """
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)

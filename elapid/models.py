@@ -22,13 +22,24 @@ class Maxent(object):
         beta_categorical=MAXENT_DEFAULTS["beta_categorical"],
         n_hinge_features=MAXENT_DEFAULTS["n_hinge_features"],
         n_threshold_features=MAXENT_DEFAULTS["n_threshold_features"],
-        n_cpus=_ncpus,
         use_lambdas=MAXENT_DEFAULTS["use_lambdas"],
+        n_cpus=_ncpus,
     ):
         """
         Creates a model estimator for Maxent-style species distribution models.
 
-        :param use_lambdas: Select from ["best", "last"]
+        :param feature_types: list or string of maxent feature types to fit. must be in ["linear", "quadratic", "product", "hinge", "threshold", "auto"] or string "lqphta"
+        :param tau: float of the maxent tau (prevalence) value for scaling logistic output
+        :param clamp: bool of whether to clamp features during inference
+        :param scorer: the sklearn scoring function for model training
+        :param beta_multiplier: scalar for all regularization parameters, where higher values exclude more features
+        :param beta_lqp: scalar for linear, quadratic and product feature regularization parameters
+        :param beta_hinge: scalar for hinge feature regularization parameters
+        :param beta_threshold: scalar for threshold feature regularization parameters
+        :param beta_categorical: scalar for categorical feature regularization parameters
+        :param use_lambdas: guide for which model lambdas to select, from options ["best", "last"]
+        :param n_cpus: integer number of cpu threads to use during model training
+        :returns: none
         """
         self.feature_types_ = _features.validate_feature_types(feature_types)
         self.tau_ = tau
@@ -48,12 +59,17 @@ class Maxent(object):
         self.beta_scores_ = None
         self.entropy_ = None
         self.estimator = None
+        self.transformer = None
 
     def fit(self, x, y, labels=None):
         """
-        Trains a maxent model.
-        """
+        Trains a maxent model using a set of covariates and presence/background points.
 
+        :param x: array-like of shape (n_samples, n_features) with covariate data
+        :param y: 1-d array-like with binary presence/background (1/0) values
+        :param labels: covariate labels. Ignored if x is a pandas dataframe.
+        :returns: none. updates the model object
+        """
         # data pre-processing
         # TODO df = create_covariate_df(x)
         features = _features.compute_features(x)
@@ -84,7 +100,7 @@ class Maxent(object):
         """
         Applies a maxent model to a set of covariates or features. Requires that a model has been fit.
 
-        :param x: the covariate/feature data to apply the model to.
+        :param x: array-like of shape (n_samples, n_features) with covariate data
         :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
         :param is_reatures: boolean to specify that the x data has already been transformed from covariates to features
         """
@@ -99,7 +115,7 @@ class Maxent(object):
             features = _features.clamp(features)
 
         # applly the transformations
-        link = np.matmul(x, self.beta_scores_)
+        link = np.matmul(features, self.beta_scores_)
         if transform == "raw":
             return link
         elif transform == "exponential":
