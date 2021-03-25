@@ -212,10 +212,10 @@ class MaxentFeatureTransformer(object):
             if "threshold" in self.feature_types_:
 
                 if not transform:
-                    self.transform_range_[covariate] = [series.min(), series.max()]
+                    self.threshold_ranges_[covariate] = [series.min(), series.max()]
 
                 thresholds = threshold(
-                    series.to_numpy(), n_thresholds=self.n_threshold_features_, range=self.transform_ranges_[covariate]
+                    series.to_numpy(), n_thresholds=self.n_threshold_features_, range=self.threshold_ranges_[covariate]
                 )
                 feature_names = [f"{covariate}_threshold_{i+1:03d}" for i in range(self.n_threshold_features_ - 2)]
                 feature_df = pd.DataFrame(thresholds, columns=feature_names)
