@@ -99,7 +99,7 @@ class Maxent(object):
             self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_best_inx_]
 
         # maxent specific transformations
-        rr = self.predict(features[y == 0], transform="raw", is_features=True)
+        rr = self.predict(features[y == 0], transform="exponential", is_features=True)
         raw = rr / np.sum(rr)
         self.entropy_ = -np.sum(raw * np.log(raw))
 
