@@ -51,7 +51,7 @@ def load_sample_data(name="bradypus"):
     if name.lower() == "bradypus":
 
         file_path = os.path.join(package_dir, "data", "bradypus.csv.gz")
-        df = pd.read_csv(file_path, compression="gzip").astype("int16")
-        y = df["presence"].astype("category")
+        df = pd.read_csv(file_path, compression="gzip").astype("int64")
+        y = df["presence"].astype("int8")
         x = df[df.columns[1:]].astype({"ecoreg": "category"})
         return x, y
