@@ -8,7 +8,7 @@ from elapid import features as _features
 from elapid.utils import MAXENT_DEFAULTS, _ncpus
 
 
-class Maxent(object):
+class MaxentModel(object):
     def __init__(
         self,
         feature_types=MAXENT_DEFAULTS["feature_types"],
@@ -61,7 +61,7 @@ class Maxent(object):
         self.estimator = None
         self.transformer = None
 
-    def fit(self, x, y, categorical=None, labels=None):
+    def fit(self, x, y, categorical=None, labels=None, is_features=False):
         """
         Trains a maxent model using a set of covariates and presence/background points.
 
@@ -69,6 +69,7 @@ class Maxent(object):
         :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
         :param categorical: either a 2D a array-like akin to "x", or a 1d array-like of column indices indicating which columns are categorical
         :param labels: covariate labels. Ignored if x is a pandas dataframe.
+        :param is_features: boolean to specify that the x data has already been transformed from covariates to features
         :returns: none. updates the model object
         """
         # data pre-processing
@@ -109,7 +110,7 @@ class Maxent(object):
 
         :param x: array-like of shape (n_samples, n_features) with covariate data
         :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
-        :param is_reatures: boolean to specify that the x data has already been transformed from covariates to features
+        :param is_features: boolean to specify that the x data has already been transformed from covariates to features
         :returns predictions: array-like of shape (n_samples,) with model predictions
         """
         assert self.initialized_, "Model must be fit first"
@@ -131,13 +132,14 @@ class Maxent(object):
         elif transform == "cloglog":
             return 1 - np.exp(0 - np.exp(self.entropy_ + link))
 
-    def fit_predict(self, x, y, categorical=None, labels=None, transform="logistic"):
+    def fit_predict(self, x, y, categorical=None, labels=None, transform="logistic", is_features=False):
         """
         :param x: array-like of shape (n_samples, n_features) with covariate data
         :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
         :param categorical: either a 2D a array-like akin to "x", or a 1d array-like of column indices indicating which columns are categorical
         :param labels: covariate labels. Ignored if x is a pandas dataframe.
         :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
+        :param is_features: boolean to specify that the x data has already been transformed from covariates to features
         :returns predictions: array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
