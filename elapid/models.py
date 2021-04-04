@@ -143,7 +143,7 @@ class MaxentModel(object):
         :returns predictions: array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
-        predictions = self.predict(x, transform=transform, is_features=False)
+        predictions = self.predict(x, transform=transform, is_features=is_features)
 
         return predictions
 
