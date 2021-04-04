@@ -128,5 +128,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Zed
+# local files
 .zedstate
+scratch.py
