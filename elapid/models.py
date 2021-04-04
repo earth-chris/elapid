@@ -163,7 +163,7 @@ class MaxentModel(object):
         :param fit_intercept: boolean flag to include an intercept parameter
         :return none: updates the self.estimator with an sklearn model estimator
         """
-        estimator = LogitNet(
+        self.estimator = LogitNet(
             alpha=alpha,
             lambda_path=lambdas,
             standardize=standardize,
@@ -172,5 +172,4 @@ class MaxentModel(object):
             n_jobs=self.n_cpus_,
         )
 
-        self.estimator = estimator
         self.initialized_ = True
