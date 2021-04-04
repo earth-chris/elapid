@@ -99,6 +99,7 @@ class MaxentFeatureTransformer(object):
         :returns (con, cat): a tuple of pandas dataframes with continuous and categorical covariates
         """
         if isinstance(x, pd.DataFrame):
+            x.drop(["geometry"], axis=1, errors="ignore")
             con = x.select_dtypes(exclude="category")
             cat = x.select_dtypes(include="category")
         else:
