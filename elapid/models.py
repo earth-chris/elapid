@@ -57,7 +57,8 @@ class MaxentModel(object):
 
         self.initialized_ = False
         self.beta_scores_ = None
-        self.entropy_ = None
+        self.entropy_ = 0.0
+        self.alpha_ = 0.0
         self.estimator = None
         self.transformer = None
 
@@ -73,13 +74,17 @@ class MaxentModel(object):
         :returns: none. updates the model object
         """
         # data pre-processing
-        self.transformer = _features.MaxentFeatureTransformer(
-            feature_types=self.feature_types_,
-            clamp=self.clamp_,
-            n_hinge_features=self.n_hinge_features_,
-            n_threshold_features=self.n_threshold_features_,
-        )
-        features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
+        if is_features:
+            features = x
+        else:
+            self.transformer = _features.MaxentFeatureTransformer(
+                feature_types=self.feature_types_,
+                clamp=self.clamp_,
+                n_hinge_features=self.n_hinge_features_,
+                n_threshold_features=self.n_threshold_features_,
+            )
+            features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
+
         weights = _features.compute_weights(y)
         regularization = _features.compute_regularization(features, y)
         lambdas = _features.compute_lambdas(y, weights, regularization)
@@ -103,6 +108,7 @@ class MaxentModel(object):
         rr = self.predict(features[y == 0], transform="exponential", is_features=True)
         raw = rr / np.sum(rr)
         self.entropy_ = -np.sum(raw * np.log(raw))
+        self.alpha_ = -np.log(np.sum(rr))
 
     def predict(self, x, transform="logistic", is_features=False):
         """
@@ -122,7 +128,7 @@ class MaxentModel(object):
             features = self.transformer.transform(x)
 
         # apply the model
-        link = np.matmul(features, self.beta_scores_)
+        link = np.matmul(features, self.beta_scores_) + self.alpha_
         if transform == "raw":
             return link
         elif transform == "exponential":
