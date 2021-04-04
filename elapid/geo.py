@@ -26,20 +26,34 @@ def xy_to_geoseries(x, y, crs="epsg:4326"):
     return gs
 
 
-def extract_raster_point_values(geoseries, raster_paths, labels=None, n_workers=_ncpus):
+def raster_values_from_vector(vector_path, raster_paths, labels=None):
     """
-    Reads and stores the pixel values from a set of raster paths based on a geoseries of point locations.
+    Reads and stores pixel values from a set of raster paths based on a point-format vector file.
+
+    :param vector_path: str path to a vector file (shp, geojson, etc)
+    :param raster_paths: a list of raster paths to extract pixel values from
+    :param labels: a list of band name labels. should match the total number of bands across all raster_paths
+    :returns: gdf, a geopandas geodataframe with the geoseries point locations and pixel values from each raster
+    """
+    gdf = gpd.read_file(vector_path)
+    raster_df = raster_values_from_geoseries(gdf.geometry, raster_paths, labels)
+    gdf = pd.concat([gdf, raster_df.drop(["geometry"], axis=1, errors="ignore")], axis=1)
+    return gdf
+
+
+def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
+    """
+    Reads and stores pixel values from a set of raster paths based on a geoseries of point locations.
 
     :param geoseries: a geopandas geoseries (e.g., gdf['geometry']) with point locations
     :param raster_paths: a list of raster paths to extract pixel values from
     :param labels: a list of band name labels. should match the total number of bands across all raster_paths
-    :param n_workers: the number of processes to apply this operation to in parallel
     :returns: gdf, a geopandas geodataframe with the geoseries point locations and pixel values from each raster
     """
 
     # make sure the paths are iterable
-    if isinstance(raster_paths, str):
-        raster_paths = list(raster_paths)
+    if isinstance(raster_paths, (str)):
+        raster_paths = [raster_paths]
 
     # get the band count to use and reconcile with the number of labels passed
     n_bands = 0
