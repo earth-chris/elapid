@@ -1,6 +1,8 @@
 """Backend helper functions that don't need to be exposed to users"""
+import gzip
 import multiprocessing as mp
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -55,3 +57,37 @@ def load_sample_data(name="bradypus"):
         y = df["presence"].astype("int8")
         x = df[df.columns[1:]].astype({"ecoreg": "category"})
         return x, y
+
+
+def save_object(obj, path, compress=True):
+    """
+    Writes a python object to disk for later access.
+
+    :param obj: a python object to be saved (e.g., a MaxentModel() instance)
+    :param path: the output file path
+    :returns: none
+    """
+    obj = pickle.dumps(obj)
+
+    if compress:
+        obj = gzip.compress(obj)
+
+    with open(path, "wb") as f:
+        f.write(obj)
+
+
+def load_object(path, compressed=True):
+    """
+    Reads a python object into memory that's been saved to disk.
+
+    :param path: the file path of the object to load
+    :param compressed: flag to specify whether the file was compressed prior to saving
+    :returns: obj, the python object that has been saved (e.g., a MaxentModel() instance)
+    """
+    with open(path, "rb") as f:
+        obj = f.read()
+
+    if compressed:
+        obj = gzip.decompress(obj)
+
+    return pickle.loads(obj)
