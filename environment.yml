@@ -12,13 +12,13 @@ dependencies:
   - gdal
   - geopandas
   - glmnet
-  - ipython
   - isort
   - matplotlib
   - pandas
   - pre-commit
   - pytest
   - pytest-cov
+  - rasterio
   - rtree
   - scikit-learn
   - scipy
