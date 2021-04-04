@@ -6,7 +6,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
-from shapely.geometry import Point
+from shapely.geometry import MultiPoint, Point
 
 from elapid.utils import _ncpus
 
@@ -18,12 +18,49 @@ def xy_to_geoseries(x, y, crs="epsg:4326"):
     :param x: 1-D array-like of x location values
     :param y: 1-D array-like of y location values
     :param crs: the coordinate reference string. accepts anything allowed by pyproj.CRS.from_user_input(). assumes lat/lon.
-    :returns: gs, a geopandas geometry geoseries
+    :returns: gs, a geopandas Point geometry geoseries
     """
     points = [Point(x, y) for x, y in zip(x, y)]
     gs = gpd.GeoSeries(points, crs=crs)
 
     return gs
+
+
+def sample_polygon_vector(vector_path, count, overestimate=2):
+    """
+    Creates a random geographic sampling of points inside of a vector file.
+
+    :param vector_path: str path to a vector file (shp, geojson, etc)
+    :param count: the total number of random samples to generate
+    :param overestimate: a scaler to generate extra samples to toss points outside of the polygon/inside it's bounds
+    :returns: points, a geopandas Point geoseries
+    """
+    gdf = gpd.read_file(vector_path)
+    return sample_polygon_geoseries(gdf.geometry, count, overestimate=overestimate)
+
+
+def sample_polygon_geoseries(geoseries, count, overestimate=2):
+    """
+    Creates a random geographic sampling of points inside of a geoseries polygon/multipolygon
+
+    :param geoseries: a geopandas geoseries (e.g., gdf['geometry']) with polygons/multipolygons
+    :param count: the total number of random samples to generate
+    :param overestimate: a scaler to generate extra samples to toss points outside of the polygon/inside it's bounds
+    :returns: points, a geopandas Point geoseries
+    """
+    polygon = geoseries.unary_union
+    min_x, min_y, max_x, max_y = polygon.bounds
+    ratio = polygon.area / polygon.envelope.area
+
+    samples = np.random.uniform((min_x, min_y), (max_x, max_y), (int(count / ratio * overestimate), 2))
+    multipoint = MultiPoint(samples)
+    multipoint = multipoint.intersection(polygon)
+    samples = np.array(multipoint)
+
+    xy = samples[np.random.choice(len(samples), count)]
+    points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=geoseries.crs)
+
+    return points
 
 
 def raster_values_from_vector(vector_path, raster_paths, labels=None):
@@ -33,7 +70,7 @@ def raster_values_from_vector(vector_path, raster_paths, labels=None):
     :param vector_path: str path to a vector file (shp, geojson, etc)
     :param raster_paths: a list of raster paths to extract pixel values from
     :param labels: a list of band name labels. should match the total number of bands across all raster_paths
-    :returns: gdf, a geopandas geodataframe with the geoseries point locations and pixel values from each raster
+    :returns: gdf, a geodataframe with the pixel values from each raster appended to the original vector columns
     """
     gdf = gpd.read_file(vector_path)
     raster_df = raster_values_from_geoseries(gdf.geometry, raster_paths, labels)
