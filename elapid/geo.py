@@ -71,7 +71,7 @@ def extract_raster_point_values(geoseries, raster_paths, labels=None, n_workers=
 
     # TODO: multiprocess the raster reads
     # pool = Pool(n_workers)
-    # df = pd.concat(pool.map(parallel_raster_reads, raster_paths))
+    # df = pd.concat(pool.map(parallel_raster_reads, raster_paths), axis=1)
     # pool.close()
     # pool.join()
     df = pd.concat([parallel_raster_reads(raster_path) for raster_path in raster_paths], axis=1)
