@@ -129,6 +129,7 @@ class MaxentModel(object):
 
         # apply the model
         link = np.matmul(features, self.beta_scores_) + self.alpha_
+
         if transform == "raw":
             return link
         elif transform == "exponential":
