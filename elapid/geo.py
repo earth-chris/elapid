@@ -150,7 +150,7 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
     :returns: gdf, a geopandas geodataframe with the geoseries point locations and pixel values from each raster
     """
 
-    # make sure the paths are iterable
+    # make sure the raster_paths are iterable
     if isinstance(raster_paths, (str)):
         raster_paths = [raster_paths]
 
@@ -192,3 +192,90 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
     gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
 
     return gdf
+
+
+def apply_model_to_rasters(
+    model,
+    raster_paths,
+    output_path,
+    transform="logistic",
+    template_idx=0,
+    resampling=rio.enums.Resampling.average,
+    output_driver="GTiff",
+    compress="deflate",
+    bigtiff=True,
+):
+    """
+    Applies a trained model to a list of raster datasets. The list and band order of the rasters must
+      match the order of the covariates used to train the model. This function can be applied to rasters
+      of different projections, grid sizes, etc. It resamples each dataset on the fly in a tile-wise
+      basis, applies the model, and writes gridded predictions. It selects the grid size, extent and
+      projection based on a 'template' raster
+
+    :param model: the trained model with a model.predict() function
+    :param raster_paths: a list of raster paths of covariates to apply the model to
+    :param output_path: path to the output file to create
+    :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
+    :param template_ids: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
+    :param resampling: the resampling algorithm to apply to on-the-fly reprojection (from rasterio.enums.Resampling)
+    :param output_driver: the output raster file format (from rasterio.drivers.raster_driver_extensions())
+    :param use_default_creation_options: bool to use elapid-recommended raster format options (e.g. compression)
+    :param creation_options: list of driver-specific raster creation options
+    :returns: none, saves model predictions to disk.
+    """
+
+    # make sure the raster_paths are iterable
+    if isinstance(raster_paths, (str)):
+        raster_paths = [raster_paths]
+
+    # get and set template parameters
+    with rio.open(raster_paths[template_idx]) as src:
+        windows = src.block_windows()
+        dst_profile = src.profile
+        dst_profile.update(
+            count=1,
+            dtype="float",
+            compress=compress,
+            driver=output_driver,
+        )
+        if bigtiff:
+            dst_profile.update(BIGTIFF="YES")
+
+    vrt_options = {
+        "resampling": resampling,
+        "transform": dst_profile["transform"],
+        "crs": dst_profile["crs"],
+    }
+
+    # get the bands and indexes for each covariate raster
+    nbands = 0
+    band_idx = [0]
+    for i, raster_path in enumerate(raster_paths):
+        with rio.open(raster_path) as src:
+            nbands += src.count
+            band_idx.append(band_idx[i] + src.count)
+
+    # read and reproject blocks from each data source and write predictions to disk
+    with rio.open(output_path, "w", **dst_profile) as dst:
+
+        # open all raster paths to read from later
+        srcs = [rio.open(raster_path) for raster_path in raster_paths]
+
+        # iterate over each block, read the data from each source, and apply the model
+        for _, window in windows:
+            ncols = window.width
+            nrows = window.height
+            covariate_window = np.array((nbands, nrows, ncols), dtype=np.float)
+            vrt_options.update(width=ncols, height=nrows)
+
+            for i, src in enumerate(srcs):
+                with rio.warp.WarpedVRT(src, **vrt_options) as vrt:
+                    covariate_window[band_idx[i] : band_idx[i + 1], :, :] = vrt.read(window=window)
+
+            covariate_array = covariate_window.transpose((1, 2, 0)).reshape((nrows * ncols, nbands))
+            predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
+            predictions_window = predictions_array.reshape((nrows, ncols, nbands)).transpose(2, 0, 1)
+            dst.write(predictions_window, window=window)
+
+        for src in srcs:
+            src.close()
