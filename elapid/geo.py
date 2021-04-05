@@ -234,7 +234,7 @@ def apply_model_to_rasters(
         dst_profile = src.profile
         dst_profile.update(
             count=1,
-            dtype="float",
+            dtype="float32",
             compress=compress,
             driver=output_driver,
         )
@@ -245,6 +245,8 @@ def apply_model_to_rasters(
         "resampling": resampling,
         "transform": dst_profile["transform"],
         "crs": dst_profile["crs"],
+        "height": dst_profile["height"],
+        "width": dst_profile["width"],
     }
 
     # get the bands and indexes for each covariate raster
@@ -260,21 +262,26 @@ def apply_model_to_rasters(
 
         # open all raster paths to read from later
         srcs = [rio.open(raster_path) for raster_path in raster_paths]
+        vrts = [rio.vrt.WarpedVRT(src, **vrt_options) for src in srcs]
 
-        # iterate over each block, read the data from each source, and apply the model
+        # iterate over each data block, read from each source, and apply the model
         for _, window in windows:
             ncols = window.width
             nrows = window.height
-            covariate_window = np.array((nbands, nrows, ncols), dtype=np.float)
+            covariate_window = np.zeros((nbands, nrows, ncols), dtype=np.float) - 1.0
             vrt_options.update(width=ncols, height=nrows)
 
-            for i, src in enumerate(srcs):
-                with rio.warp.WarpedVRT(src, **vrt_options) as vrt:
-                    covariate_window[band_idx[i] : band_idx[i + 1], :, :] = vrt.read(window=window)
+            for i, vrt in enumerate(vrts):
+                covariate_window[band_idx[i] : band_idx[i + 1]] = vrt.read(window=window)
+            # for i, src in enumerate(srcs):
+            #    with rio.vrt.WarpedVRT(src, **vrt_options) as vrt:
+            #        print(vrt.read(window=window).shape)
+            #        print(vrt.profile)
+            #        covariate_window[band_idx[i]:band_idx[i + 1]] = vrt.read(window=window)
 
             covariate_array = covariate_window.transpose((1, 2, 0)).reshape((nrows * ncols, nbands))
             predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
-            predictions_window = predictions_array.reshape((nrows, ncols, nbands)).transpose(2, 0, 1)
+            predictions_window = predictions_array.to_numpy(dtype=np.float32).reshape((1, nrows, ncols))
             dst.write(predictions_window, window=window)
 
         for src in srcs:
