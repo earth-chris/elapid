@@ -26,9 +26,42 @@ def xy_to_geoseries(x, y, crs="epsg:4326"):
     return gs
 
 
-def sample_polygon_vector(vector_path, count, overestimate=2):
+def pseudoabsence_from_raster(raster_path, count, ignore_mask=False):
     """
-    Creates a random geographic sampling of points inside of a vector file.
+    Creates a random geographic sampling of points based on a raster's extent.
+      Selects from unmasked locations if the rasters nodata value is set.
+
+    :param raster_path: str raster file path to sample locations from
+    :param count: the total number of samples to generate
+    :param ignore_mask: sample from the full extent of the raster instead of unmasked areas only.
+    :returns: points, a geopandas Point geoseries
+    """
+    # handle masked vs unmasked data differently
+    with rio.open(raster_path) as src:
+
+        if src.nodata is None or ignore_mask:
+
+            xmin, ymin, xmax, ymax = src.bounds
+            xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
+            points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=src.crs)
+            return points
+
+        else:
+
+            masked = src.read_masks(1)
+            rows, cols = np.where(masked == 255)
+            samples = np.random.randint(0, len(rows), count)
+            xy = np.zeros((count, 2))
+            for i, sample in enumerate(samples):
+                xy[i] = src.xy(rows[sample], cols[sample])
+            points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=src.crs)
+
+            return points
+
+
+def pseudoabsence_from_vector(vector_path, count, overestimate=2):
+    """
+    Creates a random geographic sampling of points inside of a polygon/multipolygon type vector file.
 
     :param vector_path: str path to a vector file (shp, geojson, etc)
     :param count: the total number of random samples to generate
@@ -36,10 +69,10 @@ def sample_polygon_vector(vector_path, count, overestimate=2):
     :returns: points, a geopandas Point geoseries
     """
     gdf = gpd.read_file(vector_path)
-    return sample_polygon_geoseries(gdf.geometry, count, overestimate=overestimate)
+    return pseudoabsence_from_geoseries(gdf.geometry, count, overestimate=overestimate)
 
 
-def sample_polygon_geoseries(geoseries, count, overestimate=2):
+def pseudoabsence_from_geoseries(geoseries, count, overestimate=2):
     """
     Creates a random geographic sampling of points inside of a geoseries polygon/multipolygon
 
@@ -49,10 +82,10 @@ def sample_polygon_geoseries(geoseries, count, overestimate=2):
     :returns: points, a geopandas Point geoseries
     """
     polygon = geoseries.unary_union
-    min_x, min_y, max_x, max_y = polygon.bounds
+    xmin, ymin, xmax, ymax = polygon.bounds
     ratio = polygon.area / polygon.envelope.area
 
-    samples = np.random.uniform((min_x, min_y), (max_x, max_y), (int(count / ratio * overestimate), 2))
+    samples = np.random.uniform((xmin, ymin), (xmax, ymax), (int(count / ratio * overestimate), 2))
     multipoint = MultiPoint(samples)
     multipoint = multipoint.intersection(polygon)
     samples = np.array(multipoint)
@@ -108,7 +141,7 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
     # apply this function over every geoseries row
     def read_pixel_value(point, source):
         row, col = source.index(point.x, point.y)
-        window = rio.windows.Window(row, col, 1, 1)
+        window = rio.windows.Window(col, row, 1, 1)
         value = source.read(window=window)
         return np.squeeze(value)
 
