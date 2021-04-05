@@ -38,6 +38,7 @@ class MaxentFeatureTransformer(object):
         self.categorical_ = None
         self.feature_mins_ = None
         self.feature_maxs_ = None
+        self.labels_ = None
 
     def fit(self, x, categorical=None, labels=None):
         """
@@ -65,6 +66,9 @@ class MaxentFeatureTransformer(object):
 
         if categorical is None:
             categorical = self.categorical_
+
+        if labels is None:
+            labels = self.labels_
 
         con, cat = self._format_covariate_data(x, categorical=categorical, labels=labels)
         features = self._compute_features(con, cat, transform=True)
@@ -99,9 +103,10 @@ class MaxentFeatureTransformer(object):
         :returns (con, cat): a tuple of pandas dataframes with continuous and categorical covariates
         """
         if isinstance(x, pd.DataFrame):
-            x.drop(["geometry"], axis=1, errors="ignore")
+            x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
             con = x.select_dtypes(exclude="category")
             cat = x.select_dtypes(include="category")
+            self.labels_ = list(x.columns) if labels is None else labels
         else:
             self.categorical_ = categorical
             con, cat = self._covariates_to_df(x, categorical=categorical, labels=labels)
@@ -130,7 +135,7 @@ class MaxentFeatureTransformer(object):
             con = x
             cat = None
             con_labels = labels
-            cat_labels = None
+            cat_labels = []
 
         # treat 1-d categorical parameters as an index
         else:
@@ -150,9 +155,20 @@ class MaxentFeatureTransformer(object):
                 cat_labels = [f"cov_{len(labels)+i+1}" for i in range(cat.shape[1])]
 
         # concatenate multiple series to get around stupid multi-category pandas issues
-        cat_list = [pd.Series(cat[:, i], name=cat_label, dtype="category") for i, cat_label in enumerate(cat_labels)]
-        cat_df = pd.concat(cat_list, axis=1)
+        if cat is None:
+            cat_df = pd.DataFrame()
+        else:
+            cat_list = [
+                pd.Series(cat[:, i], name=cat_label, dtype="category") for i, cat_label in enumerate(cat_labels)
+            ]
+            cat_df = pd.concat(cat_list, axis=1)
+
         con_df = pd.DataFrame(con, columns=con_labels)
+
+        # save labels for applying to new datasets
+        if not self.initialized_:
+            self.labels_ = labels
+            self.categorical_ = self.categorical_
 
         return (con_df, cat_df)
 
