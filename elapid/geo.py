@@ -33,30 +33,59 @@ def pseudoabsence_from_raster(raster_path, count, ignore_mask=False):
 
     :param raster_path: str raster file path to sample locations from
     :param count: the total number of samples to generate
-    :param ignore_mask: sample from the full extent of the raster instead of unmasked areas only.
+    :param ignore_mask: sample from the full extent of the raster instead of unmasked areas only
     :returns: points, a geopandas Point geoseries
     """
     # handle masked vs unmasked data differently
     with rio.open(raster_path) as src:
 
         if src.nodata is None or ignore_mask:
-
             xmin, ymin, xmax, ymax = src.bounds
             xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
-            points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=src.crs)
-            return points
 
         else:
-
             masked = src.read_masks(1)
             rows, cols = np.where(masked == 255)
             samples = np.random.randint(0, len(rows), count)
             xy = np.zeros((count, 2))
             for i, sample in enumerate(samples):
                 xy[i] = src.xy(rows[sample], cols[sample])
-            points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=src.crs)
 
-            return points
+        points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=src.crs)
+        return points
+
+
+def pseudoabsence_from_bias_file(raster_path, count, ignore_mask=False):
+    """
+    Creates a semi-random geographic sampling of points weighted towards biased areas.
+
+    :param raster_path: str raster bias file path to sample from. Pixel values can occupy an arbitrary range but must be odered from low -> high probability
+    :param count: the total number of samples to generate
+    :param ignore_mask: sample from the full extent of the raster instead of unmasked areas only
+    :returns: points, a geopandas Point geoseries
+    """
+    with rio.open(raster_path) as src:
+
+        if src.nodata is None or ignore_mask:
+            data = src.read(1)
+            rows, cols = np.where(data)
+            values = data.flatten()
+            probabilities = (values - values.min()) / (values - values.min()).sum()
+            samples = np.random.choice(len(rows), size=count, p=probabilities)
+
+        else:
+            data = src.read(1, masked=True)
+            rows, cols = np.where(~data.mask)
+            values = data[rows, cols]
+            probabilities = (values - values.min()) / (values - values.min()).sum()
+            samples = np.random.choice(len(rows), size=count, p=probabilities)
+
+        xy = np.zeros((count, 2))
+        for i, sample in enumerate(samples):
+            xy[i] = src.xy(rows[sample], cols[sample])
+
+        points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=src.crs)
+        return points
 
 
 def pseudoabsence_from_vector(vector_path, count, overestimate=2):
