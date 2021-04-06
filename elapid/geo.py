@@ -293,7 +293,6 @@ def apply_model_to_rasters(
                 predictions = apply_model_to_raster_array(
                     model,
                     covariate_window,
-                    dims,
                     nodata,
                     nodata_idx,
                     transform=transform,
@@ -314,7 +313,6 @@ def apply_model_to_rasters(
             predictions = apply_model_to_raster_array(
                 model,
                 covariate_window,
-                dims,
                 nodata,
                 nodata_idx,
                 transform=transform,

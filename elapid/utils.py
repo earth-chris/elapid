@@ -189,7 +189,7 @@ def get_tqdm():
     return tqdm
 
 
-def apply_model_to_raster_array(model, array, dims, nodata, nodata_idx, transform=None):
+def apply_model_to_raster_array(model, array, nodata, nodata_idx, transform=None):
     """
     Applies a maxent model to a (nbands, nrows, ncols) array of extracted pixel values.
 
@@ -202,7 +202,7 @@ def apply_model_to_raster_array(model, array, dims, nodata, nodata_idx, transfor
     :returns: predictions_window, an array of shape (nbands, nrows, ncols) with the predictions to write
     """
     # task is to reshape from 3d (nbands, nrows, ncols) to 2d (nsamples, nbands)
-    nbands, nrows, ncols = dims
+    nbands, nrows, ncols = array.shape
     covariate_array = array.transpose((1, 2, 0)).reshape((nrows * ncols, nbands))
     predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
     predictions_window = predictions_array.to_numpy(dtype=np.float32).reshape((1, nrows, ncols))
