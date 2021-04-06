@@ -4,12 +4,13 @@
 
 `elapid` provides python support for species distribution modeling. This includes a custom [MaxEnt][home-maxent] implementation and general spatial processing tools. It will soon include tools for working with [GBIF][home-gbif]-format datasets.
 
-The name was chosen as homage to *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), the paper widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
+The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), the paper widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
 
-The maxent modeling tools and feature transformations are translations of the R `maxnet` [package][r-maxnet]. It uses the `glmnet` [python bindings][glmnet], as is implemented using `sklearn` conventions.
+The maxent modeling tools and feature transformations are translations of the R `maxnet` [package][r-maxnet]. It uses the `glmnet` [python bindings][glmnet], and is implemented using `sklearn` conventions.
 
 ### Table of Contents
 
+- [Background](#background)
 - [Installation](#installation)
 - [Working with elapid](#working-with-elapid)
 - [Geospatial support](#geospatial-support)
@@ -17,9 +18,21 @@ The maxent modeling tools and feature transformations are translations of the R 
   - [Generating pseudo-absence records](#generating-pseudo-absence-records)
   - [Extracting raster values](#extracting-raster-values)
   - [Applying models to rasters](#applying-models-to-rasters)
-- [Background](#background)
+- [Package design](#package-design)
 - [Contact](#contact)
 
+
+## Background
+
+Maxent is a species distribution modeling (SDM) system, which uses species observations and environmental data to predict where a species might be found under past, present or future environmental conditions.
+
+Its a presence/background model, meaning it uses data on where a species is present and, instead of data on where it is absent, a random sample of the region where you might expect to find that species. This is convenient because it reduces data collection burdens (absence data isn't required) but it also introduces some unique challenges for fitting and interpreting models.
+
+Formally, Maxent estimates habitat suitability (i.e. the fundamental niche) using species occurrence records (`y = 1`), randomly sampled "background" location records (`y = 0`), and environmental covariate data (`x`) for each location of `y`.
+
+Maxent doesn't directly estimate relationships between presence/background data and environmental covariates (so, not just `y ~ x`). Instead, it fits a series of feature transformatons (`z`) to the covariate data (e.g. computing pairwise products between covariates, setting random covariate thresholds). Maxent then estimates the conditional probability of finding a species given a set of environmental conditions as `Pr(y = 1 | f(z))`.
+
+`elapid` provides python tools for fitting maxent models, computing features, and working with geospatial data. It's goal is to help us better understand where the species are, why they are there, and where they will go in the future.
 
 ## Installation
 
@@ -34,7 +47,7 @@ You can also clone the source repository and install it locally.
 ```bash
 git clone https://github.com/earth-chris/elapid.git
 cd elapid
-pip install -e . -r requirements.txt
+pip install -e .
 ```
 
 ### With conda
@@ -51,7 +64,7 @@ This will create an environment named `elapid` and install an editable version o
 
 ## Working with elapid
 
-There are two primary Maxent functions: fitting features and fitting models. You can do it all in one go with:
+There are two primary Maxent functions: fitting features and fitting models. You can do it all at once with:
 
 ```python
 import elapid
@@ -63,14 +76,14 @@ model.fit(x, y)
 
 Where:
 
-- `x` is an array or dataframe of environmental covariates (`nrows`, `ncols`)
-- `y` is an array or series of species presence/background labels (1/0)
+- `x` is an array or dataframe of environmental covariates of shape (`n_samples`, `n_covariates`)
+- `y` is an array or series of species presence/background labels (rows labeled `1` or `0`)
 
-The `elapid.MaxentModel()` object takes these data, fits features based on the covariate data, computes weights and feature regularization, fits a series of models, and returns an object that can be used for applying predictions to new data (`m.predict(x_test)`, for example).
+The `elapid.MaxentModel()` object takes these data, fits features from covariate data, computes sample weights and feature regularization, fits a series of models, and returns an estimator that can be used for applying predictions to new data.
 
 `MaxentModel()` behaves like an sklearn `estimator` class. Use `model.fit(x, y)` to train a model, and `model.predict(x)` to generate model predictions.
 
-You can also generate and evaluate features then pass them to the model object:
+You can also generate and evaluate features before passing them to the model:
 
 ```python
 features = elapid.MaxentFeatureTransformer()
@@ -186,7 +199,7 @@ print(locations)
 
 In addition to species occurrence records, maxent requires a set of pseudo-absence (i.e. background) points. These are a random geographic samping of where you might expect to find a species.
 
-You can use `elapid` to create a random geographic sampling of points from unmasked locations within a raster extent:
+You can use `elapid` to create a random geographic sampling of points from unmasked locations within a raster's extent:
 
 ```python
 count = 10000 # the number of points to generate
@@ -210,11 +223,15 @@ bias_path = "/home/slug/proximity-to-ucsc.tif"
 pseudoabsence_points = pseudoabsence_from_bias_file(bias_path)
 ```
 
-This will increase sampling frequency in the areas around UC Santa Cruz, home to all types of slug.
+The grid cells can be an arbitrary range of values. What's important is that the values encode a linear range of numbers that are higher where you're more likely to draw a sample. The probability of drawing a sample is dependent on two factors: the range of values provided and the frequency of values across the dataset.
+
+So, for a raster with values of `1` and `2`, you're sampling probability for raster locations of `2` is twice that as `1` locations. If these occur in equal frequency (i.e. half the data are `1` valuess, half are `2` values), then you'll likely sample twice as many areas with `2` values. But if the frequency of `1` values is much greater than `2` values, you'll shift the distribution. But you're still more likely, on a per-draw basis, to draw samples from `2` locations.
+
+The above example prioritizes sampling frequency in the areas around UC Santa Cruz, home to all types of slug, based on the distance to the campus.
 
 ### Extracting raster values
 
-Once you have your species presence and pseudo-absence records, you need to extract the covariate data from each location.
+Once you have your species presence and pseudo-absence records, you can extract the covariate data from each location.
 
 ```python
 pseudoabsence_covariates = elapid.raster_values_from_geoseries(
@@ -232,9 +249,9 @@ It also allows you to pass multiple raster files, which can be in different proj
 
 ```python
 raster_paths = [
-    "/home/cba/california-leaf-area-index.tif", # 1-band vegetation data
-    "/home/cba/global-cloud-cover.tif", # 3-band min, mean, max annual cloud cover
-    "/home/cba/usa-mean-temperature.tif", # 1-band mean temperature
+    "/home/slug/california-leaf-area-index.tif", # 1-band vegetation data
+    "/home/slug/global-cloud-cover.tif", # 3-band min, mean, max annual cloud cover
+    "/home/slug/usa-mean-temperature.tif", # 1-band mean temperature
 ]
 
 # since you have five raster bands total, specify each band label
@@ -273,19 +290,12 @@ elapid.apply_model_to_rasters(
 
 The list and band order of the rasters must match the order of the covariates used to train the model. It reads each dataset in a block-wise basis, applies the model, and writes gridded predictions.
 
-If the raster datasets are not consistent (different extents, resolutions, etc.), it wll re-project the data on the fly, with the grid size, extent and projection based on a 'template' raster. Use the `template_idx` keyword to specify the index of which raster file to use as the template (`template_idx=0` sets the first raster as the template)
+If the raster datasets are not consistent (different extents, resolutions, etc.), it wll re-project the data on the fly, with the grid size, extent and projection based on a 'template' raster. Use the `template_idx` keyword to specify the index of which raster file to use as the template (`template_idx=0` sets the first raster as the template).
 
-## Background
+In the example above, it's important to set the template to the `california-leaf-area-index.tif` file. This is because this is the smallest extent with data, and it'll only read and apply the model to the `usa` and `global` datasets in the area covered by `california`. If you were to set the extent to `usa-mean-temperature.tif`, it would still technically function, but there would be a large region of `nodata` values where there's insufficient covariate coverage.
 
-Maxent is a species distribution modeling (SDM) approach, which uses species observations and environmental data to predict where a species might be found under past, present or future environmental conditions.
 
-Its a presence/background model, meaning it uses data on where a species is present and, instead of data on where it is absent, a random sample of the region where you might expect to find that species. This is convenient because it reduces data collection burdens (absence data isn't required) but it also introduces some unique challenges for interpreting model outputs.
-
-Formally, Maxent estimates habitat suitability (i.e. the fundamental niche) using species occurrence records (`y = 1`), randomly sampled "background" location records (`y = 0`), and environmental covariate data (`x`) for each location of `y`.
-
-Maxent doesn't directly estimate relationships between presence/background data and environmental covariates (so, not just `y ~ x`). Instead, it fits a series of feature transformatons (`z`) to the covariate data (e.g. computing the products between each feature, random covariate thresholds, etc.). Maxent then estimates the conditional probability of finding a species given a set of environmental conditions as `Pr(y = 1 | f(z))`.
-
-### Motivation
+## Package design
 
 This python package was developed to overcome some of the limitations of the Maxent [java][home-maxent] package. Some gripes with the `java` distribution include:
 
@@ -295,7 +305,7 @@ This python package was developed to overcome some of the limitations of the Max
 - Applying a previously-trained model to new data (e.g., under climate projections) is difficult.
 - Training and applying batches of models is laborious.
 
-The `elapid` package was designed to support common geospatial data formats and contemporary approaches to training statistical models. It uses `sklearn` conventions to fit and apply models, `rasterio` to handle raster operations, `geopandas` for vector operations, and returns `pandas` dataframes.
+`elapid` was designed to support common geospatial data formats and contemporary approaches to training statistical models. It uses `sklearn` conventions to fit and apply models, `rasterio` to handle raster operations, `geopandas` for vector operations, and returns `pandas` dataframes.
 
 This places some burden on the user to handle processes like creating train/test cross-validation splits and sampling background data. The hope is that this extra flexibility removes some of the frustrations with the black-box approach of the java implementation and enables users to better tune and evaluate their models.
 
