@@ -20,6 +20,7 @@ The maxent modeling tools and feature transformations are translations of the R 
   - [Generating pseudo-absence records](#generating-pseudo-absence-records)
   - [Extracting raster values](#extracting-raster-values)
   - [Applying models to rasters](#applying-models-to-rasters)
+- [Contact](#contact)
 
 
 ## Background
@@ -111,6 +112,38 @@ The `MaxentModel` and `MaxentFeatureTransformer` classes can be modified with pa
 
 In addition to the maxent modeling support tools, `elapid` includes a series of geospatial data processing routines. These should make it easy to work with species occurrence records and raster covariates in multiple formats. The workflows rely on `geopandas` for vector support and `rasterio` for raster support.
 
+These tools allow you to run and apply a maxent model using just species occurrence records (point format vector) and environmental covariates (raster(s)). Here's an example end-to-end workflow:
+
+```python
+import elapid
+
+vector_path = "/home/slug/ariolimax-californicus.shp"
+raster_path = "/home/slug/california-climate-veg.tif"
+output_path = "/home/slug/ariolimax-californicus-habitat.tif"
+model_path = "/home/slug/ariolimax-claifornicus-model.ela"
+
+# sample the raster values at point locations
+presence = elapid.raster_values_from_vector(vector_path, raster_path)
+pseudoabsence_points = elapid.pseudoabsence_from_raster(raster_path)
+pseudoabsence = elapid.raster_values_from_geoseries(pseudoabsence_points, raster_path)
+
+# merge the datasets into one dataframe
+pseudoabsence['presence'] = 0
+presence['presence'] = 1
+y = presence['presence'].append(pseudoabsence['presence']).reset_index(drop=True)
+x = presence.drop(['presence'], axis=1).append(pseudoabsence.drop(['presence'], axis=1)).reset_index(drop=True)
+
+# train the model
+model = elapid.MaxentModel(feature_types=["linear", "product", "hinge"])
+model.fit(x, y)
+
+# apply it to the full extent and save the model for later
+elapid.apply_model_to_rasters(model, raster_path, output_path, transform="logistic")
+elapid.save_object(model, model_path)
+```
+
+### Working with x-y data
+
 Almost all of the data sampling and indexing uses `geopandas.GeoSeries` objects. These are the format of the `geometry` column for a `GeoDataFrame`.
 
 ```python
@@ -122,8 +155,6 @@ print(type(gdf.geometry))
 
 > <class 'geopandas.geoseries.GeoSeries'>
 ```
-
-### Working with x-y data
 
 Sometimes you don't have a vector of point-format location data. The `java` implementation of maxent uses csv files, for example. You can work with those using the `xy_to_geoseries` function:
 
@@ -140,22 +171,32 @@ print(presence.head())
 
 Make sure you specify the projection of your x/y data. The default assumption is lat/lon, which in many cases is not correct.
 
-You can also convert arbitrary arrays of x/y data.
+You can also convert arbitrary arrays of x/y data:
 
 ```python
 lons = [-122.49, 151.0]
 lats = [37.79, -33.87]
 locations = elapid.xy_to_geoseries(lons, lats)
-
 print(locations)
+
 >
 ```
 
 ### Generating pseudo-absence records
 
+`pseudoabsence_from_bias_file()`
+`pseudoabsence_from_geoseries()`
+`pseudoabsence_from_raster()`
+`pseudoabsence_from_vector()`
+
 ### Extracting raster values
 
+`raster_values_from_geoseries()`
+`raster_values_from_vector()`
+
 ### Applying models to rasters
+
+`elapid.apply_model_to_rasters()`
 
 ## Contact
 
