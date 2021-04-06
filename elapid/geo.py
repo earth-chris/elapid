@@ -9,14 +9,7 @@ import pandas as pd
 import rasterio as rio
 from shapely.geometry import MultiPoint, Point
 
-from elapid.utils import (
-    _ncpus,
-    apply_model_to_raster_array,
-    check_raster_alignment,
-    create_output_raster_profile,
-    get_raster_band_indexes,
-    get_tqdm,
-)
+from elapid.utils import _ncpus, check_raster_alignment, create_output_raster_profile, get_raster_band_indexes, get_tqdm
 
 
 def xy_to_geoseries(x, y, crs="epsg:4236"):
@@ -208,6 +201,31 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     return gdf
 
 
+def apply_model_to_raster_array(model, array, nodata, nodata_idx, transform=None):
+    """
+    Applies a maxent model to a (nbands, nrows, ncols) array of extracted pixel values.
+
+    :param model: the trained model with a model.predict() function
+    :param array: array of shape (nbands, nrows, ncols) with pixel values
+    :param dims: a tuple of the array dimensions as (nbands, nrows, ncols)
+    :param nodata: the nodata value to apply to the output array
+    :param nodata_idx: array of bool values of shape (nbands, nrows, ncols) with nodata locations
+    :param transform: the method for transforming maxent model output from ["raw", "exponential", "logistic", "cloglog"]
+    :returns: predictions_window, an array of shape (nbands, nrows, ncols) with the predictions to write
+    """
+    # we'll run the computations for only good-data pixels
+    nbands, nrows, ncols = array.shape
+    good = ~nodata_idx.all(axis=0)
+    ngood = good.sum()
+    predictions_window = np.zeros((1, nrows, ncols), dtype=np.float32) + nodata
+    if ngood > 0:
+        covariate_array = array[:, good].transpose()
+        predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
+        predictions_window[:, good] = predictions_array.to_numpy(dtype=np.float32).transpose()
+
+    return predictions_window
+
+
 def apply_model_to_rasters(
     model,
     raster_paths,
@@ -263,9 +281,6 @@ def apply_model_to_rasters(
     # check whether the raster paths are aligned to determine how the data are read
     aligned = check_raster_alignment(raster_paths)
 
-    # track progress
-    tqdm = get_tqdm()
-
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
 
@@ -286,6 +301,9 @@ def apply_model_to_rasters(
         if windowed:
             windows, duplicate = tee(windows)
             nwindows = len(list(duplicate))
+
+            # track windowed read progress
+            tqdm = get_tqdm()
             for _, window in tqdm(windows, total=nwindows):
                 dims = (nbands, window.height, window.width)
                 covariate_window = np.zeros(dims, dtype=np.float)

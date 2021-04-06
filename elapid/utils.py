@@ -1,4 +1,5 @@
 """Backend helper functions that don't need to be exposed to users"""
+
 import gzip
 import multiprocessing as mp
 import os
@@ -187,28 +188,3 @@ def get_tqdm():
         from tqdm import tqdm
 
     return tqdm
-
-
-def apply_model_to_raster_array(model, array, nodata, nodata_idx, transform=None):
-    """
-    Applies a maxent model to a (nbands, nrows, ncols) array of extracted pixel values.
-
-    :param model: the trained model with a model.predict() function
-    :param array: array of shape (nbands, nrows, ncols) with pixel values
-    :param dims: a tuple of the array dimensions as (nbands, nrows, ncols)
-    :param nodata: the nodata value to apply to the output array
-    :param nodata_idx: array of bool values of shape (nbands, nrows, ncols) with nodata locations
-    :param transform: the method for transforming maxent model output from ["raw", "exponential", "logistic", "cloglog"]
-    :returns: predictions_window, an array of shape (nbands, nrows, ncols) with the predictions to write
-    """
-    # we'll run the computations for only good-data pixels
-    nbands, nrows, ncols = array.shape
-    good = ~nodata_idx.all(axis=0)
-    ngood = good.sum()
-    predictions_window = np.zeros((1, nrows, ncols), dtype=np.float32) + nodata
-    if ngood > 0:
-        covariate_array = array[:, good].transpose()
-        predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
-        predictions_window[:, good] = predictions_array.to_numpy(dtype=np.float32).transpose()
-
-    return predictions_window
