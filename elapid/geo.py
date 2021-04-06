@@ -9,7 +9,14 @@ import pandas as pd
 import rasterio as rio
 from shapely.geometry import MultiPoint, Point
 
-from elapid.utils import _ncpus, check_raster_alignment, create_output_raster_profile, get_raster_band_indexes, get_tqdm
+from elapid.utils import (
+    _ncpus,
+    apply_model_to_raster_array,
+    check_raster_alignment,
+    create_output_raster_profile,
+    get_raster_band_indexes,
+    get_tqdm,
+)
 
 
 def xy_to_geoseries(x, y, crs="epsg:4326"):
@@ -199,6 +206,7 @@ def apply_model_to_rasters(
     model,
     raster_paths,
     output_path,
+    windowed=True,
     transform="logistic",
     template_idx=0,
     resampling=rio.enums.Resampling.average,
@@ -218,6 +226,7 @@ def apply_model_to_rasters(
     :param model: the trained model with a model.predict() function
     :param raster_paths: a list of raster paths of covariates to apply the model to
     :param output_path: path to the output file to create
+    :param windowed: bool to perform a block-by-block data read. slower, but reduces memory use.
     :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
     :param template_idx: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
     :param resampling: the resampling algorithm to apply to on-the-fly reprojection (from rasterio.enums.Resampling)
@@ -268,20 +277,49 @@ def apply_model_to_rasters(
             srcs = [rio.vrt.WarpedVRT(src, **vrt_options) for src in srcs]
 
         # iterate over each data block, read from each source, and apply the model
-        windows, duplicate = tee(windows)
-        nwindows = len(list(duplicate))
-        for _, window in tqdm(windows, total=nwindows):
-            ncols = window.width
-            nrows = window.height
-            covariate_window = np.zeros((nbands, nrows, ncols), dtype=np.float)
+        if windowed:
+            windows, duplicate = tee(windows)
+            nwindows = len(list(duplicate))
+            for _, window in tqdm(windows, total=nwindows):
+                dims = (nbands, window.height, window.width)
+                covariate_window = np.zeros(dims, dtype=np.float)
+                nodata_idx = np.ones_like(covariate_window, dtype=bool)
+
+                for i, src in enumerate(srcs):
+                    data = src.read(window=window, masked=True)
+                    covariate_window[band_idx[i] : band_idx[i + 1]] = data
+                    nodata_idx[band_idx[i] : band_idx[i + 1]] = data.mask
+
+                predictions = apply_model_to_raster_array(
+                    model,
+                    covariate_window,
+                    dims,
+                    nodata,
+                    nodata_idx,
+                    transform=transform,
+                )
+                dst.write(predictions, window=window)
+
+        # otherwise, read all data into memory and apply in one go
+        else:
+            dims = (nbands, dst_profile["height"], dst_profile["width"])
+            covariate_window = np.zeros(dims, dtype=np.float)
+            nodata_idx = np.ones_like(covariate_window, dtype=bool)
 
             for i, src in enumerate(srcs):
-                covariate_window[band_idx[i] : band_idx[i + 1]] = src.read(window=window)
+                data = src.read(masked=True)
+                covariate_window[band_idx[i] : band_idx[i + 1]] = data
+                nodata_idx[band_idx[i] : band_idx[i + 1]] = data.mask
 
-            covariate_array = covariate_window.transpose((1, 2, 0)).reshape((nrows * ncols, nbands))
-            predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
-            predictions_window = predictions_array.to_numpy(dtype=np.float32).reshape((1, nrows, ncols))
-            dst.write(predictions_window, window=window)
+            predictions = apply_model_to_raster_array(
+                model,
+                covariate_window,
+                dims,
+                nodata,
+                nodata_idx,
+                transform=transform,
+            )
+            dst.write(predictions)
 
         for src in srcs:
             src.close()

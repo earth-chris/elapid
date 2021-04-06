@@ -2,11 +2,25 @@
 
 <img src="http://earth-chris.github.io/images/design/amazon.jpg" alt="the amazon"/>
 
-`elapid` provides pythons upport for species distribution modeling. This includes a custom [MaxEnt][home-maxent] implementation and general spatial processing tools. It will soon include tools for working with [GBIF][home-gbif]-format datasets.
+`elapid` provides python support for species distribution modeling. This includes a custom [MaxEnt][home-maxent] implementation and general spatial processing tools. It will soon include tools for working with [GBIF][home-gbif]-format datasets.
 
 The name was chosen as homage to the paper, *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), which is widely credited with defining the essential bioclimatic variables to use in species distribution modeling.Its also a snake pun (a python wrapper for mapping snake biogeography).
 
 The maxent modeling tools and feature transformations are translations of the R `maxnet` [package][r-maxnet]. It uses the `glmnet` [python bindings][glmnet], as is implemented using `sklearn` conventions.
+
+### Table of Contents
+
+- [Background](#background)
+  - [Motivation](#motivation)
+- [Installation](#installation)
+  - [With conda](#conda)
+- [Working with elapid](#working-with-elapid)
+- [Geospatial support](#geospatial-support)
+  - [Working with x-y data](#working-with-x-y-data)
+  - [Generating pseudo-absence records](#generating-pseudo-absence-records)
+  - [Extracting raster values](#extracting-raster-values)
+  - [Applying models to rasters](#applying-models-to-rasters)
+
 
 ## Background
 
@@ -34,9 +48,26 @@ This places some burden on the user to handle processes like creating train/test
 
 There's also more flexibility supporting contemporary geospatial data formats, like cloud-optimized geotiffs. This means you can train and apply models using cloud-hosted covariate data (e.g., from `s3`) without having to download the data to a local hard-drive.
 
+
 ## Installation
 
-It's probably best to use `conda` for now. From the repository's base directory:
+This library can be installed via `pip`.
+
+```bash
+pip install elapid
+```
+
+You can also clone the source repository and install it locally.
+
+```bash
+git clone https://github.com/earth-chris/elapid.git
+cd elapid
+pip install -e . -r requirements.txt
+```
+
+### conda
+
+You can use `conda` to ensure you have all the required dependencies for the build. This should reduce the headache of housing your own `gdal` build. From the repository's base directory:
 
 ```bash
 conda env update
@@ -46,7 +77,7 @@ pip install -e .
 
 This will create an environment named `elapid` and install an editable version of the package that you can use.
 
-## Getting started
+## Working with elapid
 
 There are two primary Maxent functions: fitting features and fitting models. You can do it all in one go with:
 
@@ -75,6 +106,18 @@ m.fit(z, y, is_features=True)
 
 The `MaxentModel` and `MaxentFeatureTransformer` classes can be modified with parameters that are available in other Maxent implementations (e.g., `feature_types=['linear', 'quadratic', 'hinge'`]).
 
+
+## Geospatial support
+
+In addition to the maxent modeling support tools, `elapid` includes a series of geospatial data processing routines for generating
+
+### Working with x-y data
+
+### Generating pseudo-absence records
+
+### Extracting raster values
+
+### Applying models to rasters
 
 ## Contact
 
