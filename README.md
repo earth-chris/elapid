@@ -4,7 +4,7 @@
 
 `elapid` provides python support for species distribution modeling. This includes a custom [MaxEnt][home-maxent] implementation and general spatial processing tools. It will soon include tools for working with [GBIF][home-gbif]-format datasets.
 
-The name was chosen as homage to the paper, *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), which is widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
+The name was chosen as homage to *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), the paper widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
 
 The maxent modeling tools and feature transformations are translations of the R `maxnet` [package][r-maxnet]. It uses the `glmnet` [python bindings][glmnet], as is implemented using `sklearn` conventions.
 
@@ -37,9 +37,9 @@ cd elapid
 pip install -e . -r requirements.txt
 ```
 
-### conda
+### With conda
 
-You can use `conda` to ensure you have all the required dependencies for the build. This should reduce the headache of housing your own `gdal` build. From the repository's base directory:
+You can use `conda` to ensure you have all the required dependencies (`glmnet` and `rasterio` have some library dependencies). From the repository's base directory:
 
 ```bash
 conda env update
@@ -57,33 +57,56 @@ There are two primary Maxent functions: fitting features and fitting models. You
 import elapid
 
 x, y = elapid.load_sample_data()
-m = elapid.MaxentModel()
-m.fit(x, y)
+model = elapid.MaxentModel()
+model.fit(x, y)
 ```
 
 Where:
 
 - `x` is an array or dataframe of environmental covariates (`nrows`, `ncols`)
-- `y` is a series of species presence/background labels (1/0)
+- `y` is an array or series of species presence/background labels (1/0)
 
-The `elapid.MaxentModel()` object takes these data, fits features based on the covariate data, computes weights and variable regularization, fits a series of models, and returns an object that can be used for applying predictions to new data (`m.predict(x_test)`, for example).
+The `elapid.MaxentModel()` object takes these data, fits features based on the covariate data, computes weights and feature regularization, fits a series of models, and returns an object that can be used for applying predictions to new data (`m.predict(x_test)`, for example).
+
+`MaxentModel()` behaves like an sklearn `estimator` class. Use `model.fit(x, y)` to train a model, and `model.predict(x)` to generate model predictions.
 
 You can also generate and evaluate features then pass them to the model object:
 
 ```python
 features = elapid.MaxentFeatureTransformer()
 z = features.fit_transform(x)
-m.fit(z, y, is_features=True)
+model.fit(z, y, is_features=True)
 ```
 
-The `MaxentModel` and `MaxentFeatureTransformer` classes can be modified with parameters that are available in other Maxent implementations (e.g., `feature_types=['linear', 'quadratic', 'hinge'`]).
+`MaxentFeatureTransformer()` behaves like an sklearn `preprocessing` class. Use `features.fit(x_train)` to fit features, `features.transform(x_test)` to apply to new covariate data, or `features.fit_transform(x)` to fit features and return the transformed data.
+
+The base Maxent classes can be modified with parameters that are available in other Maxent implementations:
+
+```python
+model = elapid.MaxentModel(
+    feature_types = ['linear', 'hinge', 'product'], # the feature transformations
+    tau = 0.5, # prevalence scaler
+    clamp = True, # set covariate min/max based on range of training data
+    scorer = 'roc_auc', # metric to optimize (from sklearn.metrics.SCORERS)
+    beta_multiplier = 1.0, # regularization scaler (high values drop more features)
+    beta_lqp = 1.0, # linear, quadratic, product regularization scaler
+    beta_hinge = 1.0, # hinge regularization scaler
+    beta_threshold = 1.0, # threshold regularization scaler
+    beta_categorical = 1.0, # categorical regularization scaler
+    n_hinge_features = 50, # number of hinge features to compute
+    n_threshold_features = 50, # number of threshold features to compute
+    convergence_tolerance = 1e-07, # model fit convergence threshold
+    use_lambdas = 'last', # set to 'best' (least overfit), 'last' (highest score)
+    n_cpus = 4, # number of cpu cores to use
+)
+```
 
 
 ## Geospatial support
 
-In addition to the maxent modeling support tools, `elapid` includes a series of geospatial data processing routines. These should make it easy to work with species occurrence records and raster covariates in multiple formats. The workflows rely on `geopandas` for vector support and `rasterio` for raster support.
+In addition to the maxent modeling support tools, `elapid` includes a series of geospatial data processing routines. These should make it easy to work with species occurrence records and raster covariates in multiple formats. The workflows rely on `geopandas` for vectors and `rasterio` for rasters.
 
-These tools allow you to run and apply a maxent model using just species occurrence records (point format vector) and environmental covariates (raster(s)). Here's an example end-to-end workflow:
+Here's an example end-to-end workflow (using dummy paths to demonstrate functionality).
 
 ```python
 import elapid
@@ -105,13 +128,21 @@ y = presence['presence'].append(pseudoabsence['presence']).reset_index(drop=True
 x = presence.drop(['presence'], axis=1).append(pseudoabsence.drop(['presence'], axis=1)).reset_index(drop=True)
 
 # train the model
-model = elapid.MaxentModel(feature_types=["linear", "product", "hinge"])
+model = elapid.MaxentModel()
 model.fit(x, y)
 
 # apply it to the full extent and save the model for later
 elapid.apply_model_to_rasters(model, raster_path, output_path, transform="logistic")
 elapid.save_object(model, model_path)
 ```
+
+To work with this saved model later, you can run:
+
+```python
+model = elapid.load_object(model_path)
+```
+
+Let's dig in to the components of this workflow.
 
 ### Working with x-y data
 
@@ -120,7 +151,6 @@ Almost all of the data sampling and indexing uses `geopandas.GeoSeries` objects.
 ```python
 import geopandas as gpd
 
-vector_path = "/home/cba/ariolimax-californicus.shp"
 gdf = gpd.read_file(vector_path)
 print(type(gdf.geometry))
 
@@ -135,9 +165,6 @@ import pandas as pd
 csv_path = "/home/cba/ariolimax-californicus.csv"
 df = pd.read_csv(csv_path)
 presence = elapid.xy_to_geoseries(df.x, df.y, crs="EPSG:32610")
-print(presence.head())
-
->
 ```
 
 Make sure you specify the projection of your x/y data. The default assumption is lat/lon, which in many cases is not correct.
@@ -150,24 +177,103 @@ lats = [37.79, -33.87]
 locations = elapid.xy_to_geoseries(lons, lats)
 print(locations)
 
->
+> 0    POINT (-122.49000 37.79000)
+> 1    POINT (151.00000 -33.87000)
+> dtype: geometry
 ```
 
 ### Generating pseudo-absence records
 
-`pseudoabsence_from_bias_file()`
-`pseudoabsence_from_geoseries()`
-`pseudoabsence_from_raster()`
-`pseudoabsence_from_vector()`
+In addition to species occurrence records, maxent requires a set of pseudo-absence (i.e. background) points. These are a random geographic samping of where you might expect to find a species.
+
+You can use `elapid` to create a random geographic sampling of points from unmasked locations within a raster extent:
+
+```python
+count = 10000 # the number of points to generate
+pseudoabsence_points = elapid.pseudoabsence_from_raster(raster_path, count)
+```
+
+Species occurrence records are often biased in their collection (collected near roads, in protected areas, etc.), so we typically need to be more precise in where we select pseudo-absence points. You could use a vector with a species range map to select records:
+
+```python
+range_path = "/home/slug/ariolimax-californicus-range.shp"
+pseudoabsence_points = elapid.pseudoabsence_from_vector(range_path, count)
+```
+
+If you've already computed a polygon using geopandas, you can pass it instead to `elapid.pseudoabsence_from_geoseries()`, which is what `pseudoabsence_from_vector()` does under the hood.
+
+You could also pass a raster bias file, where the raster grid cells contain information on the probability of sampling an area:
+
+```python
+# assume covariance between vertebrate and invertebrate banana slugs
+bias_path = "/home/slug/proximity-to-ucsc.tif"
+pseudoabsence_points = pseudoabsence_from_bias_file(bias_path)
+```
+
+This will increase sampling frequency in the areas around UC Santa Cruz, home to all types of slug.
 
 ### Extracting raster values
 
-`raster_values_from_geoseries()`
-`raster_values_from_vector()`
+Once you have your species presence and pseudo-absence records, you need to extract the covariate data from each location.
+
+```python
+pseudoabsence_covariates = elapid.raster_values_from_geoseries(
+    pseudoabsence_points,
+    raster_path,
+    drop_na = True,
+)
+```
+
+This could also be done with `raster_values_from_vector(vector_path, raster_path)` if you haven't already loaded the geoseries data into memory.
+
+This function, since it's geographically indexed, doesn't require the point data and the raster data to be in the same projection. `elapid` handles reprojection and sampling on the fly.
+
+It also allows you to pass multiple raster files, which can be in different projections, extents, grid sizes, etc. This means you don't have to explicitly re-sample your raster data prior to analysis, which is always a chore.
+
+```python
+raster_paths = [
+    "/home/cba/california-leaf-area-index.tif", # 1-band vegetation data
+    "/home/cba/global-cloud-cover.tif", # 3-band min, mean, max annual cloud cover
+    "/home/cba/usa-mean-temperature.tif", # 1-band mean temperature
+]
+
+# since you have five raster bands total, specify each band label
+labels = [
+    "LAI",
+    "CLD-min",
+    "CLD-mean",
+    "CLD-max",
+    "TMP-mean",
+]
+
+pseudoabsence_covariates = elapid.raster_values_from_geoseries(
+    pseudoabsence_points,
+    raster_paths,
+    labels = labels
+    drop_na = True,
+)
+```
+
+If you don't specify the labels, `elapid` will assign `['band_001', 'band_002', ...]`.
 
 ### Applying models to rasters
 
-`elapid.apply_model_to_rasters()`
+Once you've fit a model, you can apply it to a set of raster covariates to produce gridded suitability maps.
+
+```python
+elapid.apply_model_to_rasters(
+    model,
+    raster_paths,
+    output_path,
+    template_idx = 0,
+    transform = "cloglog",
+    nodata=-9999,
+)
+```
+
+The list and band order of the rasters must match the order of the covariates used to train the model. It reads each dataset in a block-wise basis, applies the model, and writes gridded predictions.
+
+If the raster datasets are not consistent (different extents, resolutions, etc.), it wll re-project the data on the fly, with the grid size, extent and projection based on a 'template' raster. Use the `template_idx` keyword to specify the index of which raster file to use as the template (`template_idx=0` sets the first raster as the template)
 
 ## Background
 
