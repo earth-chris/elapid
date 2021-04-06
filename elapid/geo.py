@@ -133,17 +133,18 @@ def pseudoabsence_from_geoseries(geoseries, count, overestimate=2):
     return points
 
 
-def raster_values_from_vector(vector_path, raster_paths, labels=None):
+def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=True):
     """
     Reads and stores pixel values from a set of raster paths based on a point-format vector file.
 
     :param vector_path: str path to a vector file (shp, geojson, etc)
     :param raster_paths: a list of raster paths to extract pixel values from
     :param labels: a list of band name labels. should match the total number of bands across all raster_paths
+    :param drop_na: bool to drop all records with no-data values
     :returns: gdf, a geodataframe with the pixel values from each raster appended to the original vector columns
     """
     gdf = gpd.read_file(vector_path)
-    raster_df = raster_values_from_geoseries(gdf.geometry, raster_paths, labels)
+    raster_df = raster_values_from_geoseries(gdf.geometry, raster_paths, labels, drop_na)
     gdf = pd.concat([gdf, raster_df.drop(["geometry"], axis=1, errors="ignore")], axis=1)
     return gdf
 
