@@ -19,13 +19,13 @@ from elapid.utils import (
 )
 
 
-def xy_to_geoseries(x, y, crs="epsg:4326"):
+def xy_to_geoseries(x, y, crs="epsg:4236"):
     """
     Converts x/y data into a geopandas geoseries dataframe.
 
     :param x: 1-D array-like of x location values
     :param y: 1-D array-like of y location values
-    :param crs: the coordinate reference string. accepts anything allowed by pyproj.CRS.from_user_input(). assumes lat/lon.
+    :param crs: the coordinate reference string. accepts anything allowed by pyproj.CRS.from_user_input()
     :returns: gs, a geopandas Point geometry geoseries
     """
     points = [Point(x, y) for x, y in zip(x, y)]
@@ -67,7 +67,7 @@ def pseudoabsence_from_bias_file(raster_path, count, ignore_mask=False):
     """
     Creates a semi-random geographic sampling of points weighted towards biased areas.
 
-    :param raster_path: str raster bias file path to sample from. Pixel values can occupy an arbitrary range but must be odered from low -> high probability
+    :param raster_path: str raster bias file path to sample from. Pixel values can be in arbitrary range, but must be odered low -> high probability
     :param count: the total number of samples to generate
     :param ignore_mask: sample from the full extent of the raster instead of unmasked areas only
     :returns: points, a geopandas Point geoseries
@@ -148,13 +148,14 @@ def raster_values_from_vector(vector_path, raster_paths, labels=None):
     return gdf
 
 
-def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
+def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=True):
     """
     Reads and stores pixel values from a set of raster paths based on a geoseries of point locations.
 
     :param geoseries: a geopandas geoseries (e.g., gdf['geometry']) with point locations
     :param raster_paths: a list of raster paths to extract pixel values from
     :param labels: a list of band name labels. should match the total number of bands across all raster_paths
+    :param drop_na: bool to drop all records with no-data values
     :returns: gdf, a geopandas geodataframe with the geoseries point locations and pixel values from each raster
     """
 
@@ -187,6 +188,8 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
         with rio.open(raster_path) as src:
             points = geoseries.to_crs(src.crs)
             values = points.apply(read_pixel_value, source=src)
+            if drop_na and src.nodata is not None:
+                values.replace(src.nodata, np.NaN, inplace=True)
 
         return values
 
@@ -198,6 +201,8 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None):
     df = pd.concat([parallel_raster_reads(raster_path) for raster_path in raster_paths], axis=1)
     df.columns = labels
     gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
+    if drop_na:
+        gdf.dropna(axis=0, inplace=True)
 
     return gdf
 
