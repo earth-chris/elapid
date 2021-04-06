@@ -23,6 +23,7 @@ dependencies:
   - scikit-learn
   - scipy
   - shapely
+  - tqdm
   - pip
   - pip:
     - -r requirements.txt

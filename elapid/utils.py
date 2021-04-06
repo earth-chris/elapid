@@ -3,9 +3,13 @@ import gzip
 import multiprocessing as mp
 import os
 import pickle
+import sys
 
 import numpy as np
 import pandas as pd
+import rasterio as rio
+import tqdm
+from tqdm.notebook import tqdm as notebook_tqdm
 
 _ncpus = mp.cpu_count()
 
@@ -91,3 +95,95 @@ def load_object(path, compressed=True):
         obj = gzip.decompress(obj)
 
     return pickle.loads(obj)
+
+
+def create_output_raster_profile(
+    raster_paths, template_idx, nodata=None, compress=None, driver="GTiff", bigtiff=True, dtype="float32"
+):
+    """
+    Gets parameters for windowed reading/writing to output rasters.
+
+    :param raster_paths: a list of raster paths of covariates to apply the model to
+    :param template_idx: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
+    :param nodata: the output nodata value to set
+    :param output_driver: the output raster file format (from rasterio.drivers.raster_driver_extensions())
+    :param compress: str of the compression type to apply to the output file
+    :param bigtiff: bool of whether to specify the output file as a bigtiff (for rasters > 2GB)
+    :returns: windows, profile, an iterable and a dictionary for the window reads and the raster profile
+    """
+    with rio.open(raster_paths[template_idx]) as src:
+        windows = src.block_windows()
+        dst_profile = src.profile
+        dst_profile.update(
+            count=1,
+            dtype=dtype,
+            nodata=nodata,
+            compress=compress,
+            driver=driver,
+        )
+        if bigtiff:
+            dst_profile.update(BIGTIFF="YES")
+
+    return windows, dst_profile
+
+
+def get_raster_band_indexes(raster_paths):
+    """
+    Gets the band indexes of multiple raster bands to handle indexing multi-source and multi-band covariates.
+
+    :param raster_paths: a list of raster covariate paths
+    :returns: nbands, band_idx, int and list of the total number of bands and the 0-based start/stop band index
+    """
+    nbands = 0
+    band_idx = [0]
+    for i, raster_path in enumerate(raster_paths):
+        with rio.open(raster_path) as src:
+            nbands += src.count
+            band_idx.append(band_idx[i] + src.count)
+
+    return nbands, band_idx
+
+
+def check_raster_alignment(raster_paths):
+    """
+    Checks whether the extent, resolution and projection of multiple rasters match exactly.
+
+    :param raster_paths: a list of raster covariate paths
+    :returns: bool indicating wither they all align
+    """
+    first = raster_paths[0]
+    rest = raster_paths[1:]
+
+    with rio.open(first) as src:
+        res = src.res
+        bounds = src.bounds
+        transform = src.transform
+
+    for path in rest:
+        with rio.open(path) as src:
+            if src.res != res or src.bounds != bounds or src.transform != transform:
+                return False
+
+    return True
+
+
+def in_notebook():
+    """
+    Tests whether the module is currently running in a jupyter notebook.
+
+    :returns: bool
+    """
+    return "IPython" in sys.modules
+
+
+def get_tqdm():
+    """
+    Returns the appropriate tqdm progress tracking module based on the user context, as
+      behavior changes inside/outside of jupyter notebooks.
+
+    :returns: the tqdm module
+    """
+    if in_notebook:
+        return notebook_tqdm
+    else:
+        return tqdm
