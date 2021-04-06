@@ -109,9 +109,47 @@ The `MaxentModel` and `MaxentFeatureTransformer` classes can be modified with pa
 
 ## Geospatial support
 
-In addition to the maxent modeling support tools, `elapid` includes a series of geospatial data processing routines for generating
+In addition to the maxent modeling support tools, `elapid` includes a series of geospatial data processing routines. These should make it easy to work with species occurrence records and raster covariates in multiple formats. The workflows rely on `geopandas` for vector support and `rasterio` for raster support.
+
+Almost all of the data sampling and indexing uses `geopandas.GeoSeries` objects. These are the format of the `geometry` column for a `GeoDataFrame`.
+
+```python
+import geopandas as gpd
+
+vector_path = "/home/cba/ariolimax-californicus.shp"
+gdf = gpd.read_file(vector_path)
+print(type(gdf.geometry))
+
+> <class 'geopandas.geoseries.GeoSeries'>
+```
 
 ### Working with x-y data
+
+Sometimes you don't have a vector of point-format location data. The `java` implementation of maxent uses csv files, for example. You can work with those using the `xy_to_geoseries` function:
+
+```python
+import pandas as pd
+
+csv_path = "/home/cba/ariolimax-californicus.csv"
+df = pd.read_csv(csv_path)
+presence = elapid.xy_to_geoseries(df.x, df.y, crs="EPSG:32610")
+print(presence.head())
+
+>
+```
+
+Make sure you specify the projection of your x/y data. The default assumption is lat/lon, which in many cases is not correct.
+
+You can also convert arbitrary arrays of x/y data.
+
+```python
+lons = [-122.49, 151.0]
+lats = [37.79, -33.87]
+locations = elapid.xy_to_geoseries(lons, lats)
+
+print(locations)
+>
+```
 
 ### Generating pseudo-absence records
 
