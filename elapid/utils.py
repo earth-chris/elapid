@@ -201,11 +201,14 @@ def apply_model_to_raster_array(model, array, nodata, nodata_idx, transform=None
     :param transform: the method for transforming maxent model output from ["raw", "exponential", "logistic", "cloglog"]
     :returns: predictions_window, an array of shape (nbands, nrows, ncols) with the predictions to write
     """
-    # task is to reshape from 3d (nbands, nrows, ncols) to 2d (nsamples, nbands)
+    # we'll run the computations for only good-data pixels
     nbands, nrows, ncols = array.shape
-    covariate_array = array.transpose((1, 2, 0)).reshape((nrows * ncols, nbands))
-    predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
-    predictions_window = predictions_array.to_numpy(dtype=np.float32).reshape((1, nrows, ncols))
-    predictions_window[:, nodata_idx.all(axis=0)] = nodata
+    good = ~nodata_idx.all(axis=0)
+    ngood = good.sum()
+    predictions_window = np.zeros((1, nrows, ncols), dtype=np.float32) + nodata
+    if ngood > 0:
+        covariate_array = array[:, good].transpose()
+        predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
+        predictions_window[:, good] = predictions_array.to_numpy(dtype=np.float32).transpose()
 
     return predictions_window
