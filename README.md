@@ -30,7 +30,11 @@ Its a presence/background model, meaning it uses data on where a species is pres
 
 Formally, Maxent estimates habitat suitability (i.e. the fundamental niche) using species occurrence records (`y = 1`), randomly sampled "background" location records (`y = 0`), and environmental covariate data (`x`) for each location of `y`.
 
-Maxent doesn't directly estimate relationships between presence/background data and environmental covariates (so, not just `y ~ x`). Instead, it fits a series of feature transformatons (`z`) to the covariate data (e.g. computing pairwise products between covariates, setting random covariate thresholds). Maxent then estimates the conditional probability of finding a species given a set of environmental conditions as `Pr(y = 1 | f(z))`.
+Maxent doesn't directly estimate relationships between presence/background data and environmental covariates (so, not just `y ~ x`). Instead, it fits a series of feature transformatons (`z`) to the covariate data (e.g. computing pairwise products between covariates, setting random covariate thresholds). Maxent then estimates the conditional probability of finding a species given a set of environmental conditions as:
+
+```
+Pr(y = 1 | f(z)) = (f1(z) * Pr(y = 1)) / f(z)
+```
 
 `elapid` provides python tools for fitting maxent models, computing features, and working with geospatial data. It's goal is to help us better understand where the species are, why they are there, and where they will go in the future.
 
