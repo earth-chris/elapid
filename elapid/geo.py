@@ -1,5 +1,6 @@
 """Geospatial data operations like reading/writing/indexing raster and vector data"""
 
+from itertools import tee
 from multiprocessing import Pool
 
 import geopandas as gpd
@@ -8,7 +9,7 @@ import pandas as pd
 import rasterio as rio
 from shapely.geometry import MultiPoint, Point
 
-from elapid.utils import _ncpus, check_raster_alignment, create_output_raster_profile, get_raster_band_indexes
+from elapid.utils import _ncpus, check_raster_alignment, create_output_raster_profile, get_raster_band_indexes, get_tqdm
 
 
 def xy_to_geoseries(x, y, crs="epsg:4326"):
@@ -247,6 +248,9 @@ def apply_model_to_rasters(
     # check whether the raster paths are aligned to determine how the data are read
     aligned = check_raster_alignment(raster_paths)
 
+    # track progress
+    tqdm = get_tqdm()
+
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
 
@@ -264,7 +268,9 @@ def apply_model_to_rasters(
             srcs = [rio.vrt.WarpedVRT(src, **vrt_options) for src in srcs]
 
         # iterate over each data block, read from each source, and apply the model
-        for _, window in windows:
+        windows, duplicate = tee(windows)
+        nwindows = len(list(duplicate))
+        for _, window in tqdm(windows, total=nwindows):
             ncols = window.width
             nrows = window.height
             covariate_window = np.zeros((nbands, nrows, ncols), dtype=np.float)

@@ -8,8 +8,6 @@ import sys
 import numpy as np
 import pandas as pd
 import rasterio as rio
-import tqdm
-from tqdm.notebook import tqdm as notebook_tqdm
 
 _ncpus = mp.cpu_count()
 
@@ -173,7 +171,7 @@ def in_notebook():
 
     :returns: bool
     """
-    return "IPython" in sys.modules
+    return "ipykernel" in sys.modules
 
 
 def get_tqdm():
@@ -183,7 +181,9 @@ def get_tqdm():
 
     :returns: the tqdm module
     """
-    if in_notebook:
-        return notebook_tqdm
+    if in_notebook():
+        from tqdm.notebook import tqdm
     else:
-        return tqdm
+        from tqdm import tqdm
+
+    return tqdm
