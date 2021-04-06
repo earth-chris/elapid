@@ -241,8 +241,7 @@ def apply_model_to_rasters(
 ):
     """
     Applies a trained model to a list of raster datasets. The list and band order of the rasters must
-      match the order of the covariates used to train the model. This function can be applied to rasters
-      of different projections, grid sizes, etc. It reads each dataset on the fly in a tile-wise
+      match the order of the covariates used to train the model.It reads each dataset in a block-wise
       basis, applies the model, and writes gridded predictions. If the raster datasets are not
       consistent (different extents, resolutions, etc.), it wll re-project the data on the fly, with
       the grid size, extent and projection based on a 'template' raster.
