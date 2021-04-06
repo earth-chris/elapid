@@ -2,6 +2,7 @@ from setuptools import setup
 
 version = open("elapid/__version__.py").read().strip('"\n')
 long_description = open("README.md", "r", encoding="utf-8").read()
+requirements = open("requirements.txt", "r", encoding="utf-8").read().strip().split()
 
 setup_args = {
     "name": "elapid",
@@ -23,6 +24,7 @@ setup_args = {
     ],
     "packages": ["elapid"],
     "include_package_data": True,
+    "install_requires": requirements,
     "platforms": "any",
     "classifiers": [
         "Programming Language :: Python :: 3",
