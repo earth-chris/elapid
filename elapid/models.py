@@ -22,6 +22,7 @@ class MaxentModel(object):
         beta_categorical=MAXENT_DEFAULTS["beta_categorical"],
         n_hinge_features=MAXENT_DEFAULTS["n_hinge_features"],
         n_threshold_features=MAXENT_DEFAULTS["n_threshold_features"],
+        convergence_tolerance=MAXENT_DEFAULTS["tolerance"],
         use_lambdas=MAXENT_DEFAULTS["use_lambdas"],
         n_cpus=_ncpus,
     ):
@@ -37,6 +38,7 @@ class MaxentModel(object):
         :param beta_hinge: scalar for hinge feature regularization parameters
         :param beta_threshold: scalar for threshold feature regularization parameters
         :param beta_categorical: scalar for categorical feature regularization parameters
+        :param convergence_tolerance: scalar for the model convergence tolerance level
         :param use_lambdas: guide for which model lambdas to select, from options ["best", "last"]
         :param n_cpus: integer number of cpu threads to use during model training
         :returns: none
@@ -44,6 +46,7 @@ class MaxentModel(object):
         self.feature_types_ = _features.validate_feature_types(feature_types)
         self.tau_ = tau
         self.clamp_ = clamp
+        self.convergence_tolerance_ = convergence_tolerance
         self.beta_multiplier_ = beta_multiplier
         self.beta_hinge_ = beta_hinge
         self.beta_lqp_ = beta_lqp
@@ -177,6 +180,7 @@ class MaxentModel(object):
             fit_intercept=fit_intercept,
             scoring=self.scorer_,
             n_jobs=self.n_cpus_,
+            tol=self.convergence_tolerance_,
         )
 
         self.initialized_ = True
