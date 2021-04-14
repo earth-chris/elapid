@@ -308,7 +308,7 @@ def apply_model_to_rasters(
         nwindows = len(list(duplicate))
 
         tqdm = get_tqdm()
-        for _, window in tqdm(windows, total=nwindows, desc="Tile"):
+        for _, window in tqdm(windows, total=nwindows, desc="Tiles"):
             covariates = np.zeros((nbands, window.height, window.width), dtype=np.float32)
             predictions = np.zeros((1, window.height, window.width), dtype=np.float32) + nodata
             nodata_idx = np.ones_like(covariates, dtype=bool)
