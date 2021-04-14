@@ -268,6 +268,7 @@ def apply_model_to_rasters(
     windows, dst_profile = create_output_raster_profile(
         raster_paths,
         template_idx,
+        windowed=windowed,
         nodata=nodata,
         compress=compress,
         driver=driver,
@@ -296,40 +297,19 @@ def apply_model_to_rasters(
             }
             srcs = [rio.vrt.WarpedVRT(src, **vrt_options) for src in srcs]
 
-        # iterate over each data block, read from each source, and apply the model
-        if windowed:
-            windows, duplicate = tee(windows)
-            nwindows = len(list(duplicate))
+        # reach each data source block by block and apply the model
+        windows, duplicate = tee(windows)
+        nwindows = len(list(duplicate))
 
-            # track windowed read progress
-            tqdm = get_tqdm()
-            for _, window in tqdm(windows, total=nwindows):
-                dims = (nbands, window.height, window.width)
-                covariate_window = np.zeros(dims, dtype=np.float)
-                nodata_idx = np.ones_like(covariate_window, dtype=bool)
-
-                for i, src in enumerate(srcs):
-                    data = src.read(window=window, masked=True)
-                    covariate_window[band_idx[i] : band_idx[i + 1]] = data
-                    nodata_idx[band_idx[i] : band_idx[i + 1]] = data.mask
-
-                predictions = apply_model_to_raster_array(
-                    model,
-                    covariate_window,
-                    nodata,
-                    nodata_idx,
-                    transform=transform,
-                )
-                dst.write(predictions, window=window)
-
-        # otherwise, read all data into memory and apply in one go
-        else:
-            dims = (nbands, dst_profile["height"], dst_profile["width"])
+        # track windowed read progress
+        tqdm = get_tqdm()
+        for _, window in tqdm(windows, total=nwindows, desc="Tile"):
+            dims = (nbands, window.height, window.width)
             covariate_window = np.zeros(dims, dtype=np.float)
             nodata_idx = np.ones_like(covariate_window, dtype=bool)
 
             for i, src in enumerate(srcs):
-                data = src.read(masked=True)
+                data = src.read(window=window, masked=True)
                 covariate_window[band_idx[i] : band_idx[i + 1]] = data
                 nodata_idx[band_idx[i] : band_idx[i + 1]] = data.mask
 
@@ -340,7 +320,7 @@ def apply_model_to_rasters(
                 nodata_idx,
                 transform=transform,
             )
-            dst.write(predictions)
+            dst.write(predictions, window=window)
 
         for src in srcs:
             src.close()
