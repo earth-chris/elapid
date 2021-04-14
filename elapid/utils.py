@@ -97,13 +97,14 @@ def load_object(path, compressed=True):
 
 
 def create_output_raster_profile(
-    raster_paths, template_idx, nodata=None, compress=None, driver="GTiff", bigtiff=True, dtype="float32"
+    raster_paths, template_idx, windowed=True, nodata=None, compress=None, driver="GTiff", bigtiff=True, dtype="float32"
 ):
     """
     Gets parameters for windowed reading/writing to output rasters.
 
     :param raster_paths: a list of raster paths of covariates to apply the model to
     :param template_idx: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
+    :param windowed: bool to perform a block-by-block data read. slower, but reduces memory use.
     :param nodata: the output nodata value to set
     :param output_driver: the output raster file format (from rasterio.drivers.raster_driver_extensions())
     :param compress: str of the compression type to apply to the output file
@@ -111,7 +112,13 @@ def create_output_raster_profile(
     :returns: windows, profile, an iterable and a dictionary for the window reads and the raster profile
     """
     with rio.open(raster_paths[template_idx]) as src:
-        windows = src.block_windows()
+        if windowed:
+            windows = src.block_windows()
+        else:
+            idx = (0, 0)
+            window = rio.windows.Window(0, 0, src.width, src.height)
+            windows = iter([(idx, window)])
+
         dst_profile = src.profile
         dst_profile.update(
             count=1,
@@ -120,7 +127,7 @@ def create_output_raster_profile(
             compress=compress,
             driver=driver,
         )
-        if bigtiff:
+        if bigtiff and driver == "GTiff":
             dst_profile.update(BIGTIFF="YES")
 
     return windows, dst_profile
