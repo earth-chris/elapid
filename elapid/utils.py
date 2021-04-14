@@ -195,3 +195,7 @@ def get_tqdm():
         from tqdm import tqdm
 
     return tqdm
+
+
+class NoDataException(Exception):
+    pass
