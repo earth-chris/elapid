@@ -1,0 +1,86 @@
+# project
+site_name: 'elapid'
+site_description: 'Species distribution modeling tools, including a python implementation of Maxent.'
+
+# documentation build
+docs_dir: 'docs'
+site_dir: 'build'
+
+# site info
+repo_name: 'earth-chris/elapid'
+repo_url: 'https://github.com/earth-chris/elapid'
+site_url: 'https://earth-chris.github.io/elapid/'
+
+# social
+extra:
+    social:
+      - icon: 'fontawesome/brands/github'
+        link: 'https://github.com/earth-chris'
+      - icon: 'fontawesome/brands/twitter'
+        link: 'https://twitter.com/earth_chris'
+      - icon: 'material/earth'
+        link: 'https://cbanderson.info/'
+
+# site navigation
+nav:
+    - Home: 'index.md'
+
+# theme
+theme:
+    icon:
+      logo: 'material/snake'
+      repo: 'fontawesome/brands/github'
+    name: 'material'
+    language: 'en'
+    palette:
+      - media: "(prefers-color-scheme: light)"
+        primary: 'green' #4CAE4F
+        accent:  'orange'
+        toggle:
+          icon: 'material/weather-night'
+          name: 'Light mode'
+      - media: "(prefers-color-scheme: dark)"
+        scheme: 'slate'
+        primary: 'light green'
+        accent: 'orange'
+        toggle:
+          icon: 'material/weather-sunny'
+          name: 'Dark mode'
+    font:
+      text: 'Nunito Sans'
+      code: 'Source Code Pro'
+    favicon: 'img/favicon.png'
+
+# extras
+plugins:
+    - search
+    - mkdocs-jupyter:
+        include_source: True
+
+# pandoc (https://pandoc.org/MANUAL.html)
+markdown_extensions:
+    - admonition
+    - attr_list
+    - codehilite:
+        guess_lang: false
+    - def_list
+    - footnotes
+    - pymdownx.arithmatex
+    - pymdownx.betterem
+    - pymdownx.caret:
+        insert: false
+    - pymdownx.details
+    - pymdownx.emoji
+    - pymdownx.escapeall:
+        hardbreak: true
+        nbsp: true
+    - pymdownx.magiclink:
+        hide_protocol: true
+        repo_url_shortener: true
+    - pymdownx.smartsymbols
+    - pymdownx.superfences
+    - pymdownx.tasklist:
+        custom_checkbox: true
+    - pymdownx.tilde
+    - toc:
+        permalink: true
