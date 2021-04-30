@@ -1,6 +1,6 @@
 # elapid
 
-<img src="/img/amazon.jpg" alt="the amazon"/>
+<img src="img/amazon.jpg" alt="the amazon"/>
 
 `elapid` provides python support for species distribution modeling. This includes a custom [MaxEnt][home-maxent] implementation and general spatial processing tools. It will soon include tools for working with [GBIF][home-gbif]-format datasets.
 
@@ -16,7 +16,7 @@ This package is still in the early stages of development.
 
 
 [email-cba]: mailto:cbanders@stanford.edu
-[github-cba]: https://github.com/earth-chris
+[github-cba]: https://cbanderson.info
 [home-cba]: https://earth-chris.github.io
 [home-conda]: https://docs.conda.io/
 [home-gbif]: https://gbif.org
