@@ -14,10 +14,10 @@ The maxent modeling tools and feature transformations are translations of the R 
 - [Installation](#installation)
 - [Working with elapid](#working-with-elapid)
 - [Geospatial support](#geospatial-support)
-  - [Working with x-y data](#working-with-x-y-data)
-  - [Generating pseudo-absence records](#generating-pseudo-absence-records)
-  - [Extracting raster values](#extracting-raster-values)
-  - [Applying models to rasters](#applying-models-to-rasters)
+    - [Working with x-y data](#working-with-x-y-data)
+    - [Generating pseudo-absence records](#generating-pseudo-absence-records)
+    - [Extracting raster values](#extracting-raster-values)
+    - [Applying models to rasters](#applying-models-to-rasters)
 - [Package design](#package-design)
 - [Contact](#contact)
 
@@ -317,7 +317,7 @@ There's also more flexibility supporting contemporary geospatial data formats, l
 
 ## Contact
 
-* Christopher Anderson [[web][home-cba]] [[email][email-cba]] [[github][github-cba]].
+* Christopher Anderson [web][home-cba] [email][email-cba] [github][github-cba].
 
 
 [email-cba]: mailto:cbanders@stanford.edu
