@@ -24,6 +24,17 @@ extra:
 # site navigation
 nav:
     - Home: 'index.md'
+    - User Guide:
+        - Installation: 'install.md'
+        - Working with elapid: 'introduction.md'
+    - Species Distribution Models:
+        - Maxent: 'sdm/maxent.md'
+    - Geospatial Tools:
+        - Example workflow: 'geo/workflow.md'
+        - Working with x-y data: 'geo/working-xy.md'
+        - Generating pseudoabsences: 'geo/pseudoabsence.md'
+        - Raster annotation: 'geo/annotation.md'
+        - Model predictions: 'geo/prediction.md'
 
 # theme
 theme:
@@ -34,18 +45,18 @@ theme:
     language: 'en'
     palette:
       - media: "(prefers-color-scheme: light)"
-        primary: 'green' #4CAE4F
+        primary: 'green'
         accent:  'orange'
         toggle:
           icon: 'material/weather-night'
-          name: 'Light mode'
+          name: 'Go dark'
       - media: "(prefers-color-scheme: dark)"
         scheme: 'slate'
         primary: 'light green'
         accent: 'orange'
         toggle:
           icon: 'material/weather-sunny'
-          name: 'Dark mode'
+          name: 'Go light'
     font:
       text: 'Nunito Sans'
       code: 'Source Code Pro'
