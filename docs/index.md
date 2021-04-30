@@ -2,6 +2,16 @@
 
 <img src="img/amazon.jpg" alt="the amazon"/>
 
+---
+
+**Documentation**: [earth-chris.github.io/elapid](https://earth-chris.github.io/elapid)
+
+**Source code**: [earth-chris/elapid](https://github.com/earth-chris/elapid)
+
+---
+
+## Introduction
+
 `elapid` provides python support for species distribution modeling. This includes a custom [MaxEnt][home-maxent] implementation and general spatial processing tools. It will soon include tools for working with [GBIF][home-gbif]-format datasets.
 
 The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), the paper widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
