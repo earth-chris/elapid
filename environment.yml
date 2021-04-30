@@ -5,19 +5,13 @@ channels:
   - defaults
 
 dependencies:
-  - python>3.7
-  - black
+  - python>=3.7
   - descartes
-  - flake8
   - gdal
   - geopandas
   - glmnet
-  - isort
   - matplotlib
   - pandas
-  - pre-commit
-  - pytest
-  - pytest-cov
   - rasterio
   - rtree
   - scikit-learn

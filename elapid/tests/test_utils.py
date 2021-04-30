@@ -1,4 +1,4 @@
-"""Unit test suite for the elapid/utils.py module"""
+"""Unit tests for the elapid/utils.py module"""
 
 import os
 import tempfile
@@ -35,7 +35,7 @@ def test_load_sample_data():
     assert y.max() == 1, "y data should only contain 0/1"
 
     # data verified from first row
-    first_record = np.array([76,104,10,2,121,46,84,41,54,3,192,266,337,279])
+    first_record = np.array([76, 104, 10, 2, 121, 46, 84, 41, 54, 3, 192, 266, 337, 279])
     diff = x.iloc[0].to_numpy() - first_record
     assert diff.sum() == 0, "First row of bradypus data incorrectly read"
 
@@ -90,7 +90,7 @@ def test_check_raster_alignment():
 
 
 def test_in_notebook():
-    assert utils.in_notebook() == False
+    assert utils.in_notebook() is False
 
 
 def test_get_tqdm():
