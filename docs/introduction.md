@@ -66,3 +66,6 @@ This python package was developed to overcome some of the limitations of the Max
 This places some burden on the user to handle processes like creating train/test cross-validation splits and sampling background data. The hope is that this extra flexibility removes some of the frustrations with the black-box approach of the java implementation and enables users to better tune and evaluate their models.
 
 There's also more flexibility supporting contemporary geospatial data formats, like cloud-optimized geotiffs. This means you can train and apply models using cloud-hosted covariate data (e.g., from `s3`) without having to download the data to a local hard-drive.
+
+
+[home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
