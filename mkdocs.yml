@@ -38,8 +38,8 @@ nav:
 
 # theme
 theme:
+    logo: 'img/elapid.svg'
     icon:
-      logo: 'material/snake'
       repo: 'fontawesome/brands/github'
     name: 'material'
     language: 'en'
@@ -47,8 +47,6 @@ theme:
     palette:
       - media: "(prefers-color-scheme: light)"
         scheme: 'forestobs-light'
-        #primary: 'green'
-        #accent:  'orange'
         toggle:
           icon: 'material/weather-night'
           name: 'Go dark'
