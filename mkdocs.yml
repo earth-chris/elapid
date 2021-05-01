@@ -38,22 +38,20 @@ nav:
 
 # theme
 theme:
+    logo: 'img/elapid.svg'
     icon:
-      logo: 'material/snake'
       repo: 'fontawesome/brands/github'
     name: 'material'
     language: 'en'
+    nav_style: dark
     palette:
       - media: "(prefers-color-scheme: light)"
-        primary: 'green'
-        accent:  'orange'
+        scheme: 'forestobs-light'
         toggle:
           icon: 'material/weather-night'
           name: 'Go dark'
       - media: "(prefers-color-scheme: dark)"
         scheme: 'slate'
-        primary: 'light green'
-        accent: 'orange'
         toggle:
           icon: 'material/weather-sunny'
           name: 'Go light'
@@ -67,6 +65,9 @@ plugins:
     - search
     - mkdocs-jupyter:
         include_source: True
+
+extra_css:
+    - css/colors.css
 
 # pandoc (https://pandoc.org/MANUAL.html)
 markdown_extensions:
