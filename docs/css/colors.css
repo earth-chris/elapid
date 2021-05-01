@@ -16,8 +16,9 @@
 
 [data-md-color-scheme="slate"] {
   --md-hue: 150; /* [0, 360] */
-  --md-primary-fg-color: var(--orange);
+  --md-primary-fg-color: var(--green);
   --md-default-bg-color: var(--black);
-  --md-primary-bg-color: var(--black);
+  --md-primary-bg-color: var(--white);
   --md-accent-fg-color:  var(--yellow);
+  --md-typeset-a-color:  var(--orange);
 }
