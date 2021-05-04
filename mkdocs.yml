@@ -64,6 +64,8 @@ theme:
       text: 'Poppins'
       code: 'Source Code Pro'
     favicon: 'img/favicon.png'
+    features:
+      - navigation.top
 
 # extras
 plugins:
