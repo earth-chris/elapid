@@ -1,4 +1,4 @@
-"""Backend helper functions that don't need to be exposed to users"""
+"""Functions to transform covariate data into complex model features."""
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ class MaxentFeatureTransformer(object):
         :param clamp: boolean of whether to clamp feature values to global mins/maxs during inference
         :param n_hinge_features: the number of hinge knots to generate
         :param n_threshold_features: the number of threshold features to generate
-        :returns: none
+        :returns: self
         """
         # user-specified parameters
         self.feature_types_ = validate_feature_types(feature_types)

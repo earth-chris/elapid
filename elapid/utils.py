@@ -1,4 +1,4 @@
-"""Backend helper functions that don't need to be exposed to users"""
+"""Backend helper and convenience functions."""
 
 import gzip
 import multiprocessing as mp

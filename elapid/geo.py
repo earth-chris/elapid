@@ -1,4 +1,4 @@
-"""Geospatial data operations like reading/writing/indexing raster and vector data"""
+"""Geospatial data operations like reading/writing/indexing raster and vector data."""
 
 from itertools import tee
 from multiprocessing import Pool

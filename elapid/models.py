@@ -1,4 +1,4 @@
-"""Model classes for species distribution modeling"""
+"""Classes for training species distribution models."""
 
 import numpy as np
 import pandas as pd
