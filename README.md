@@ -6,7 +6,7 @@
 
 **Documentation**: [earth-chris.github.io/elapid](https://earth-chris.github.io/elapid)
 
-**Source code**: [earth-chris/elapid][https://github.com/earth-chris/elapid)
+**Source code**: [earth-chris/elapid](https://github.com/earth-chris/elapid)
 
 ---
 
