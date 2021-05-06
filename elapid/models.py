@@ -9,6 +9,31 @@ from elapid.utils import MAXENT_DEFAULTS, _ncpus
 
 
 class MaxentModel(object):
+    """Creates a model estimator for Maxent-style species distribution models.
+
+    Attributes:
+        feature_types_: List of maxent feature types to compute
+        tau_: Float species prevalence scalar
+        clamp_: Boolean for whether to constrain feature min/max ranges
+        convergence_tolerance_: Float model convergence tolerance threshold
+        beta_multiplier_: Float scalar for all feature beta values
+        beta_hinge_: Float scalar for hinge beta values
+        beta_lqp_: Float scalar for linear/quadratic/product beta values
+        beta_threshold_: Float scalar for threshold beta values
+        beta_categorical_: Float scalar for categorical beta values
+        n_hinge_features_: Int number of hinge features to fit
+        n_threshold_features_: Int number of threshold features to fit
+        n_cpus_: Int of cpu threads ot use during model training
+        scorer_: Str of model training metric (from `sklearn.metrics`)
+        use_lambdas_: Str of lambda type to use (in `['best', 'last']`)
+        initialized_: Bool tracking model fit status
+        beta_scores_: Array of trained model betas
+        entropy_: Float of trained model entropy score
+        alpha_: Float of trained model alpha score 0.0
+        estimator: Object of trained model estimator
+        transformer: MaxentFeatureTransformer object
+    """
+
     def __init__(
         self,
         feature_types=MAXENT_DEFAULTS["feature_types"],
@@ -26,22 +51,28 @@ class MaxentModel(object):
         use_lambdas=MAXENT_DEFAULTS["use_lambdas"],
         n_cpus=_ncpus,
     ):
-        """
-        Creates a model estimator for Maxent-style species distribution models.
+        """Instatiate a maxent model object.
 
-        :param feature_types: list or string of maxent feature types to fit. must be in ["linear", "quadratic", "product", "hinge", "threshold", "auto"] or string "lqphta"
-        :param tau: float of the maxent tau (prevalence) value for scaling logistic output
-        :param clamp: bool of whether to clamp features during inference
-        :param scorer: the sklearn scoring function for model training
-        :param beta_multiplier: scalar for all regularization parameters, where higher values exclude more features
-        :param beta_lqp: scalar for linear, quadratic and product feature regularization parameters
-        :param beta_hinge: scalar for hinge feature regularization parameters
-        :param beta_threshold: scalar for threshold feature regularization parameters
-        :param beta_categorical: scalar for categorical feature regularization parameters
-        :param convergence_tolerance: scalar for the model convergence tolerance level
-        :param use_lambdas: guide for which model lambdas to select, from options ["best", "last"]
-        :param n_cpus: integer number of cpu threads to use during model training
-        :returns: none
+        Args:
+            feature_types: List or string of maxent feature types to fit. must be in
+                ["linear", "quadratic", "product", "hinge", "threshold", "auto"]
+                or string "lqphta"
+            tau: Float of the maxent tau (prevalence) value for scaling logistic output
+            clamp: Boolean of whether to clamp features during inference
+            scorer: Str sklearn scoring function for model training
+            beta_multiplier: Float scalar for all regularization parameters,
+                where higher values exclude more features
+            beta_lqp: Float scalar for linear, quadratic and product feature regularization parameters
+            beta_hinge: Float scalar for hinge feature regularization parameters
+            beta_threshold: Float scalar for threshold feature regularization parameters
+            beta_categorical: Float scalar for categorical feature regularization parameters
+            convergence_tolerance: Float scalar for the model convergence tolerance level
+            use_lambdas: guide for which model lambdas to select,
+                from options ["best", "last"]
+            n_cpus: Int of cpu threads to use during model training
+
+        Returns:
+            self: a MaxentModel object
         """
         self.feature_types_ = _features.validate_feature_types(feature_types)
         self.tau_ = tau
@@ -66,15 +97,17 @@ class MaxentModel(object):
         self.transformer = None
 
     def fit(self, x, y, categorical=None, labels=None, is_features=False):
-        """
-        Trains a maxent model using a set of covariates and presence/background points.
+        """Trains a maxent model using a set of covariates and presence/background points.
 
-        :param x: array-like of shape (n_samples, n_features) with covariate data
-        :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
-        :param categorical: either a 2D a array-like akin to "x", or a 1d array-like of column indices indicating which columns are categorical
-        :param labels: covariate labels. Ignored if x is a pandas dataframe.
-        :param is_features: boolean to specify that the x data has already been transformed from covariates to features
-        :returns: none. updates the model object
+        Args:
+            x: Array-like of shape (n_samples, n_features) with covariate data
+            y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
+            categorical: Array-like of column indices for which columns are categorical
+            labels: List of covariate labels. Ignored if x is a pandas dataframe
+            is_features: Boolean specifying the x data has been transformed from covariates to features
+
+        Returns:
+            None: Updates the model object
         """
         # data pre-processing
         if is_features:
@@ -114,13 +147,16 @@ class MaxentModel(object):
         self.alpha_ = -np.log(np.sum(rr))
 
     def predict(self, x, transform="logistic", is_features=False):
-        """
-        Applies a maxent model to a set of covariates or features. Requires that a model has been fit.
+        """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
-        :param x: array-like of shape (n_samples, n_features) with covariate data
-        :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
-        :param is_features: boolean to specify that the x data has already been transformed from covariates to features
-        :returns predictions: array-like of shape (n_samples,) with model predictions
+        Args:
+            x: Array-like of shape (n_samples, n_features) with covariate data
+            transform: Str maxent model transformation type. Select from
+                ["raw", "exponential", "logistic", "cloglog"].
+            is_features: Boolean specifying the x data has already been transformed from covariates to features
+
+        Returns:
+            predictions: Array-like of shape (n_samples,) with model predictions
         """
         assert self.initialized_, "Model must be fit first"
 
@@ -143,14 +179,19 @@ class MaxentModel(object):
             return 1 - np.exp(0 - np.exp(self.entropy_ + link))
 
     def fit_predict(self, x, y, categorical=None, labels=None, transform="logistic", is_features=False):
-        """
-        :param x: array-like of shape (n_samples, n_features) with covariate data
-        :param y: array-like of shape (n_samples,) with binary presence/background (1/0) values
-        :param categorical: either a 2D a array-like akin to "x", or a 1d array-like of column indices indicating which columns are categorical
-        :param labels: covariate labels. Ignored if x is a pandas dataframe.
-        :param transform: the maxent model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
-        :param is_features: boolean to specify that the x data has already been transformed from covariates to features
-        :returns predictions: array-like of shape (n_samples,) with model predictions
+        """Trains and applies a model to x/y data.
+
+        Args:
+            x: Array-like of shape (n_samples, n_features) with covariate data
+            y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
+            categorical: Array-like of column indices for which columns are categorical
+            labels: List of covariate labels. Ignored if x is a pandas dataframe
+            transform: Str of maxent model transformation type. Select from
+                ["raw", "exponential", "logistic", "cloglog"].
+            is_features: Boolean specifying the x data has already been transformed from covariates to features
+
+        Returns:
+            predictions: Array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
         predictions = self.predict(x, transform=transform, is_features=is_features)
@@ -164,14 +205,16 @@ class MaxentModel(object):
         standardize=False,
         fit_intercept=True,
     ):
-        """
-        Creates the Logistic Regression with elastic net penalty model object.
+        """Creates the Logistic Regression with elastic net penalty model object.
 
-        :param lambdas: the lambda values for the model. Get from features.compute_lambdas()
-        :param alpha: the elasticnet mixing parameter. alpha=1 for lasso, alpha=0 for ridge
-        :param standardize: boolean flag to specify coefficient normalization
-        :param fit_intercept: boolean flag to include an intercept parameter
-        :return none: updates the self.estimator with an sklearn model estimator
+        Args:
+            lambdas: Array of model lambda values. Get from features.compute_lambdas()
+            alpha: Float elasticnet mixing parameter. alpha=1 for lasso, alpha=0 for ridge
+            standardize: Boolean to specify coefficient normalization
+            fit_intercept: Boolean flag to include an intercept parameter
+
+        Returns:
+            None: Updates the self.estimator with an sklearn-style model estimator
         """
         self.estimator = LogitNet(
             alpha=alpha,
