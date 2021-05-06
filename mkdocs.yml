@@ -1,0 +1,106 @@
+# project
+site_name: 'elapid'
+site_description: 'Species distribution modeling tools, including a python implementation of Maxent.'
+
+# documentation build
+docs_dir: 'docs'
+site_dir: 'build'
+
+# site info
+repo_name: 'earth-chris/elapid'
+repo_url: 'https://github.com/earth-chris/elapid'
+site_url: 'https://earth-chris.github.io/elapid/'
+
+# social
+extra:
+    social:
+      - icon: 'fontawesome/brands/github'
+        link: 'https://github.com/earth-chris'
+      - icon: 'fontawesome/brands/twitter'
+        link: 'https://twitter.com/earth_chris'
+      - icon: 'material/earth'
+        link: 'https://cbanderson.info/'
+
+# site navigation
+nav:
+    - Home: 'index.md'
+    - User Guide:
+        - Installation: 'install.md'
+        - Working with elapid: 'introduction.md'
+        - Code documentation:
+            - elapid.geo: 'module/geo.md'
+            - elapid.features: 'module/features.md'
+            - elapid.models: 'module/models.md'
+            - elapid.utils: 'module/utils.md'
+    - Species Distribution Models:
+        - Maxent: 'sdm/maxent.md'
+    - Geospatial Tools:
+        - Example workflow: 'geo/workflow.md'
+        - Working with x-y data: 'geo/working-xy.md'
+        - Generating pseudoabsences: 'geo/pseudoabsence.md'
+        - Raster annotation: 'geo/annotation.md'
+        - Model predictions: 'geo/prediction.md'
+
+# theme
+theme:
+    logo: 'img/elapid.svg'
+    icon:
+      repo: 'fontawesome/brands/github'
+    name: 'material'
+    language: 'en'
+    nav_style: dark
+    palette:
+      - media: "(prefers-color-scheme: light)"
+        scheme: 'forestobs-light'
+        toggle:
+          icon: 'material/weather-night'
+          name: 'Go dark'
+      - media: "(prefers-color-scheme: dark)"
+        scheme: 'slate'
+        toggle:
+          icon: 'material/weather-sunny'
+          name: 'Go light'
+    font:
+      text: 'Poppins'
+      code: 'Source Code Pro'
+    favicon: 'img/favicon.png'
+    features:
+      - navigation.top
+
+# extras
+plugins:
+    - search
+    - mkdocstrings
+    - mkdocs-jupyter:
+        include_source: True
+
+extra_css:
+    - css/colors.css
+
+# pandoc (https://pandoc.org/MANUAL.html)
+markdown_extensions:
+    - admonition
+    - attr_list
+    - codehilite:
+        guess_lang: false
+    - def_list
+    - footnotes
+    - pymdownx.arithmatex
+    - pymdownx.betterem
+    - pymdownx.caret:
+        insert: false
+    - pymdownx.details
+    - pymdownx.emoji
+    - pymdownx.escapeall:
+        hardbreak: true
+        nbsp: true
+    - pymdownx.magiclink:
+        hide_protocol: true
+        repo_url_shortener: true
+    - pymdownx.smartsymbols
+    - pymdownx.superfences
+    - pymdownx.tasklist:
+        custom_checkbox: true
+    - pymdownx.tilde
+    - toc:
+        permalink: true

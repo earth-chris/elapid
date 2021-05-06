@@ -1,6 +1,6 @@
 # elapid
 
-<img src="http://earth-chris.github.io/images/design/amazon.jpg" alt="the amazon"/>
+<img src="img/amazon.jpg" alt="the amazon"/>
 
 ---
 
@@ -26,7 +26,7 @@ This package is still in the early stages of development.
 
 
 [email-cba]: mailto:cbanders@stanford.edu
-[github-cba]: https://github.com/earth-chris
+[github-cba]: https://cbanderson.info
 [home-cba]: https://earth-chris.github.io
 [home-conda]: https://docs.conda.io/
 [home-gbif]: https://gbif.org
