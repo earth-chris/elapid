@@ -27,6 +27,11 @@ nav:
     - User Guide:
         - Installation: 'install.md'
         - Working with elapid: 'introduction.md'
+        - Code documentation:
+            - elapid.geo: 'module/geo.md'
+            - elapid.features: 'module/features.md'
+            - elapid.models: 'module/models.md'
+            - elapid.utils: 'module/utils.md'
     - Species Distribution Models:
         - Maxent: 'sdm/maxent.md'
     - Geospatial Tools:
@@ -59,10 +64,13 @@ theme:
       text: 'Poppins'
       code: 'Source Code Pro'
     favicon: 'img/favicon.png'
+    features:
+      - navigation.top
 
 # extras
 plugins:
     - search
+    - mkdocstrings
     - mkdocs-jupyter:
         include_source: True
 

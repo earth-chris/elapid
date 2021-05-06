@@ -1,4 +1,4 @@
-"""Backend helper functions that don't need to be exposed to users"""
+"""Backend helper and convenience functions."""
 
 import gzip
 import multiprocessing as mp
@@ -30,23 +30,27 @@ MAXENT_DEFAULTS = {
 
 
 def repeat_array(x, length=1, axis=0):
-    """
-    Repeats a 1D numpy array along an axis to an arbitrary length
+    """Repeats a 1D numpy array along an axis to an arbitrary length
 
-    :param x: the n-dimensional array to repeat
-    :param length: the number of times to repeat the array
-    :param axis: the axis along which to repeat the array (valid values include 0 to n+1)
-    :returns: an n+1 dimensional numpy array
+    Args:
+        x: the n-dimensional array to repeat
+        length: the number of times to repeat the array
+        axis: the axis along which to repeat the array (valid values include 0 to n+1)
+
+    Returns:
+        An n+1 dimensional numpy array
     """
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
 
 
 def load_sample_data(name="bradypus"):
-    """
-    Loads example species presence/background and covariate data.
+    """Loads example species presence/background and covariate data.
 
-    :param name: the sample dataset to load. options currently include ["bradypus"], from the R 'maxnet' package
-    :returns: (x, y), a tuple of dataframes containing covariate and response data, respectively
+    Args:
+        name: the sample dataset to load. options currently include ["bradypus"], from the R 'maxnet' package
+
+    Returns:
+        (x, y): a tuple of dataframes containing covariate and response data, respectively
     """
     assert name.lower() in ["bradypus"], "Invalid sample data requested"
 
@@ -63,12 +67,14 @@ def load_sample_data(name="bradypus"):
 
 
 def save_object(obj, path, compress=True):
-    """
-    Writes a python object to disk for later access.
+    """Writes a python object to disk for later access.
 
-    :param obj: a python object to be saved (e.g., a MaxentModel() instance)
-    :param path: the output file path
-    :returns: none
+    Args:
+        obj: a python object to be saved (e.g., a MaxentModel() instance)
+        path: the output file path
+
+    Returns:
+        None
     """
     obj = pickle.dumps(obj)
 
@@ -80,12 +86,14 @@ def save_object(obj, path, compress=True):
 
 
 def load_object(path, compressed=True):
-    """
-    Reads a python object into memory that's been saved to disk.
+    """Reads a python object into memory that's been saved to disk.
 
-    :param path: the file path of the object to load
-    :param compressed: flag to specify whether the file was compressed prior to saving
-    :returns: obj, the python object that has been saved (e.g., a MaxentModel() instance)
+    Args:
+        path: the file path of the object to load
+        compressed: flag to specify whether the file was compressed prior to saving
+
+    Returns:
+        obj: the python object that has been saved (e.g., a MaxentModel() instance)
     """
     with open(path, "rb") as f:
         obj = f.read()
@@ -99,17 +107,19 @@ def load_object(path, compressed=True):
 def create_output_raster_profile(
     raster_paths, template_idx, windowed=True, nodata=None, compress=None, driver="GTiff", bigtiff=True, dtype="float32"
 ):
-    """
-    Gets parameters for windowed reading/writing to output rasters.
+    """Gets parameters for windowed reading/writing to output rasters.
 
-    :param raster_paths: a list of raster paths of covariates to apply the model to
-    :param template_idx: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
-    :param windowed: bool to perform a block-by-block data read. slower, but reduces memory use.
-    :param nodata: the output nodata value to set
-    :param output_driver: the output raster file format (from rasterio.drivers.raster_driver_extensions())
-    :param compress: str of the compression type to apply to the output file
-    :param bigtiff: bool of whether to specify the output file as a bigtiff (for rasters > 2GB)
-    :returns: windows, profile, an iterable and a dictionary for the window reads and the raster profile
+    Args:
+        raster_paths: a list of raster paths of covariates to apply the model to
+        template_idx: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
+        windowed: bool to perform a block-by-block data read. slower, but reduces memory use.
+        nodata: the output nodata value to set
+        output_driver: the output raster file format (from rasterio.drivers.raster_driver_extensions())
+        compress: str of the compression type to apply to the output file
+        bigtiff: bool of whether to specify the output file as a bigtiff (for rasters > 2GB)
+
+    Returns:
+        (windows, profile): an iterable and a dictionary for the window reads and the raster profile
     """
     with rio.open(raster_paths[template_idx]) as src:
         if windowed:
@@ -134,11 +144,14 @@ def create_output_raster_profile(
 
 
 def get_raster_band_indexes(raster_paths):
-    """
-    Gets the band indexes of multiple raster bands to handle indexing multi-source and multi-band covariates.
+    """Counts the number raster bands to index multi-source, multi-band covariates.
 
-    :param raster_paths: a list of raster covariate paths
-    :returns: nbands, band_idx, int and list of the total number of bands and the 0-based start/stop band index
+    Args:
+        raster_paths: a list of raster paths
+
+    Returns:
+        (nbands, band_idx): int and list of the total number of bands and the 0-based start/stop
+            band index for each path
     """
     nbands = 0
     band_idx = [0]
@@ -151,11 +164,13 @@ def get_raster_band_indexes(raster_paths):
 
 
 def check_raster_alignment(raster_paths):
-    """
-    Checks whether the extent, resolution and projection of multiple rasters match exactly.
+    """Checks whether the extent, resolution and projection of multiple rasters match exactly.
 
-    :param raster_paths: a list of raster covariate paths
-    :returns: bool indicating wither they all align
+    Args:
+        raster_paths: a list of raster covariate paths
+
+    Returns:
+        Boolean: indicates wither all rasters align
     """
     first = raster_paths[0]
     rest = raster_paths[1:]
@@ -174,20 +189,28 @@ def check_raster_alignment(raster_paths):
 
 
 def in_notebook():
-    """
-    Tests whether the module is currently running in a jupyter notebook.
+    """Tests whether the module is currently running in a jupyter notebook.
 
-    :returns: bool
+    Args:
+        None
+
+    Returns:
+        Bool
     """
     return "ipykernel" in sys.modules
 
 
 def get_tqdm():
-    """
-    Returns the appropriate tqdm progress tracking module based on the user context, as
-      behavior changes inside/outside of jupyter notebooks.
+    """Returns the appropriate tqdm progress tracking module
 
-    :returns: the tqdm module
+    Determines the appropriate tqdm based on the user context, as
+    behavior changes inside/outside of jupyter notebooks.
+
+    Args:
+        None
+
+    Returns:
+        tqdm: the context-specific tqdm module
     """
     if in_notebook():
         from tqdm.notebook import tqdm
