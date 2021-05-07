@@ -5,6 +5,5 @@ ENV APP_HOME /app
 WORKDIR $APP_HOME
 
 # install the conda environment
-COPY requirements.txt .
-COPY environment.yml .
+COPY requirements.txt environment.yml ./
 RUN conda env create --file environment.yml
