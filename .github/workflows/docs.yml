@@ -5,13 +5,12 @@ on:
       - main
 jobs:
   deploy:
-    runs-on: $CONTAINER
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
           python-version: 3.x
-      - run: conda activate elapid
-      - run: pip install .
-      - run: pip install mkdocs-material mkdocs-jupyter mkdocstrings
-      - run: mkdocs gh-deploy --force
+      - run: $CONDA/bin/conda env update --file environment.yml --name base
+      - run: $CONDA/bin/pip install .
+      - run: $CONDA/bin/mkdocs gh-deploy --force
