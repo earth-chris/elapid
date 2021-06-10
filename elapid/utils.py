@@ -222,3 +222,20 @@ def get_tqdm():
 
 class NoDataException(Exception):
     pass
+
+
+def n_digits(number):
+    """Counts the number of significant integer digits of a number.
+
+    Args:
+        number: a float or int
+
+    Returns:
+        order: integer of the number of digits required to represent a number
+    """
+    if number == 0:
+        order = 1
+    else:
+        order = np.floor(np.log10(number)).astype(int) + 1
+
+    return order
