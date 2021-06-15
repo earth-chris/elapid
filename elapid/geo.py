@@ -16,7 +16,10 @@ from elapid.utils import (
     create_output_raster_profile,
     get_raster_band_indexes,
     get_tqdm,
+    n_digits,
 )
+
+tqdm = get_tqdm()
 
 
 def xy_to_geoseries(x, y, crs="epsg:4236"):
@@ -191,7 +194,8 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
             n_bands += src.count
 
     if labels is None:
-        labels = ["band_{:03d}".format(i + 1) for i in range(n_bands)]
+        n_zeros = n_digits(n_bands)
+        labels = ["band_{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]
     else:
         assert len(labels) == n_bands, "Number of raster bands ({}) does not match number of labels ({})".format(
             n_bands, len(labels)
@@ -219,7 +223,7 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     # df = pd.concat(pool.map(parallel_raster_reads, raster_paths), axis=1)
     # pool.close()
     # pool.join()
-    df = pd.concat([parallel_raster_reads(raster_path) for raster_path in raster_paths], axis=1)
+    df = pd.concat([parallel_raster_reads(raster_path) for raster_path in tqdm(raster_paths, desc="Raster")], axis=1)
     df.columns = labels
     gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
     if drop_na:
@@ -336,7 +340,6 @@ def apply_model_to_rasters(
         windows, duplicate = tee(windows)
         nwindows = len(list(duplicate))
 
-        tqdm = get_tqdm()
         for _, window in tqdm(windows, total=nwindows, desc="Tiles"):
             covariates = np.zeros((nbands, window.height, window.width), dtype=np.float32)
             predictions = np.zeros((1, window.height, window.width), dtype=np.float32) + nodata

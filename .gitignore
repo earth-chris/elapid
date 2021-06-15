@@ -131,3 +131,5 @@ dmypy.json
 # local files
 .zedstate
 scratch.py
+.make/
+.dockerignore

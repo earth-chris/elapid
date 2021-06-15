@@ -21,3 +21,6 @@ dependencies:
   - pip
   - pip:
     - -r requirements.txt
+    - mkdocs-material
+    - mkdocs-jupyter
+    - mkdocstrings
