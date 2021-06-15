@@ -15,7 +15,6 @@ dependencies:
   - rasterio>=1.0
   - rtree
   - scikit-learn
-  - scipy
   - shapely
   - tqdm
   - pip
