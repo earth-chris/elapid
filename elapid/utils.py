@@ -62,7 +62,7 @@ def load_sample_data(name="bradypus"):
         file_path = os.path.join(package_dir, "data", "bradypus.csv.gz")
         df = pd.read_csv(file_path, compression="gzip").astype("int64")
         y = df["presence"].astype("int8")
-        x = df[df.columns[1:]].astype({"ecoreg": "category"})
+        x = df.drop(columns=["presence"]).astype({"ecoreg": "category"})
         return x, y
 
 
@@ -170,7 +170,7 @@ def check_raster_alignment(raster_paths):
         raster_paths: a list of raster covariate paths
 
     Returns:
-        Boolean: indicates wither all rasters align
+        Boolean: indicates whether all rasters align
     """
     first = raster_paths[0]
     rest = raster_paths[1:]
