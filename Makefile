@@ -21,10 +21,10 @@ help:
 	@echo "	update tools for development -- conda, pip, etc"
 
 	@echo "make docker-build"
-	@echo "	build docker image for [$(NAME)]"
+	@echo "	build [$(NAME)] docker image"
 
 	@echo "make docker-deploy"
-	@echo "	build and deploy docker image for [$(NAME)]"
+	@echo "	build and deploy [$(NAME)] docker image"
 
 	@echo "make docker-clean"
 	@echo "	clean all docker containers, images, and data"
