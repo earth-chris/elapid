@@ -105,7 +105,14 @@ def load_object(path, compressed=True):
 
 
 def create_output_raster_profile(
-    raster_paths, template_idx, windowed=True, nodata=None, compress=None, driver="GTiff", bigtiff=True, dtype="float32"
+    raster_paths,
+    template_idx=0,
+    windowed=True,
+    nodata=None,
+    compress=None,
+    driver="GTiff",
+    bigtiff=True,
+    dtype="float32",
 ):
     """Gets parameters for windowed reading/writing to output rasters.
 
