@@ -31,6 +31,9 @@ help:
 
 	@echo "make test"
 	@echo "	run tests"
+	
+	@echo "make test-data"
+	@echo " generates new data for tests/data/"
 
 
 # paths for dummy files to indicate when targets need to be rerun
@@ -55,6 +58,9 @@ update: conda-update pip-update misc-update
 test:
 	${CONDA_RUN} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
 
+# create the test data
+test-data:
+	${CONDA_RUN} python tests/create_test_data.py
 
 # conda
 conda-init:
