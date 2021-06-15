@@ -21,16 +21,19 @@ help:
 	@echo "	update tools for development -- conda, pip, etc"
 
 	@echo "make docker-build"
-	@echo "	build docker image for [$(NAME)]"
+	@echo "	build [$(NAME)] docker image"
 
 	@echo "make docker-deploy"
-	@echo "	build and deploy docker image for [$(NAME)]"
+	@echo "	build and deploy [$(NAME)] docker image"
 
 	@echo "make docker-clean"
 	@echo "	clean all docker containers, images, and data"
 
 	@echo "make test"
 	@echo "	run tests"
+	
+	@echo "make test-data"
+	@echo " generates new data for tests/data/"
 
 
 # paths for dummy files to indicate when targets need to be rerun
@@ -55,6 +58,9 @@ update: conda-update pip-update misc-update
 test:
 	${CONDA_RUN} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
 
+# create the test data
+test-data:
+	${CONDA_RUN} python tests/create_test_data.py
 
 # conda
 conda-init:
