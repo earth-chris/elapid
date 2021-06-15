@@ -2,10 +2,21 @@
 
 import os
 import tempfile
+from copy import copy
 
 import numpy as np
+import rasterio as rio
 
 from elapid import utils
+
+# set the test raster data paths
+directory_path, script_path = os.path.split(os.path.abspath(__file__))
+data_path = os.path.join(directory_path, "data")
+raster_1b = os.path.join(data_path, "test-raster-1band.tif")
+raster_2b = os.path.join(data_path, "test-raster-2bands.tif")
+raster_1b_offset = os.path.join(data_path, "test-raster-1band-offset.tif")
+with rio.open(raster_1b, "r") as src:
+    raster_1b_profile = copy(src.profile)
 
 
 def test_repeat_array():
@@ -74,19 +85,37 @@ def test_load_object():
     assert loaded_obj[-1] == n_elements, "Loaded object doesn't match data content of saved object"
 
 
-# TODO
 def test_create_output_raster_profile():
-    pass
+    raster_paths = [raster_1b, raster_2b]
+    nodata = -9999
+    windows, output_profile = utils.create_output_raster_profile(raster_paths, template_idx=0, nodata=nodata)
+
+    # window check
+    nwindows = len(list(windows))
+    assert nwindows == 1
+
+    # profile check
+    assert raster_1b_profile["width"] == output_profile["width"]
+    assert raster_1b_profile["nodata"] != output_profile["nodata"]
 
 
-# TODO
 def test_get_raster_band_indexes():
-    pass
+    raster_paths = [raster_1b, raster_2b]
+    nbands, index = utils.get_raster_band_indexes(raster_paths)
+    assert nbands == 3
+    assert index == [0, 1, 3]
 
 
-# TODO
 def test_check_raster_alignment():
-    pass
+    # fail on misaligned
+    raster_paths = [raster_1b, raster_1b_offset]
+    aligned = utils.check_raster_alignment(raster_paths)
+    assert aligned is False
+
+    # succeed on aligned
+    raster_paths = [raster_1b, raster_2b]
+    aligned = utils.check_raster_alignment(raster_paths)
+    assert aligned is True
 
 
 def test_in_notebook():
