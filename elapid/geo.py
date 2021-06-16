@@ -20,6 +20,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
+tqdm.pandas(desc="Geometry", leave=False)
 
 
 def xy_to_geoseries(x, y, crs="epsg:4236"):
@@ -288,7 +289,7 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
             else:
                 points = geoseries.to_frame("geometry")
 
-            values = points.apply(read_pixel_value, axis=1, result_type="expand", source=src)
+            values = points.progress_apply(read_pixel_value, axis=1, result_type="expand", source=src)
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
