@@ -5,7 +5,7 @@ channels:
   - defaults
 
 dependencies:
-  - python==3.7
+  - python>=3.7
   - descartes
   - gdal
   - geopandas
@@ -15,7 +15,6 @@ dependencies:
   - rasterio>=1.0
   - rtree
   - scikit-learn
-  - scipy
   - shapely
   - tqdm
   - pip
@@ -24,3 +23,4 @@ dependencies:
     - mkdocs-material
     - mkdocs-jupyter
     - mkdocstrings
+    - livereload

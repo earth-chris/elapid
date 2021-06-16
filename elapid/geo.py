@@ -20,6 +20,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
+tqdm.pandas(desc="Geometry", leave=False)
 
 
 def xy_to_geoseries(x, y, crs="epsg:4236"):
@@ -33,6 +34,11 @@ def xy_to_geoseries(x, y, crs="epsg:4236"):
     Returns:
         gs: Point geometry geoseries
     """
+    if not hasattr(x, "__iter__"):
+        x = [x]
+    if not hasattr(y, "__iter__"):
+        y = [y]
+
     points = [Point(x, y) for x, y in zip(x, y)]
     gs = gpd.GeoSeries(points, crs=crs)
 
@@ -151,6 +157,71 @@ def pseudoabsence_from_geoseries(geoseries, count, overestimate=2):
     return points
 
 
+def parse_crs_string(string):
+    """Parses a string to determine the CRS/spatial projection format.
+
+    Args:
+        string: a string with CRS/projection data.
+
+    Returns:
+        crs_type: Str in ["wkt", "proj4", "epsg", "string"].
+    """
+    if "epsg:" in string.lower():
+        return "epsg"
+    elif "+proj" in string:
+        return "proj4"
+    elif "SPHEROID" in string:
+        return "wkt"
+    else:
+        return "string"
+
+
+def string_to_crs(string):
+    """Converts a crs/projection string to a pyproj-readable CRS object
+
+    Args:
+        string: a crs/projection string.
+        crs_type: the type of crs/projection string, in ["wkt", "proj4", "epsg", "string"].
+
+    Returns:
+        crs: a rasterio.crs.CRS object
+    """
+    crs_type = parse_crs_string(string)
+
+    if crs_type == "epsg":
+        auth, code = string.split(":")
+        crs = rio.crs.CRS.from_epsg(int(code))
+    elif crs_type == "proj4":
+        crs = rio.crs.CRS.from_proj4(string)
+    elif crs_type == "wkt":
+        crs = rio.crs.CRS.from_wkt(string)
+    else:
+        crs = rio.crs.CRS.from_string(string)
+
+    return crs
+
+
+def crs_match(crs1, crs2):
+    """Determines whether two coordinate reference systems are the same.
+
+    Args:
+        crs1: the first CRS, from a rasterio dataset, a GeoDataFrame, or a string with projection parameters.
+        crs2: the second CRS, from the same sources above.
+
+    Returns:
+        matches: Boolean for whether the CRS match.
+    """
+    # normalize string inputs via rasterio
+    if type(crs1) is str:
+        crs1 = string_to_crs(crs1)
+    if type(crs2) is str:
+        crs2 = string_to_crs(crs2)
+
+    matches = crs1 == crs2
+
+    return matches
+
+
 def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=True):
     """Reads and stores pixel values from rasters using a point-format vector file.
 
@@ -203,7 +274,7 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
 
     # apply this function over every geoseries row
     def read_pixel_value(point, source):
-        row, col = source.index(point.x, point.y)
+        row, col = source.index(point.geometry.x, point.geometry.y)
         window = rio.windows.Window(col, row, 1, 1)
         value = source.read(window=window)
         return np.squeeze(value)
@@ -211,8 +282,14 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     # apply this function over every raster_path
     def parallel_raster_reads(raster_path):
         with rio.open(raster_path) as src:
-            points = geoseries.to_crs(src.crs)
-            values = points.apply(read_pixel_value, source=src)
+
+            # reproject if necessary
+            if not crs_match(geoseries.crs, src.crs):
+                points = geoseries.to_crs(src.crs).to_frame("geometry")
+            else:
+                points = geoseries.to_frame("geometry")
+
+            values = points.progress_apply(read_pixel_value, axis=1, result_type="expand", source=src)
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
