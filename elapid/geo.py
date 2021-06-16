@@ -33,6 +33,11 @@ def xy_to_geoseries(x, y, crs="epsg:4236"):
     Returns:
         gs: Point geometry geoseries
     """
+    if not hasattr(x, "__iter__"):
+        x = [x]
+    if not hasattr(y, "__iter__"):
+        y = [y]
+
     points = [Point(x, y) for x, y in zip(x, y)]
     gs = gpd.GeoSeries(points, crs=crs)
 
@@ -149,6 +154,71 @@ def pseudoabsence_from_geoseries(geoseries, count, overestimate=2):
     points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=geoseries.crs)
 
     return points
+
+
+def parse_crs_string(string):
+    """Parses a string to determine the CRS/spatial projection format.
+
+    Args:
+        string: a string with CRS/projection data.
+
+    Returns:
+        crs_type: Str in ["wkt", "proj4", "epsg", "string"].
+    """
+    if "epsg:" in string.lower():
+        return "epsg"
+    elif "+proj" in string:
+        return "proj4"
+    elif "SPHEROID" in string:
+        return "wkt"
+    else:
+        return "string"
+
+
+def string_to_crs(string):
+    """Converts a crs/projection string to a pyproj-readable CRS object
+
+    Args:
+        string: a crs/projection string.
+        crs_type: the type of crs/projection string, in ["wkt", "proj4", "epsg", "string"].
+
+    Returns:
+        crs: a rasterio.crs.CRS object
+    """
+    crs_type = parse_crs_string(string)
+
+    if crs_type == "epsg":
+        auth, code = string.split(":")
+        crs = rio.crs.CRS.from_epsg(int(code))
+    elif crs_type == "proj4":
+        crs = rio.crs.CRS.from_proj4(string)
+    elif crs_type == "wkt":
+        crs = rio.crs.CRS.from_wkt(string)
+    else:
+        crs = rio.crs.CRS.from_string(string)
+
+    return crs
+
+
+def crs_match(crs1, crs2):
+    """Determines whether two coordinate reference systems are the same.
+
+    Args:
+        crs1: the first CRS, from a rasterio dataset, a GeoDataFrame, or a string with projection parameters.
+        crs2: the second CRS, from the same sources above.
+
+    Returns:
+        matches: Boolean for whether the CRS match.
+    """
+    # normalize string inputs via rasterio
+    if type(crs1) is str:
+        crs1 = string_to_crs(crs1)
+    if type(crs2) is str:
+        crs2 = string_to_crs(crs2)
+
+    matches = crs1 == crs2
+
+    return matches
 
 
 def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=True):
