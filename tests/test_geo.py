@@ -118,3 +118,9 @@ def test_raster_values_from_geoseries():
     df = geo.raster_values_from_geoseries(geoseries.repeat(n), [raster_1b])
     b1 = df["band_1"].iloc[n - 1]
     assert b1 == 0
+
+    # test the slow read
+    n = 10
+    df = geo.raster_values_from_geoseries(geoseries.repeat(n), [raster_1b], iterate=True)
+    b1 = df["band_1"].iloc[n - 1]
+    assert b1 == 0

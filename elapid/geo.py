@@ -20,7 +20,8 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
-tqdm.pandas(desc="Geometry", leave=False)
+tqdm_opts = {"desc": "Geometry", "leave": False}
+tqdm.pandas(**tqdm_opts)
 
 
 def xy_to_geoseries(x, y, crs="epsg:4236"):
@@ -241,14 +242,15 @@ def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=Tr
     return gdf
 
 
-def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=True):
+def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=True, iterate=False):
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
-        geoseries: Geoseries (e.g., gdf['geometry']) with point locations
-        raster_paths: List of raster paths to extract pixel values from
-        labels: List of band name labels. should match the total number of bands across all raster_paths
-        drop_na: Bool to drop all records with no-data values
+        geoseries: Geoseries (e.g., gdf['geometry']) with point locations.
+        raster_paths: List of raster paths to extract pixel values from.
+        labels: List of band name labels. should match the total number of bands across all raster_paths.
+        drop_na: Bool to drop all records with no-data values.
+        iterate: Bool to loop through each record instead of using .apply(). Slower, but saves memory.
 
     Returns:
         gdf: Geodataframe annotated with the pixel values from each raster
@@ -289,7 +291,19 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
             else:
                 points = geoseries.to_frame("geometry")
 
-            values = points.progress_apply(read_pixel_value, axis=1, result_type="expand", source=src)
+            # read the data one at a time or with apply()
+            if iterate:
+                values = pd.DataFrame(
+                    np.row_stack(
+                        [
+                            read_pixel_value(point, src)
+                            for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts)
+                        ]
+                    )
+                )
+            else:
+                values = points.progress_apply(read_pixel_value, axis=1, result_type="expand", source=src)
+
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
@@ -302,7 +316,9 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     # pool.join()
     df = pd.concat([parallel_raster_reads(raster_path) for raster_path in tqdm(raster_paths, desc="Raster")], axis=1)
     df.columns = labels
+    df.set_index(geoseries.index, inplace=True)
     gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
+
     if drop_na:
         gdf.dropna(axis=0, inplace=True)
 
