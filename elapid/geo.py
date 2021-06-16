@@ -293,14 +293,11 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
 
             # read the data one at a time or with apply()
             if iterate:
-                values = pd.DataFrame(
-                    np.row_stack(
-                        [
-                            read_pixel_value(point, src)
-                            for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts)
-                        ]
-                    )
-                )
+                row_vals = [
+                    read_pixel_value(point, src)
+                    for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts)
+                ]
+                values = pd.DataFrame(np.vstack(row_vals))
             else:
                 values = points.progress_apply(read_pixel_value, axis=1, result_type="expand", source=src)
 
