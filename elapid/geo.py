@@ -273,7 +273,7 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
 
     # apply this function over every geoseries row
     def read_pixel_value(point, source):
-        row, col = source.index(point.x, point.y)
+        row, col = source.index(point.geometry.x, point.geometry.y)
         window = rio.windows.Window(col, row, 1, 1)
         value = source.read(window=window)
         return np.squeeze(value)
@@ -281,8 +281,14 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     # apply this function over every raster_path
     def parallel_raster_reads(raster_path):
         with rio.open(raster_path) as src:
-            points = geoseries.to_crs(src.crs)
-            values = points.apply(read_pixel_value, source=src)
+
+            # reproject if necessary
+            if not crs_match(geoseries.crs, src.crs):
+                points = geoseries.to_crs(src.crs).to_frame("geometry")
+            else:
+                points = geoseries.to_frame("geometry")
+
+            values = points.apply(read_pixel_value, axis=1, result_type="expand", source=src)
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
