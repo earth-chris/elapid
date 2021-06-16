@@ -5,7 +5,7 @@ channels:
   - defaults
 
 dependencies:
-  - python==3.7
+  - python>=3.7
   - descartes
   - gdal
   - geopandas
@@ -23,3 +23,4 @@ dependencies:
     - mkdocs-material
     - mkdocs-jupyter
     - mkdocstrings
+    - livereload
