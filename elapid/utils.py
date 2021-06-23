@@ -246,3 +246,35 @@ def n_digits(number):
         order = np.floor(np.log10(number)).astype(int) + 1
 
     return order
+
+
+def count_raster_bands(raster_paths):
+    """Returns the total number of bands from a list of rasters.
+
+    Args:
+        raster_paths: List of raster data file paths.
+
+    Returns:
+        n_bands: Int of the band count.
+    """
+    n_bands = 0
+    for path in raster_paths:
+        with rio.open(path) as src:
+            n_bands += src.count
+
+    return n_bands
+
+
+def make_band_labels(n_bands):
+    """Creates a list of band names to assign as dataframe columns.
+
+    Args:
+        n_bands: Int of the number of raster bands to create labels for.
+
+    Returns:
+        labels: List of column labels.
+    """
+    n_zeros = n_digits(n_bands)
+    labels = ["band_{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]
+
+    return labels

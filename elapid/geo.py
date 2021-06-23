@@ -13,9 +13,11 @@ from elapid.utils import (
     NoDataException,
     _ncpus,
     check_raster_alignment,
+    count_raster_bands,
     create_output_raster_profile,
     get_raster_band_indexes,
     get_tqdm,
+    make_band_labels,
     n_digits,
 )
 
@@ -223,6 +225,24 @@ def crs_match(crs1, crs2):
     return matches
 
 
+def _read_pixel_value(point, source):
+    """Reads raster value from an open rasterio dataset.
+
+    Designed to be run using a `geodataframe.apply()` function.
+
+    Args:
+        point: a row from gdf.apply() or gdf.iterrows()
+        source: an open rasterio data source
+
+    Returns:
+        value: 1-d n-length array with the pixel values of each raster band.
+    """
+    row, col = source.index(point.geometry.x, point.geometry.y)
+    window = rio.windows.Window(col, row, 1, 1)
+    value = source.read(window=window)
+    return np.squeeze(value)
+
+
 def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=True):
     """Reads and stores pixel values from rasters using a point-format vector file.
 
@@ -260,32 +280,20 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     if isinstance(raster_paths, (str)):
         raster_paths = [raster_paths]
 
-    # get the band count to use and reconcile with the number of labels passed
-    n_bands = 0
-    for path in raster_paths:
-        with rio.open(path) as src:
-            n_bands += src.count
-
+    # set raster band column labels
+    n_bands = count_raster_bands(raster_paths)
     if labels is None:
-        n_zeros = n_digits(n_bands)
-        labels = ["band_{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]
+        labels = make_band_labels(n_bands)
     else:
-        assert len(labels) == n_bands, "Number of raster bands ({}) does not match number of labels ({})".format(
-            n_bands, len(labels)
-        )
+        n_labels = len(labels)
+        assert n_labels == n_bands, "Number of labels ({n_labels}) doesn't match band count ({n_bands})"
 
-    # apply this function over every geoseries row
-    def read_pixel_value(point, source):
-        row, col = source.index(point.geometry.x, point.geometry.y)
-        window = rio.windows.Window(col, row, 1, 1)
-        value = source.read(window=window)
-        return np.squeeze(value)
-
-    # apply this function over every raster_path
-    def parallel_raster_reads(raster_path):
+    # annotate each point with the pixel values for each raster
+    raster_values = []
+    for raster_path in tqdm(raster_paths, desc="Raster"):
         with rio.open(raster_path) as src:
 
-            # reproject if necessary
+            # reproject points to match raster if necessary
             if not crs_match(geoseries.crs, src.crs):
                 points = geoseries.to_crs(src.crs).to_frame("geometry")
             else:
@@ -294,24 +302,21 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
             # read the data one at a time or with apply()
             if iterate:
                 row_vals = [
-                    read_pixel_value(point, src)
+                    _read_pixel_value(point, src)
                     for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts)
                 ]
                 values = pd.DataFrame(np.vstack(row_vals))
             else:
-                values = points.progress_apply(read_pixel_value, axis=1, result_type="expand", source=src)
+                values = points.progress_apply(_read_pixel_value, axis=1, result_type="expand", source=src)
 
+            # filter out nodata pixels
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
-        return values
+        raster_values.append(values)
 
-    # TODO: multiprocess the raster reads
-    # pool = Pool(n_workers)
-    # df = pd.concat(pool.map(parallel_raster_reads, raster_paths), axis=1)
-    # pool.close()
-    # pool.join()
-    df = pd.concat([parallel_raster_reads(raster_path) for raster_path in tqdm(raster_paths, desc="Raster")], axis=1)
+    # format the values as a geodataframe
+    df = pd.concat(raster_values, axis=1)
     df.columns = labels
     df.set_index(geoseries.index, inplace=True)
     gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
