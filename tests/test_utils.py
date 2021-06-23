@@ -127,4 +127,28 @@ def test_get_tqdm():
     methods = dir(tqdm)
 
     assert "monitor_interval" in methods
-    assert "tqdm_notebook" not in methods, "Returned tqdm should not be the module"
+    assert "tqdm_notebook" not in methods, "Returned tqdm should not be the base module"
+
+
+def test_n_digits():
+    assert utils.n_digits(1) == 1
+    assert utils.n_digits(11) == 2
+    assert utils.n_digits(111) == 3
+
+
+def test_count_raster_bands():
+    list_2b = [raster_1b, raster_1b]
+    list_3b = [raster_1b, raster_2b]
+
+    assert utils.count_raster_bands(list_2b) == 2
+    assert utils.count_raster_bands(list_3b) == 3
+
+
+def test_make_band_labels():
+    n_bands = 1
+    labels = utils.make_band_labels(n_bands)
+    assert len(labels) == n_bands
+
+    n_bands = 10
+    labels = utils.make_band_labels(n_bands)
+    assert len(labels) == n_bands
