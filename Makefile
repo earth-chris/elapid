@@ -1,12 +1,8 @@
-####################
-# SETUP
-
 # environment variables
 NAME=elapid
 CONDA_RUN=conda run --name ${NAME}
 DOCKER_IMAGE=us.gcr.io/california-fores-1547767414612/$(NAME)
 DOCKER_TAG_GIT:=$(shell git rev-parse --short=12 HEAD)
-
 
 # help docs
 .DEFAULT: help
@@ -15,23 +11,14 @@ help:
 	@echo ""
 
 	@echo "make init"
-	@echo "	initialize tools for development -- conda, pip, etc"
-	
+	@echo "	initialize development tools -- conda, pip, etc"
+
 	@echo "make update"
-	@echo "	update tools for development -- conda, pip, etc"
-
-	@echo "make docker-build"
-	@echo "	build [$(NAME)] docker image"
-
-	@echo "make docker-deploy"
-	@echo "	build and deploy [$(NAME)] docker image"
-
-	@echo "make docker-clean"
-	@echo "	clean all docker containers, images, and data"
+	@echo "	update development tools"
 
 	@echo "make test"
 	@echo "	run tests"
-	
+
 	@echo "make test-data"
 	@echo " generates new data for tests/data/"
 
@@ -46,19 +33,15 @@ DOCKER_INITIALIZED=${DIR_MAKE}/docker_initialized
 ####################
 # ENTRY POINTS
 
-# initialize tools
 init: conda-init pip-init misc-update
 	@:
 
-# update tools
 update: conda-update pip-update misc-update
 	@:
 
-# run tests
 test:
 	${CONDA_RUN} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
 
-# create the test data
 test-data:
 	${CONDA_RUN} python tests/create_test_data.py
 
@@ -96,26 +79,3 @@ misc-update:
 	@${CONDA_RUN} pre-commit install
 	@test ! -f .gcloudignore || rm .gcloudignore
 	@cp .gitignore .gcloudignore
-
-
-# docker
-docker-init: ${DOCKER_INITIALIZED}
-	@:
-${DOCKER_INITIALIZED}:
-	gcloud auth configure-docker
-	@test -d ${DIR_MAKE} || mkdir ${DIR_MAKE}
-	@touch ${DOCKER_INITIALIZED}
-
-docker-build: docker-init docker-clean
-	@test ! -f .dockerignore || rm .dockerignore
-	@cp .gitignore .dockerignore
-	docker build  --tag ${DOCKER_IMAGE}:${DOCKER_TAG_GIT} .
-	docker tag ${DOCKER_IMAGE}:${DOCKER_TAG_GIT} ${DOCKER_IMAGE}:latest
-
-docker-clean:
-	@docker system prune -f
-
-docker-deploy: docker-build
-	docker push ${DOCKER_IMAGE}:${DOCKER_TAG_GIT}
-	gcloud container images add-tag ${DOCKER_IMAGE}:${DOCKER_TAG_GIT} ${DOCKER_IMAGE}:testing -q
-	gcloud container images add-tag ${DOCKER_IMAGE}:${DOCKER_TAG_GIT} ${DOCKER_IMAGE}:latest -q
