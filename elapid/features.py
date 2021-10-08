@@ -1,10 +1,12 @@
 """Functions to transform covariate data into complex model features."""
 
+from typing import Any, Tuple, Union
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
-from elapid.utils import MAXENT_DEFAULTS, repeat_array
+from elapid.utils import MAXENT_DEFAULTS, ArrayLike, repeat_array
 
 
 class MaxentFeatureTransformer(object):
@@ -27,26 +29,20 @@ class MaxentFeatureTransformer(object):
 
     def __init__(
         self,
-        feature_types=MAXENT_DEFAULTS["feature_types"],
-        clamp=MAXENT_DEFAULTS["clamp"],
-        n_hinge_features=MAXENT_DEFAULTS["n_hinge_features"],
-        n_threshold_features=MAXENT_DEFAULTS["n_threshold_features"],
+        feature_types: Union[str, list] = MAXENT_DEFAULTS["feature_types"],
+        clamp: bool = MAXENT_DEFAULTS["clamp"],
+        n_hinge_features: int = MAXENT_DEFAULTS["n_hinge_features"],
+        n_threshold_features: int = MAXENT_DEFAULTS["n_threshold_features"],
     ):
-        """Creates a feature transformer.
+        """Computes features based on the maxent feature types specified (like linear, quadratic, hinge).
 
-        Computes features from covariates based on the maxent feature types
-        specified (like linear, quadratic, hinge). Implemented using
-        sklearn conventions (usng `.fit()` and `.transform()` functions.
+        Implemented using sklearn conventions (usng `.fit()` and `.transform()` functions.
 
         Args:
-            feature_types: List of maxent features to generate.
-            clamp: Boolean of whether to clamp feature values to global mins/maxs
-                during inference
-            n_hinge_features: Int of hinge knots to generate
-            n_threshold_features: Int of threshold features to generate
-
-        Returns:
-            self: A feature tranformer object
+            feature_types: list of maxent features to generate.
+            clamp: set feature values to global mins/maxs during prediction
+            n_hinge_features: number of hinge knots to generate
+            n_threshold_features: nuber of threshold features to generate
         """
         # user-specified parameters
         self.feature_types_ = validate_feature_types(feature_types)
@@ -64,13 +60,13 @@ class MaxentFeatureTransformer(object):
         self.feature_maxs_ = None
         self.labels_ = None
 
-    def fit(self, x, categorical=None, labels=None):
+    def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Fits features to covariates.
 
         Args:
-            x: Array-like of shape (n_samples, n_features) with covariate data
-            categorical: Array-like of column indices for which columns are categorical
-            labels: Covariate labels. Ignored if x is a pandas dataframe
+            x: array-like of shape (n_samples, n_features) with covariate data
+            categorical: indices for which columns are categorical
+            labels: covariate labels. ignored if x is a pandas DataFrame
 
         Returns:
             None: Updates the transformer object with feature fitting parameters.
@@ -79,16 +75,16 @@ class MaxentFeatureTransformer(object):
         self._compute_features(con, cat, transform=False)
         self.initialized_ = True
 
-    def transform(self, x, categorical=None, labels=None):
+    def transform(self, x: ArrayLike, categorical: list = None, labels: list = None) -> pd.DataFrame:
         """Applies feature transformations to covariates.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            categorical: Array-like of column indices for which columns are categorical
-            labels: List of covariate labels. Ignored if x is a pandas dataframe
+            categorical: indices for which columns are categorical
+            labels: list of covariate labels. ignored if x is a pandas DataFrame
 
         Returns:
-            features: Dataframe with feature transformations applied to x.
+            features: DataFrame with feature transformations applied to x.
         """
         assert self.initialized_, "Transformer must be fit first"
 
@@ -106,16 +102,16 @@ class MaxentFeatureTransformer(object):
 
         return features
 
-    def fit_transform(self, x, categorical=None, labels=None):
+    def fit_transform(self, x: ArrayLike, categorical: list = None, labels: list = None) -> pd.DataFrame:
         """Fits features and applies transformations to covariates x.
 
         Args:
-            x: Array-like of shape (n_samples, n_features) with covariate data
-            categorical: Array-like of column indices for which columns are categorical
-            labels: List of covariate labels. Ignored if x is a pandas dataframe
+            x: array-like of shape (n_samples, n_features) with covariate data
+            categorical: indices for which columns are categorical
+            labels: list of covariate labels. ignored if x is a pandas DataFrame
 
         Returns:
-            features: Dataframe with feature transformation applied to x
+            features: DataFrame with feature transformation applied to x
         """
         con, cat = self._format_covariate_data(x, categorical=categorical, labels=labels)
         features = self._compute_features(con, cat, transform=False)
@@ -123,16 +119,18 @@ class MaxentFeatureTransformer(object):
 
         return features
 
-    def _format_covariate_data(self, x, categorical=None, labels=None):
+    def _format_covariate_data(
+        self, x: ArrayLike, categorical: list = None, labels: list = None
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Standardizes array-like input data to a consistent data structure.
 
         Args:
-            x: Array-like of shape (n_samples, n_features) with covariate data
-            categorical: Array-like of column indices for which columns are categorical
-            labels: List of covariate labels. Ignored if x is a pandas dataframe
+            x: array-like of shape (n_samples, n_features) with covariate data
+            categorical: indices for which columns are categorical
+            labels: list of covariate labels. ignored if x is a pandas DataFrame
 
         Returns:
-            (con, cat): Tuple of pandas dataframes with continuous and categorical covariates
+            (con, cat): pandas DataFrames with continuous and categorical covariates
         """
         if isinstance(x, pd.DataFrame):
             x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
@@ -145,16 +143,18 @@ class MaxentFeatureTransformer(object):
 
         return con, cat
 
-    def _covariates_to_df(self, x, categorical=None, labels=None):
+    def _covariates_to_df(
+        self, x: ArrayLike, categorical: list = None, labels: list = None
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Converts 2D numerical arrays into labeled pandas DataFrames for continuous and categorical variables
 
         Args:
-            x: a numpy array of shape (nrows, ncols), where nrows = number of samples, ncols = number of covariates
-            categorical: Array-like of column indices for which columns are categorical
-            labels: List of covariate labels. Ignored if x is a pandas dataframe
+            x: array-like of shape (n_samples, n_features) with covariate data
+            categorical: indices for which columns are categorical
+            labels: list of covariate labels. ignored if x is a pandas DataFrame
 
         Returns:
-            (con, cat): a tuple of pandas dataframes with continuous and categorical covariates
+            (con, cat): pandas DataFrames with continuous and categorical covariates
         """
         # cast x to 2d if only one feature is passed
         if np.ndim(x) == 1:
@@ -206,16 +206,16 @@ class MaxentFeatureTransformer(object):
 
         return (con_df, cat_df)
 
-    def _compute_features(self, con, cat, transform=False):
+    def _compute_features(self, con: pd.DataFrame, cat: pd.DataFrame, transform: bool = False) -> pd.DataFrame:
         """Transforms input data to the features used for model training.
 
         Args:
-            con: Dataframe encoded with continuous (i.e. numeric) covariates
-            cat: Dataframe encoded with categorical (i.e. class) covariates
-            transform: Boolean for whether to apply already-fit transformations.
+            con: DataFrame encoded with continuous (i.e. numeric) covariates
+            cat: DataFrame encoded with categorical (i.e. class) covariates
+            transform: apply already-fit transformations.
 
         Returns:
-            features: Dataframe with the feature transformations applied to each column
+            features: DataFrame with the feature transformations applied to each column
         """
         categorical_covariates = list(cat.columns)
         continuous_covariates = list(con.columns)
@@ -292,21 +292,21 @@ class MaxentFeatureTransformer(object):
 
         return features
 
-    def _clamp_features(self, features):
+    def _clamp_features(self, features: ArrayLike) -> ArrayLike:
         """Sets features to the min/max of the global range of the original fit.
 
         Args:
-            features: Array-like of shape (n_samples, n_features)
+            features: array-like of shape (n_samples, n_features)
 
         Returns:
-            features: Array-like with values clamped to global min/max
+            features: array-like with values clamped to global min/max
         """
         assert self.initialized_, "Transformer must be fit first"
 
         return features.apply(clamp_row, axis=1, raw=True, mins=self.feature_mins_, maxs=self.feature_maxs_)
 
 
-def hingeval(x, mn, mx):
+def hingeval(x: ArrayLike, mn: float, mx: float) -> ArrayLike:
     """Computes hinge transformation values.
 
     Args:
@@ -320,13 +320,15 @@ def hingeval(x, mn, mx):
     return np.minimum(1, np.maximum(0, (x - mn) / (mx - mn)))
 
 
-def hinge(x, n_hinges=30, range=None):
+def hinge(
+    x: ArrayLike, n_hinges: int = MAXENT_DEFAULTS["n_hinge_features"], range: Tuple[float, float] = None
+) -> ArrayLike:
     """Fits hinge transformations to an array of covariates.
 
     Args:
         x: Array-like of covariate values
-        n_hinges: Integer of the number of transformations to apply
-        range: List or tuple of the range of covariate values to fit across
+        n_hinges: number of transformations to apply
+        range: min/max covariate values to fit across
 
     Returns:
         Array of hinge features of shape (n_samples, (n_hinges-1) * 2)
@@ -345,16 +347,18 @@ def hinge(x, n_hinges=30, range=None):
     return np.concatenate((lh, rh), axis=1)
 
 
-def threshold(x, n_thresholds=30, range=None):
+def threshold(
+    x, n_thresholds: int = MAXENT_DEFAULTS["n_threshold_features"], range: Tuple[float, float] = None
+) -> ArrayLike:
     """Fits arbitrary threshold transformations to an array of covariates.
 
     Args:
-        x: Array-like of covariate values
-        n_thresholds: integer of the number of transformations to apply
-        range: List or tuple of the range of covariate values to fit across
+        x: array-like of covariate values
+        n_thresholds: number of transformations to apply
+        range: min/max covariate values to fit across
 
     Returns:
-        Array of thresholds features of shape (n_samples, n_thresholds - 2)
+        array of thresholds features of shape (n_samples, n_thresholds - 2)
     """
     mn = range[0] if range is not None else np.min(x)
     mx = range[1] if range is not None else np.max(x)
@@ -366,28 +370,28 @@ def threshold(x, n_thresholds=30, range=None):
     return (xarr > tarr).astype(np.uint8)
 
 
-def clamp_row(row, mins, maxs):
+def clamp_row(row: pd.Series, mins: ArrayLike, maxs: ArrayLike) -> ArrayLike:
     """Clamps feature data to a min/max range. Designed for df.apply()
 
     Args:
-        row: Dataframe row / 1-d array of feature values
-        mins: Array of global feature minimum values
-        maxs: Array of global feature maximum values
+        row: DataFrame row / 1-d array of feature values
+        mins: array of global feature minimum values
+        maxs: array of global feature maximum values
 
     Returns:
-        Array of clamped feature values
+        array of clamped feature values
     """
     return np.min([maxs, np.max([row, mins], axis=0)], axis=0)
 
 
-def compute_lambdas(y, weights, reg, n_lambda=200):
+def compute_lambdas(y: ArrayLike, weights: ArrayLike, reg: ArrayLike, n_lambda: int = 200) -> ArrayLike:
     """Computes lambda parameter values for elastic lasso fits.
 
     Args:
-        y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
-        weights: Array-like of per-sample model weights
-        reg: Array-like of per-feature regularization coefficients
-        n_lambda: Int of lambda values to estimate
+        y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        weights: per-sample model weights
+        reg: per-feature regularization coefficients
+        n_lambda: number of lambda values to estimate
 
     Returns:
         lambdas: Array of lambda scores of length n_lambda
@@ -401,15 +405,15 @@ def compute_lambdas(y, weights, reg, n_lambda=200):
     return lambdas
 
 
-def compute_weights(y, pbr=100):
+def compute_weights(y: ArrayLike, pbr: int = 100) -> ArrayLike:
     """Compute Maxent-format per-sample model weights.
 
     Args:
-        y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
-        pbr: Int presence-to-background weight ratio. pbr=100 sets background samples to 1/100 weight of presence samples.
+        y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        pbr: presence-to-background weight ratio. pbr=100 sets background samples to 1/100 weight of presence samples.
 
     Returns:
-        weights: Array-like with glmnet-formatted sample weights
+        weights: array with glmnet-formatted sample weights
     """
     weights = np.array(y + (1 - y) * pbr)
 
@@ -417,18 +421,24 @@ def compute_weights(y, pbr=100):
 
 
 def compute_regularization(
-    f, y, beta_multiplier=1.0, beta_lqp=1.0, beta_threshold=1.0, beta_hinge=1.0, beta_categorical=1.0
-):
+    f: pd.DataFrame,
+    y: ArrayLike,
+    beta_multiplier: float = MAXENT_DEFAULTS["beta_multiplier"],
+    beta_lqp: float = MAXENT_DEFAULTS["beta_lqp"],
+    beta_threshold: float = MAXENT_DEFAULTS["beta_threshold"],
+    beta_hinge: float = ["beta_hinge"],
+    beta_categorical: float = MAXENT_DEFAULTS["beta_hinge"],
+) -> ArrayLike:
     """Computes variable regularization values for all feature data.
 
     Args:
-        f: Dataframe with feature transformations applied
-        y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
-        beta_multiplier: Int for all regularization parameters, where higher values exclude more features
-        beta_lqp: Int for linear, quadratic and product feature regularization parameters
-        beta_threshold: Int for threshold feature regularization parameters
-        beta_hinge: Int for hinge feature regularization parameters
-        beta_categorical: Int for categorical feature regularization parameters
+        f: DataFrame with feature transformations applied
+        y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        beta_multiplier: scaler for all regularization parameters. higher values exclude more features
+        beta_lqp: scaler for linear, quadratic and product feature regularization
+        beta_threshold: scaler for threshold feature regularization
+        beta_hinge: scaler for hinge feature regularization
+        beta_categorical: scaler for categorical feature regularization
 
     Returns:
         max_reg: Array with per-feature regularization parameters
@@ -497,8 +507,8 @@ def compute_regularization(
     return max_reg
 
 
-def validate_feature_types(features):
-    """Ensures the feature classes passed are legitimate
+def validate_feature_types(features: Union[str, list]) -> list:
+    """Ensures the feature classes passed are maxent-legible
 
     Args:
         features: List or string that must be in ["linear", "quadratic", "product",
@@ -546,8 +556,8 @@ def validate_feature_types(features):
     return valid_features
 
 
-def validate_boolean(var):
-    """Asserts that an argument is boolean True/False
+def validate_boolean(var: Any) -> bool:
+    """Evaluates whether an argument is boolean True/False
 
     Args:
         var: the input argument to validate
@@ -562,8 +572,8 @@ def validate_boolean(var):
     return var
 
 
-def validate_numeric_scalar(var):
-    """Asserts that an argument is a single numeric value.
+def validate_numeric_scalar(var: Any) -> bool:
+    """Evaluates whether an argument is a single numeric value.
 
     Args:
         var: the input argument to validate

@@ -5,12 +5,13 @@ import multiprocessing as mp
 import os
 import pickle
 import sys
+from typing import Any, Callable, Dict, Iterable, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import rasterio as rio
 
-_ncpus = mp.cpu_count()
+n_cpus = mp.cpu_count()
 
 MAXENT_DEFAULTS = {
     "clamp": True,
@@ -20,16 +21,23 @@ MAXENT_DEFAULTS = {
     "beta_threshold": 1.0,
     "beta_categorical": 1.0,
     "feature_types": ["linear", "hinge", "product"],
-    "n_hinge_features": 50,
-    "n_threshold_features": 50,
+    "n_hinge_features": 30,
+    "n_threshold_features": 20,
     "scorer": "roc_auc",
     "tau": 0.5,
     "tolerance": 1e-7,
     "use_lambdas": "last",
 }
 
+Number = Union[int, float]
+ArrayLike = Union[np.array, pd.DataFrame]
 
-def repeat_array(x, length=1, axis=0):
+
+class NoDataException(Exception):
+    pass
+
+
+def repeat_array(x: np.array, length: int = 1, axis: int = 0) -> np.ndarray:
     """Repeats a 1D numpy array along an axis to an arbitrary length
 
     Args:
@@ -43,7 +51,7 @@ def repeat_array(x, length=1, axis=0):
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
 
 
-def load_sample_data(name="bradypus"):
+def load_sample_data(name: str = "bradypus") -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Loads example species presence/background and covariate data.
 
     Args:
@@ -66,15 +74,12 @@ def load_sample_data(name="bradypus"):
         return x, y
 
 
-def save_object(obj, path, compress=True):
+def save_object(obj: object, path: str, compress: bool = True) -> None:
     """Writes a python object to disk for later access.
 
     Args:
-        obj: a python object to be saved (e.g., a MaxentModel() instance)
+        obj: a python object or variable to be saved (e.g., a MaxentModel() instance)
         path: the output file path
-
-    Returns:
-        None
     """
     obj = pickle.dumps(obj)
 
@@ -85,7 +90,7 @@ def save_object(obj, path, compress=True):
         f.write(obj)
 
 
-def load_object(path, compressed=True):
+def load_object(path: str, compressed: bool = True) -> Any:
     """Reads a python object into memory that's been saved to disk.
 
     Args:
@@ -105,28 +110,29 @@ def load_object(path, compressed=True):
 
 
 def create_output_raster_profile(
-    raster_paths,
-    template_idx=0,
-    windowed=True,
-    nodata=None,
-    compress=None,
-    driver="GTiff",
-    bigtiff=True,
-    dtype="float32",
-):
+    raster_paths: list,
+    template_idx: int = 0,
+    windowed: bool = True,
+    nodata: Number = None,
+    compression: str = None,
+    driver: str = "GTiff",
+    bigtiff: bool = True,
+    dtype: str = "float32",
+) -> Tuple[Iterable, Dict]:
     """Gets parameters for windowed reading/writing to output rasters.
 
     Args:
-        raster_paths: a list of raster paths of covariates to apply the model to
-        template_idx: the index of the raster file to use as a template. template_idx=0 sets the first raster as template
-        windowed: bool to perform a block-by-block data read. slower, but reduces memory use.
-        nodata: the output nodata value to set
-        output_driver: the output raster file format (from rasterio.drivers.raster_driver_extensions())
-        compress: str of the compression type to apply to the output file
-        bigtiff: bool of whether to specify the output file as a bigtiff (for rasters > 2GB)
+        raster_paths: raster paths of covariates to apply the model to
+        template_idx: index of the raster file to use as a template. template_idx=0 sets the first raster as template
+        windowed: perform a block-by-block data read. slower, but reduces memory use.
+        nodata: output nodata value
+        output_driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
+        compression: compression type to apply to the output file
+        bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
+        dtype: rasterio data type string
 
     Returns:
-        (windows, profile): an iterable and a dictionary for the window reads and the raster profile
+        (windows, profile): an iterable and a dictionary for the window reads and the raster profile.
     """
     with rio.open(raster_paths[template_idx]) as src:
         if windowed:
@@ -141,7 +147,7 @@ def create_output_raster_profile(
             count=1,
             dtype=dtype,
             nodata=nodata,
-            compress=compress,
+            compress=compression,
             driver=driver,
         )
         if bigtiff and driver == "GTiff":
@@ -150,7 +156,7 @@ def create_output_raster_profile(
     return windows, dst_profile
 
 
-def get_raster_band_indexes(raster_paths):
+def get_raster_band_indexes(raster_paths: list) -> Tuple[int, list]:
     """Counts the number raster bands to index multi-source, multi-band covariates.
 
     Args:
@@ -170,14 +176,14 @@ def get_raster_band_indexes(raster_paths):
     return nbands, band_idx
 
 
-def check_raster_alignment(raster_paths):
+def check_raster_alignment(raster_paths: list) -> bool:
     """Checks whether the extent, resolution and projection of multiple rasters match exactly.
 
     Args:
         raster_paths: a list of raster covariate paths
 
     Returns:
-        Boolean: indicates whether all rasters align
+        whether all rasters align
     """
     first = raster_paths[0]
     rest = raster_paths[1:]
@@ -195,26 +201,16 @@ def check_raster_alignment(raster_paths):
     return True
 
 
-def in_notebook():
-    """Tests whether the module is currently running in a jupyter notebook.
-
-    Args:
-        None
-
-    Returns:
-        Bool
-    """
+def in_notebook() -> bool:
+    """Evaluate whether the module is currently running in a jupyter notebook."""
     return "ipykernel" in sys.modules
 
 
-def get_tqdm():
-    """Returns the appropriate tqdm progress tracking module
+def get_tqdm() -> Callable:
+    """Returns a context-appropriate tqdm progress tracking function.
 
     Determines the appropriate tqdm based on the user context, as
-    behavior changes inside/outside of jupyter notebooks.
-
-    Args:
-        None
+        behavior changes inside/outside of jupyter notebooks.
 
     Returns:
         tqdm: the context-specific tqdm module
@@ -227,18 +223,14 @@ def get_tqdm():
     return tqdm
 
 
-class NoDataException(Exception):
-    pass
-
-
-def n_digits(number):
+def n_digits(number: Number) -> int:
     """Counts the number of significant integer digits of a number.
 
     Args:
-        number: a float or int
+        number: the number to evaluate.
 
     Returns:
-        order: integer of the number of digits required to represent a number
+        order: number of digits required to represent a number
     """
     if number == 0:
         order = 1
@@ -248,14 +240,14 @@ def n_digits(number):
     return order
 
 
-def count_raster_bands(raster_paths):
+def count_raster_bands(raster_paths: list) -> int:
     """Returns the total number of bands from a list of rasters.
 
     Args:
         raster_paths: List of raster data file paths.
 
     Returns:
-        n_bands: Int of the band count.
+        n_bands: total band count.
     """
     n_bands = 0
     for path in raster_paths:
@@ -265,14 +257,14 @@ def count_raster_bands(raster_paths):
     return n_bands
 
 
-def make_band_labels(n_bands):
+def make_band_labels(n_bands: int) -> list:
     """Creates a list of band names to assign as dataframe columns.
 
     Args:
-        n_bands: Int of the number of raster bands to create labels for.
+        n_bands: total number of raster bands to create labels for.
 
     Returns:
-        labels: List of column labels.
+        labels: list of column names.
     """
     n_zeros = n_digits(n_bands)
     labels = ["band_{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]

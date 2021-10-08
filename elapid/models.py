@@ -1,14 +1,17 @@
 """Classes for training species distribution models."""
 
+from typing import List, Union
+
 import numpy as np
 import pandas as pd
 from glmnet.logistic import LogitNet
+from sklearn.base import BaseEstimator
 
 from elapid import features as _features
-from elapid.utils import MAXENT_DEFAULTS, _ncpus
+from elapid.utils import MAXENT_DEFAULTS, ArrayLike, Number, n_cpus
 
 
-class MaxentModel(object):
+class MaxentModel(BaseEstimator):
     """Creates a model estimator for Maxent-style species distribution models.
 
     Attributes:
@@ -36,43 +39,37 @@ class MaxentModel(object):
 
     def __init__(
         self,
-        feature_types=MAXENT_DEFAULTS["feature_types"],
-        tau=MAXENT_DEFAULTS["tau"],
-        clamp=MAXENT_DEFAULTS["clamp"],
-        scorer=MAXENT_DEFAULTS["scorer"],
-        beta_multiplier=MAXENT_DEFAULTS["beta_multiplier"],
-        beta_lqp=MAXENT_DEFAULTS["beta_lqp"],
-        beta_hinge=MAXENT_DEFAULTS["beta_hinge"],
-        beta_threshold=MAXENT_DEFAULTS["beta_lqp"],
-        beta_categorical=MAXENT_DEFAULTS["beta_categorical"],
-        n_hinge_features=MAXENT_DEFAULTS["n_hinge_features"],
-        n_threshold_features=MAXENT_DEFAULTS["n_threshold_features"],
-        convergence_tolerance=MAXENT_DEFAULTS["tolerance"],
-        use_lambdas=MAXENT_DEFAULTS["use_lambdas"],
-        n_cpus=_ncpus,
+        feature_types: Union[list, str] = MAXENT_DEFAULTS["feature_types"],
+        tau: float = MAXENT_DEFAULTS["tau"],
+        clamp: bool = MAXENT_DEFAULTS["clamp"],
+        scorer: str = MAXENT_DEFAULTS["scorer"],
+        beta_multiplier: float = MAXENT_DEFAULTS["beta_multiplier"],
+        beta_lqp: float = MAXENT_DEFAULTS["beta_lqp"],
+        beta_hinge: float = MAXENT_DEFAULTS["beta_hinge"],
+        beta_threshold: float = MAXENT_DEFAULTS["beta_lqp"],
+        beta_categorical: float = MAXENT_DEFAULTS["beta_categorical"],
+        n_hinge_features: int = MAXENT_DEFAULTS["n_hinge_features"],
+        n_threshold_features: int = MAXENT_DEFAULTS["n_threshold_features"],
+        convergence_tolerance: float = MAXENT_DEFAULTS["tolerance"],
+        use_lambdas: str = MAXENT_DEFAULTS["use_lambdas"],
+        n_cpus: int = n_cpus,
     ):
-        """Instatiate a maxent model object.
+        """Create a maxent model object.
 
         Args:
-            feature_types: List or string of maxent feature types to fit. must be in
-                ["linear", "quadratic", "product", "hinge", "threshold", "auto"]
-                or string "lqphta"
-            tau: Float of the maxent tau (prevalence) value for scaling logistic output
-            clamp: Boolean of whether to clamp features during inference
-            scorer: Str sklearn scoring function for model training
-            beta_multiplier: Float scalar for all regularization parameters,
-                where higher values exclude more features
-            beta_lqp: Float scalar for linear, quadratic and product feature regularization parameters
-            beta_hinge: Float scalar for hinge feature regularization parameters
-            beta_threshold: Float scalar for threshold feature regularization parameters
-            beta_categorical: Float scalar for categorical feature regularization parameters
-            convergence_tolerance: Float scalar for the model convergence tolerance level
-            use_lambdas: guide for which model lambdas to select,
-                from options ["best", "last"]
-            n_cpus: Int of cpu threads to use during model training
-
-        Returns:
-            self: a MaxentModel object
+            feature_types: maxent feature types to fit. must be in string "lqphta" or
+                list ["linear", "quadratic", "product", "hinge", "threshold", "auto"]
+            tau: maxent prevalence value for scaling logistic output
+            clamp: set features to min/max range from training during prediction
+            scorer: sklearn scoring function for model training
+            beta_multiplier: scaler for all regularization parameters. higher values exclude more features
+            beta_lqp: linear, quadratic and product feature regularization scaler
+            beta_hinge: hinge feature regularization scaler
+            beta_threshold: threshold feature regularization scaler
+            beta_categorical: categorical feature regularization scaler
+            convergence_tolerance: model convergence tolerance level
+            use_lambdas: guide for which model lambdas to select, from ["best", "last"]
+            n_cpus: threads to use during model training
         """
         self.feature_types_ = _features.validate_feature_types(feature_types)
         self.tau_ = tau
@@ -96,15 +93,17 @@ class MaxentModel(object):
         self.estimator = None
         self.transformer = None
 
-    def fit(self, x, y, categorical=None, labels=None, is_features=False):
+    def fit(
+        self, x: ArrayLike, y: ArrayLike, categorical: List[int] = None, labels: list = None, is_features: bool = False
+    ) -> None:
         """Trains a maxent model using a set of covariates and presence/background points.
 
         Args:
-            x: Array-like of shape (n_samples, n_features) with covariate data
-            y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
-            categorical: Array-like of column indices for which columns are categorical
-            labels: List of covariate labels. Ignored if x is a pandas dataframe
-            is_features: Boolean specifying the x data has been transformed from covariates to features
+            x: array-like of shape (n_samples, n_features) with covariate data
+            y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+            categorical: indices for which columns are categorical
+            labels: covariate labels. ignored if x is a pandas DataFrame
+            is_features: specify that x data has been transformed from covariates to features
 
         Returns:
             None: Updates the model object
@@ -127,7 +126,6 @@ class MaxentModel(object):
 
         # model fitting
         self.initialize_model(lambdas=lambdas)
-
         self.estimator.fit(
             features,
             y,
@@ -146,17 +144,17 @@ class MaxentModel(object):
         self.entropy_ = -np.sum(raw * np.log(raw))
         self.alpha_ = -np.log(np.sum(rr))
 
-    def predict(self, x, transform="logistic", is_features=False):
+    def predict(self, x: ArrayLike, transform: str = "logistic", is_features: bool = False) -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
-            x: Array-like of shape (n_samples, n_features) with covariate data
-            transform: Str maxent model transformation type. Select from
+            x: array-like of shape (n_samples, n_features) with covariate data
+            transform: maxent model transformation type. select from
                 ["raw", "exponential", "logistic", "cloglog"].
-            is_features: Boolean specifying the x data has already been transformed from covariates to features
+            is_features: flag that x data has already been transformed from covariates to features
 
         Returns:
-            predictions: Array-like of shape (n_samples,) with model predictions
+            predictions: array-like of shape (n_samples,) with model predictions
         """
         assert self.initialized_, "Model must be fit first"
 
@@ -178,17 +176,25 @@ class MaxentModel(object):
         elif transform == "cloglog":
             return 1 - np.exp(0 - np.exp(self.entropy_ + link))
 
-    def fit_predict(self, x, y, categorical=None, labels=None, transform="logistic", is_features=False):
+    def fit_predict(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        categorical: list = None,
+        labels: list = None,
+        transform: str = "logistic",
+        is_features: bool = False,
+    ) -> ArrayLike:
         """Trains and applies a model to x/y data.
 
         Args:
-            x: Array-like of shape (n_samples, n_features) with covariate data
-            y: Array-like of shape (n_samples,) with binary presence/background (1/0) values
-            categorical: Array-like of column indices for which columns are categorical
-            labels: List of covariate labels. Ignored if x is a pandas dataframe
-            transform: Str of maxent model transformation type. Select from
+            x: array-like of shape (n_samples, n_features) with covariate data
+            y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+            categorical: column indices indicating which columns are categorical
+            labels: Covariate labels. Ignored if x is a pandas DataFrame
+            transform: maxent model transformation type. select from
                 ["raw", "exponential", "logistic", "cloglog"].
-            is_features: Boolean specifying the x data has already been transformed from covariates to features
+            is_features: specify that x data has already been transformed from covariates to features
 
         Returns:
             predictions: Array-like of shape (n_samples,) with model predictions
@@ -200,21 +206,21 @@ class MaxentModel(object):
 
     def initialize_model(
         self,
-        lambdas,
-        alpha=1,
-        standardize=False,
-        fit_intercept=True,
-    ):
+        lambdas: np.array,
+        alpha: float = 1,
+        standardize: bool = False,
+        fit_intercept: bool = True,
+    ) -> None:
         """Creates the Logistic Regression with elastic net penalty model object.
 
         Args:
-            lambdas: Array of model lambda values. Get from features.compute_lambdas()
-            alpha: Float elasticnet mixing parameter. alpha=1 for lasso, alpha=0 for ridge
-            standardize: Boolean to specify coefficient normalization
-            fit_intercept: Boolean flag to include an intercept parameter
+            lambdas: array of model lambda values. get from elapid.features.compute_lambdas()
+            alpha: elasticnet mixing parameter. alpha=1 for lasso, alpha=0 for ridge
+            standardize: specify coefficient normalization
+            fit_intercept: include an intercept parameter
 
         Returns:
-            None: Updates the self.estimator with an sklearn-style model estimator
+            None. updates the self.estimator with an sklearn-style model estimator
         """
         self.estimator = LogitNet(
             alpha=alpha,

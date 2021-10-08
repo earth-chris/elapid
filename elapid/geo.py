@@ -2,16 +2,18 @@
 
 from itertools import tee
 from multiprocessing import Pool
+from typing import Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyproj
 import rasterio as rio
 from shapely.geometry import MultiPoint, Point
+from sklearn.base import BaseEstimator
 
 from elapid.utils import (
     NoDataException,
-    _ncpus,
     check_raster_alignment,
     count_raster_bands,
     create_output_raster_profile,
@@ -25,18 +27,24 @@ tqdm = get_tqdm()
 tqdm_opts = {"desc": "Geometry", "leave": False}
 tqdm.pandas(**tqdm_opts)
 
+CRSType = Union[pyproj.CRS, str]
 
-def xy_to_geoseries(x, y, crs="epsg:4236"):
+
+def xy_to_geoseries(
+    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4236"
+) -> gpd.GeoSeries:
     """Converts x/y data into a geopandas geoseries.
 
     Args:
         x: 1-D array-like of x location values
         y: 1-D array-like of y location values
-        crs: the coordinate reference string. accepts anything allowed by pyproj.CRS.from_user_input()
+        crs: coordinate reference system. accepts pyproj.CRS / rio.crs.CRS objects
+            or anything allowed by pyproj.CRS.from_user_input()
 
     Returns:
         gs: Point geometry geoseries
     """
+    # allow passing single x/y location values
     if not hasattr(x, "__iter__"):
         x = [x]
     if not hasattr(y, "__iter__"):
@@ -48,16 +56,15 @@ def xy_to_geoseries(x, y, crs="epsg:4236"):
     return gs
 
 
-def pseudoabsence_from_raster(raster_path, count, ignore_mask=False):
+def pseudoabsence_from_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points based on a raster's extent.
 
     Selects from unmasked locations if the rasters nodata value is set.
 
     Args:
-        raster_path: Str raster file path to sample locations from
-        count: Int for number of samples to generate
-        ignore_mask: Bool to sample from the full extent of the raster
-            instead of unmasked areas only
+        raster_path: raster file path to sample locations from
+        count: number of samples to generate
+        ignore_mask: sample from the full extent of the raster instead of unmasked areas only
 
     Returns:
         points: Point geometry geoseries
@@ -81,13 +88,13 @@ def pseudoabsence_from_raster(raster_path, count, ignore_mask=False):
         return points
 
 
-def pseudoabsence_from_bias_file(raster_path, count, ignore_mask=False):
+def pseudoabsence_from_bias_file(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a semi-random geographic sampling of points weighted towards biased areas.
 
     Args:
-        raster_path: Str raster bias file path to sample from. Pixel values
-            can be in arbitrary range, but must be odered low -> high probability
-        count: the total number of samples to generate
+        raster_path: raster bias file path to sample from. pixel values can
+            be in arbitrary range, but must be odered low -> high probability
+        count: total number of samples to generate
         ignore_mask: sample from the full extent of the raster instead of unmasked areas only
 
     Returns:
@@ -117,13 +124,13 @@ def pseudoabsence_from_bias_file(raster_path, count, ignore_mask=False):
         return points
 
 
-def pseudoabsence_from_vector(vector_path, count, overestimate=2):
+def pseudoabsence_from_vector(vector_path: str, count: int, overestimate: float = 2) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points inside of a polygon/multipolygon type vector file.
 
     Args:
-        vector_path: Str path to a vector file (shp, geojson, etc)
-        count: Int for number of samples to generate
-        overestimate: Int for scaler to generate extra samples to
+        vector_path: path to a vector file (shp, geojson, etc)
+        count: number of samples to generate
+        overestimate: scaler to generate extra samples to
             toss points outside of the polygon/inside it's bounds
 
     Returns:
@@ -133,13 +140,13 @@ def pseudoabsence_from_vector(vector_path, count, overestimate=2):
     return pseudoabsence_from_geoseries(gdf.geometry, count, overestimate=overestimate)
 
 
-def pseudoabsence_from_geoseries(geoseries, count, overestimate=2):
+def pseudoabsence_from_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float = 2) -> gpd.GeoSeries:
     """Creates random geographic point samples inside a polygon/multipolygon
 
     Args:
-        geoseries: Geoseries (e.g. `gdf['geometry']`) with polygons/multipolygons
-        count: Int for number of samples to generate
-        overestimate: Int for scaler to generate extra samples
+        geoseries: geometry dataset (e.g. `gdf['geometry']`) with polygons/multipolygons
+        count: number of samples to generate
+        overestimate: scaler to generate extra samples
             to toss points outside of the polygon/inside it's bounds
 
     Returns:
@@ -160,7 +167,7 @@ def pseudoabsence_from_geoseries(geoseries, count, overestimate=2):
     return points
 
 
-def parse_crs_string(string):
+def parse_crs_string(string: str) -> str:
     """Parses a string to determine the CRS/spatial projection format.
 
     Args:
@@ -179,7 +186,7 @@ def parse_crs_string(string):
         return "string"
 
 
-def string_to_crs(string):
+def string_to_crs(string: str) -> rio.crs.CRS:
     """Converts a crs/projection string to a pyproj-readable CRS object
 
     Args:
@@ -187,7 +194,7 @@ def string_to_crs(string):
         crs_type: the type of crs/projection string, in ["wkt", "proj4", "epsg", "string"].
 
     Returns:
-        crs: a rasterio.crs.CRS object
+        crs: the coordinate reference system
     """
     crs_type = parse_crs_string(string)
 
@@ -204,8 +211,8 @@ def string_to_crs(string):
     return crs
 
 
-def crs_match(crs1, crs2):
-    """Determines whether two coordinate reference systems are the same.
+def crs_match(crs1: CRSType, crs2: CRSType) -> bool:
+    """Evaluates whether two coordinate reference systems are the same.
 
     Args:
         crs1: the first CRS, from a rasterio dataset, a GeoDataFrame, or a string with projection parameters.
@@ -225,7 +232,7 @@ def crs_match(crs1, crs2):
     return matches
 
 
-def _read_pixel_value(point, source):
+def _read_pixel_value(point: gpd.GeoSeries, source: rio.io.DatasetReader) -> np.ndarray:
     """Reads raster value from an open rasterio dataset.
 
     Designed to be run using a `geodataframe.apply()` function.
@@ -235,26 +242,27 @@ def _read_pixel_value(point, source):
         source: an open rasterio data source
 
     Returns:
-        value: 1-d n-length array with the pixel values of each raster band.
+        values: 1-d n-length array with the pixel values of each raster band.
     """
     row, col = source.index(point.geometry.x, point.geometry.y)
     window = rio.windows.Window(col, row, 1, 1)
-    value = source.read(window=window)
-    return np.squeeze(value)
+    values = source.read(window=window)
+    return np.squeeze(values)
 
 
-def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=True):
+def raster_values_from_vector(
+    vector_path: str, raster_paths: list, labels: list = None, drop_na: bool = True
+) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using a point-format vector file.
 
     Args:
-        vector_path: Str path to a vector file (shp, geojson, etc)
-        raster_paths: List of raster paths to extract pixel values from
-        labels: List of band name labels. should match the total number of bands
-            across all raster_paths
-        drop_na: Boolean to drop all records with no-data values
+        vector_path: path to a vector file (shp, geojson, etc)
+        raster_paths: raster paths to extract pixel values from
+        labels: band name labels. should match the total number of bands across all raster_paths
+        drop_na: drop all records with no-data values
 
     Returns:
-        gdf: Geodataframe annotated with the pixel values from each raster
+        gdf: GeoDataFrame annotated with the pixel values from each raster
     """
     gdf = gpd.read_file(vector_path)
     raster_df = raster_values_from_geoseries(gdf.geometry, raster_paths, labels, drop_na)
@@ -262,18 +270,20 @@ def raster_values_from_vector(vector_path, raster_paths, labels=None, drop_na=Tr
     return gdf
 
 
-def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=True, iterate=False):
+def raster_values_from_geoseries(
+    geoseries: gpd.GeoSeries, raster_paths: list, labels: list = None, drop_na: bool = True, iterate: bool = False
+) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
-        geoseries: Geoseries (e.g., gdf['geometry']) with point locations.
-        raster_paths: List of raster paths to extract pixel values from.
-        labels: List of band name labels. should match the total number of bands across all raster_paths.
-        drop_na: Bool to drop all records with no-data values.
-        iterate: Bool to loop through each record instead of using .apply(). Slower, but saves memory.
+        geoseries: GeoSeries (e.g., gdf['geometry']) with point locations.
+        raster_paths: raster paths to extract pixel values from.
+        labels: band name labels. should match the total number of bands across all raster_paths.
+        drop_na: drop all records with no-data values.
+        iterate: loop through each record instead of using .apply(). Slower, but saves memory.
 
     Returns:
-        gdf: Geodataframe annotated with the pixel values from each raster
+        gdf: GeoDataFrame annotated with the pixel values from each raster
     """
 
     # make sure the raster_paths are iterable
@@ -327,19 +337,25 @@ def raster_values_from_geoseries(geoseries, raster_paths, labels=None, drop_na=T
     return gdf
 
 
-def apply_model_to_raster_array(model, array, predictions_window, nodata, nodata_idx, transform=None):
+def apply_model_to_raster_array(
+    model: BaseEstimator,
+    array: np.ndarray,
+    predictions_window: np.ndarray,
+    nodata: float,
+    nodata_idx: int,
+    transform: bool = None,
+) -> np.ndarray:
     """Applies a model to an array of covariates.
 
     Covariate array should be of shape (nbands, nrows, ncols).
 
     Args:
-        model: Object with a `model.predict()` function
-        array: Array of shape (nbands, nrows, ncols) with pixel values
-        predictions_window: Array to fill with model prediction values
-        dims: Tuple of the array dimensions as (nbands, nrows, ncols)
-        nodata: Numeric nodata value to apply to the output array
-        nodata_idx: Array of bool values with shape (nbands, nrows, ncols) containing nodata locations
-        transform: Str method for transforming maxent model output from ["raw", "exponential", "logistic", "cloglog"]
+        model: object with a `model.predict()` function
+        array: array of shape (nbands, nrows, ncols) with pixel values
+        predictions_window: array to fill with model prediction values
+        nodata: numeric nodata value to apply to the output array
+        nodata_idx: array of bools with shape (nbands, nrows, ncols) containing nodata locations
+        transform: method for transforming maxent model output from ["raw", "exponential", "logistic", "cloglog"]
 
     Returns:
         predictions_window: Array of shape (1, nrows, ncols) with the predictions to write
@@ -356,21 +372,21 @@ def apply_model_to_raster_array(model, array, predictions_window, nodata, nodata
 
 
 def apply_model_to_rasters(
-    model,
-    raster_paths,
-    output_path,
-    windowed=True,
-    transform="logistic",
-    template_idx=0,
-    resampling=rio.enums.Resampling.average,
-    nodata=-9999,
-    driver="GTiff",
-    compress="deflate",
-    bigtiff=True,
-):
+    model: BaseEstimator,
+    raster_paths: list,
+    output_path: str,
+    windowed: bool = True,
+    transform: str = "logistic",
+    template_idx: int = 0,
+    resampling: rio.enums.Enum = rio.enums.Resampling.average,
+    nodata: float = -9999,
+    driver: str = "GTiff",
+    compress: str = "deflate",
+    bigtiff: bool = True,
+) -> None:
     """Applies a trained model to a list of raster datasets.
 
-    The list and band order of the rasters mustm atch the order of the covariates
+    The list and band order of the rasters must match the order of the covariates
     used to train the model.It reads each dataset in a block-wise basis, applies
     the model, and writes gridded predictions. If the raster datasets are not
     consistent (different extents, resolutions, etc.), it wll re-project the data
@@ -378,17 +394,17 @@ def apply_model_to_rasters(
     raster.
 
     Args:
-        model: Object with a model.predict() function
-        raster_paths: List of raster paths of covariates to apply the model to
-        output_path: Str path to the output file to create
-        windowed: Boolean to perform a block-by-block data read. slower, but reduces memory use.
-        transform: Str model transformation type. Select from ["raw", "exponential", "logistic", "cloglog"].
-        template_idx: Int index of the raster file to use as a template. template_idx=0 sets the first raster as template
-        resampling: Enum resampling algorithm to apply to on-the-fly reprojection (from rasterio.enums.Resampling)
-        nodata: Numeric output nodata value to set
-        driver: Str output raster file format (from rasterio.drivers.raster_driver_extensions())
-        compress: Str of the compression type to apply to the output file
-        bigtiff: Boolean of whether to specify the output file as a bigtiff (for rasters > 2GB)
+        model: object with a model.predict() function
+        raster_paths: raster paths of covariates to apply the model to
+        output_path: path to the output file to create
+        windowed: perform a block-by-block data read. slower, but reduces memory use.
+        transform: model transformation type. select from ["raw", "exponential", "logistic", "cloglog"].
+        template_idx: index of the raster file to use as a template. template_idx=0 sets the first raster as template
+        resampling: resampling algorithm to apply to on-the-fly reprojection (from rasterio.enums.Resampling)
+        nodata: output nodata value to set
+        driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
+        compress: compression type to apply to the output file
+        bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
 
     Returns:
         None: saves model predictions to disk.
