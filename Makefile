@@ -25,7 +25,7 @@ init:
 	${CONDA} python recipe/convert-dependency-format.py
 	${CONDA} mamba install --file recipe/environment.yml -c conda-forge -y || exit 1
 	${CONDA} pip install -e .
-	${CONDA_RUN} pre-commit install || exit 1
+	${CONDA} pre-commit install || exit 1
 	rm -f recipe/environment.yml
 
 test:
