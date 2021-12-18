@@ -26,7 +26,7 @@ init:
 	${CONDA} mamba install --file recipe/environment.yml -c conda-forge -y
 	rm -f recipe/environment.yml
 	${CONDA} pip install -e .
-	${CONDA} mamba install pre-commit && ${CONDA} pre-commit install
+	${CONDA} mamba install pre-commit -c conda-forge && ${CONDA} pre-commit install
 
 test:
 	${CONDA} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
