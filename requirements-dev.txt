@@ -1,0 +1,12 @@
+black
+flake8
+isort
+livereload
+mkdocs-jupyter
+mkdocs-material
+mkdocstrings
+pre-commit
+pytest
+pytest-cov
+ruamel.yaml
+ruamel.yaml.jinja2
