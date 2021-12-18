@@ -11,6 +11,5 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.x
-      - run: $CONDA/bin/conda env update --file environment.yml --name base
-      - run: $CONDA/bin/pip install .
-      - run: $CONDA/bin/mkdocs gh-deploy --force
+      - run: alias conda=$CONDA/bin/conda && make init
+      - run: $CONDA/bin/conda -n elapid gh-deploy --force
