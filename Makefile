@@ -9,15 +9,11 @@ CONDA=conda run --name ${NAME}
 help:
 	@echo "--- [ $(NAME) developer tools ] --- "
 	@echo ""
-
-	@echo "make init"
-	@echo "	initialize conda dev environment"
-
-	@echo "make test"
-	@echo "	run tests"
-
-	@echo "make test-data"
-	@echo " generates new data for tests/data/"
+	@echo "make init        - initialize conda dev environment"
+	@echo "make test        -	run package tests"
+	@echo "make test-data   - generates new data for tests/data/"
+	@echo "make ci          - regenerates CI recipe"
+	@echo "make conda-clean - removes conda tempfiles"
 
 ####################
 # utils
@@ -40,3 +36,6 @@ test-data:
 
 conda-clean:
 	conda clean --all
+
+ci:
+	conda smithy rerender -c auto
