@@ -24,6 +24,7 @@ repos:
     rev: v3.4.0
     hooks:
       - id: check-yaml
+        exclude: recipe/meta.yml
       - id: check-added-large-files
       - id: detect-private-key
       - id: end-of-file-fixer
