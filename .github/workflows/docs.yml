@@ -13,5 +13,4 @@ jobs:
           python-version: 3.x
       - uses: conda-incubator/setup-miniconda@v2
       - run: make init
-      - run: conda run -n elapid pip install -r requirements-dev.txt
-      - run: conda run -n elapid gh-deploy --force
+      - run: conda run -n elapid mkdocs gh-deploy --force
