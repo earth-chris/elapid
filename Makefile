@@ -1,20 +1,17 @@
-# environment variables
+####################
+# setup
+
 NAME=elapid
-CONDA_RUN=conda run --name ${NAME}
-DOCKER_IMAGE=us.gcr.io/california-fores-1547767414612/$(NAME)
-DOCKER_TAG_GIT:=$(shell git rev-parse --short=12 HEAD)
+CONDA=conda run --name ${NAME}
 
 # help docs
 .DEFAULT: help
 help:
-	@echo "--- [ $(NAME) ] --- "
+	@echo "--- [ $(NAME) developer tools ] --- "
 	@echo ""
 
 	@echo "make init"
-	@echo "	initialize development tools -- conda, pip, etc"
-
-	@echo "make update"
-	@echo "	update development tools"
+	@echo "	initialize conda dev environment"
 
 	@echo "make test"
 	@echo "	run tests"
@@ -22,60 +19,24 @@ help:
 	@echo "make test-data"
 	@echo " generates new data for tests/data/"
 
-
-# paths for dummy files to indicate when targets need to be rerun
-DIR_MAKE=.make
-CONDA_UPDATED=${DIR_MAKE}/conda_updated
-PIP_UPDATED=${DIR_MAKE}/pip_updated
-DOCKER_INITIALIZED=${DIR_MAKE}/docker_initialized
-
-
 ####################
-# ENTRY POINTS
+# utils
 
-init: conda-init pip-init misc-update
-	@:
-
-update: conda-update pip-update misc-update
-	@:
+init:
+	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.7 -y
+	${CONDA} conda install -c conda-forge mamba -y
+	${CONDA} pip install -r requirements-dev.txt
+	${CONDA} python recipe/convert-dependency-format.py
+	${CONDA} mamba install --file recipe/environment.yml -c conda-forge -y || exit 1
+	${CONDA} pip install -e .
+	${CONDA_RUN} pre-commit install || exit 1
+	rm -f recipe/environment.yml
 
 test:
-	${CONDA_RUN} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
+	${CONDA} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
 
 test-data:
-	${CONDA_RUN} python tests/create_test_data.py
-
-# conda
-conda-init:
-	@conda env list | grep -q -w ${CONDA_ENV} || conda env create --file environment.yml
-	@test -d ${DIR_MAKE} || mkdir ${DIR_MAKE}
-	@touch ${CONDA_UPDATED}
-
-conda-update: conda-init ${CONDA_UPDATED}
-	@:
-${CONDA_UPDATED}: environment.yml
-	${CONDA_RUN} conda env update --file environment.yml --prune
-	@test -d ${DIR_MAKE} || mkdir ${DIR_MAKE}
-	@touch ${CONDA_UPDATED}
+	${CONDA} python tests/create_test_data.py
 
 conda-clean:
-	@conda clean --all
-
-
-# pip
-pip-init: ${PIP_UPDATED}
-	@:
-pip-update: ${PIP_UPDATED}
-	@:
-${PIP_UPDATED}: requirements.txt
-	${CONDA_RUN} pip install -r requirements.txt
-	${CONDA_RUN} pip install --editable .
-	@test -d ${DIR_MAKE} || mkdir ${DIR_MAKE}
-	@touch ${PIP_UPDATED}
-
-
-# misc
-misc-update:
-	@${CONDA_RUN} pre-commit install
-	@test ! -f .gcloudignore || rm .gcloudignore
-	@cp .gitignore .gcloudignore
+	conda clean --all
