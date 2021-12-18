@@ -23,10 +23,10 @@ init:
 	${CONDA} conda install -c conda-forge mamba -y
 	${CONDA} pip install -r requirements-dev.txt
 	${CONDA} python recipe/convert-dependency-format.py
-	${CONDA} mamba install --file recipe/environment.yml -c conda-forge -y || exit 1
-	${CONDA} pip install -e .
-	${CONDA} pre-commit install || exit 1
+	${CONDA} mamba install --file recipe/environment.yml -c conda-forge -y
 	rm -f recipe/environment.yml
+	${CONDA} pip install -e .
+	${CONDA} mamba install pre-commit && ${CONDA} pre-commit install
 
 test:
 	${CONDA} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
