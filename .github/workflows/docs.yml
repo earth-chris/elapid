@@ -11,6 +11,6 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.x
-      - uses: conda-incubator/setup-miniconda@v2
-      - run: make init
-      - run: conda run -n elapid mkdocs gh-deploy --force
+      - run: pip install .
+      - run: pip install -r requirements-dev.txt
+      - run: mkdocs gh-deploy --force
