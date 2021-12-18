@@ -1,3 +1,4 @@
+descartes>=1.1.0
 geopandas>=0.7.0
 glmnet>=2.2.1
 numpy>=1.18
