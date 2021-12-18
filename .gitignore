@@ -128,8 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# local files
-.zedstate
-scratch.py
-.make/
-.dockerignore
+# conda smithy
+build_artifacts
