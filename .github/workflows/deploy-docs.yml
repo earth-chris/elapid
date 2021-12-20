@@ -1,9 +1,11 @@
 name: deploy-docs
 
 on:
-  push:
+  workflow_run:
     branches: [ "main" ]
-  workflows: ["run-pytest"]
+    workflows: ["run-pytest"]
+    types:
+        - completed
 
 jobs:
   deploy:
