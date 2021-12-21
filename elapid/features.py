@@ -426,7 +426,7 @@ def compute_regularization(
     beta_multiplier: float = MAXENT_DEFAULTS["beta_multiplier"],
     beta_lqp: float = MAXENT_DEFAULTS["beta_lqp"],
     beta_threshold: float = MAXENT_DEFAULTS["beta_threshold"],
-    beta_hinge: float = ["beta_hinge"],
+    beta_hinge: float = MAXENT_DEFAULTS["beta_hinge"],
     beta_categorical: float = MAXENT_DEFAULTS["beta_hinge"],
 ) -> ArrayLike:
     """Computes variable regularization values for all feature data.
