@@ -165,16 +165,25 @@ class MaxentModel(BaseEstimator):
             features = self.transformer.transform(x)
 
         # apply the model
-        link = np.matmul(features, self.beta_scores_) + self.alpha_
+        raw = np.matmul(features, self.beta_scores_) + self.alpha_
 
+        # scale based on the transform type
         if transform == "raw":
-            return link
+            return raw
+
         elif transform == "exponential":
-            return np.exp(link)
+            return np.exp(raw)
+
         elif transform == "logistic":
-            return 1 / (1 + np.exp(-self.entropy_ - link))
+            # R's maxnet (tau-free) logistic formulation
+            # return 1 / (1 + np.exp(-self.entropy_ - raw))
+
+            # the elith et al. 2011 formulation
+            logscale = np.exp(raw + self.entropy_)
+            return (self.tau_ * logscale) / ((1 - self.tau_) + (self.tau_ * logscale))
+
         elif transform == "cloglog":
-            return 1 - np.exp(0 - np.exp(self.entropy_ + link))
+            return 1 - np.exp(0 - np.exp(self.entropy_ - raw))
 
     def fit_predict(
         self,
