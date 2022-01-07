@@ -323,7 +323,7 @@ def raster_values_from_geoseries(
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
-        raster_values.append(values)
+            raster_values.append(values.astype(src.profile["dtype"]))
 
     # format the values as a geodataframe
     df = pd.concat(raster_values, axis=1)
