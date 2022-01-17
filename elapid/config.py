@@ -33,4 +33,4 @@ class MaxentConfig:
     tolerance: float = 1e-7
 
     # elasticnet lambda type to use ('best' or 'last')
-    use_lambdas: str = "last"
+    use_lambdas: str = "best"
