@@ -6,37 +6,37 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
-from elapid.utils import MAXENT_DEFAULTS, ArrayLike, repeat_array
+from elapid.config import MaxentConfig
+from elapid.types import ArrayLike, validate_boolean, validate_feature_types, validate_numeric_scalar
+from elapid.utils import repeat_array
 
 
 class MaxentFeatureTransformer(object):
-    """Transforms covariate data into maxent-format feature data.
+    """Transforms covariate data into maxent-format feature data."""
 
-    Attributes:
-        feature_types_: List of the feature types (quadratic, etc.) to compute
-        clamp_: Boolean to clamp feature to the min/max of the fit data
-        n_hinge_features_: Int of the linear hinge features to fit
-        n_threshold_features_: Int of the number of thresholds to fit
-        initialized_: Boolean flag identifying the transformer's fit status
-        hinge_ranges_: List of the hinge ranges fit
-        threshold_ranges_: List of the thresholds fit
-        categorical_encoders_: List of `sklearn` one-hot class encoders
-        categorical_: Array-like of column indices for which columns are categorical
-        feature_mins_: Array-like of the feature minimum values for clamping
-        feature_maxs_: Array-like of the feature maximum values for clamping
-        labels_: List of covariate labels
-    """
+    feature_types_: list = MaxentConfig.feature_types
+    clamp_: bool = MaxentConfig.clamp
+    n_hinge_features_: int = MaxentConfig.n_hinge_features
+    n_threshold_features_: int = MaxentConfig.n_threshold_features
+    initialized_: bool = False
+    hinge_ranges_: dict = {}
+    threshold_ranges_: dict = {}
+    categorical_encoders_: dict = {}
+    categorical_: ArrayLike = None
+    feature_mins_: ArrayLike = None
+    feature_maxs_: ArrayLike = None
+    labels_: list = None
 
     def __init__(
         self,
-        feature_types: Union[str, list] = MAXENT_DEFAULTS["feature_types"],
-        clamp: bool = MAXENT_DEFAULTS["clamp"],
-        n_hinge_features: int = MAXENT_DEFAULTS["n_hinge_features"],
-        n_threshold_features: int = MAXENT_DEFAULTS["n_threshold_features"],
+        feature_types: Union[str, list] = MaxentConfig.feature_types,
+        clamp: bool = MaxentConfig.clamp,
+        n_hinge_features: int = MaxentConfig.n_hinge_features,
+        n_threshold_features: int = MaxentConfig.n_threshold_features,
     ):
         """Computes features based on the maxent feature types specified (like linear, quadratic, hinge).
 
-        Implemented using sklearn conventions (usng `.fit()` and `.transform()` functions.
+        Implemented using sklearn conventions (with `.fit()` and `.transform()` functions.
 
         Args:
             feature_types: list of maxent features to generate.
@@ -44,21 +44,10 @@ class MaxentFeatureTransformer(object):
             n_hinge_features: number of hinge knots to generate
             n_threshold_features: nuber of threshold features to generate
         """
-        # user-specified parameters
         self.feature_types_ = validate_feature_types(feature_types)
         self.clamp_ = validate_boolean(clamp)
         self.n_hinge_features_ = validate_numeric_scalar(n_hinge_features)
         self.n_threshold_features_ = validate_numeric_scalar(n_threshold_features)
-
-        # data-driven parameters
-        self.initialized_ = False
-        self.hinge_ranges_ = dict()
-        self.threshold_ranges_ = dict()
-        self.categorical_encoders_ = dict()
-        self.categorical_ = None
-        self.feature_mins_ = None
-        self.feature_maxs_ = None
-        self.labels_ = None
 
     def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Fits features to covariates.
@@ -320,9 +309,7 @@ def hingeval(x: ArrayLike, mn: float, mx: float) -> ArrayLike:
     return np.minimum(1, np.maximum(0, (x - mn) / (mx - mn)))
 
 
-def hinge(
-    x: ArrayLike, n_hinges: int = MAXENT_DEFAULTS["n_hinge_features"], range: Tuple[float, float] = None
-) -> ArrayLike:
+def hinge(x: ArrayLike, n_hinges: int = MaxentConfig.n_hinge_features, range: Tuple[float, float] = None) -> ArrayLike:
     """Fits hinge transformations to an array of covariates.
 
     Args:
@@ -347,9 +334,7 @@ def hinge(
     return np.concatenate((lh, rh), axis=1)
 
 
-def threshold(
-    x, n_thresholds: int = MAXENT_DEFAULTS["n_threshold_features"], range: Tuple[float, float] = None
-) -> ArrayLike:
+def threshold(x, n_thresholds: int = MaxentConfig.n_threshold_features, range: Tuple[float, float] = None) -> ArrayLike:
     """Fits arbitrary threshold transformations to an array of covariates.
 
     Args:
@@ -423,11 +408,11 @@ def compute_weights(y: ArrayLike, pbr: int = 100) -> ArrayLike:
 def compute_regularization(
     f: pd.DataFrame,
     y: ArrayLike,
-    beta_multiplier: float = MAXENT_DEFAULTS["beta_multiplier"],
-    beta_lqp: float = MAXENT_DEFAULTS["beta_lqp"],
-    beta_threshold: float = MAXENT_DEFAULTS["beta_threshold"],
-    beta_hinge: float = MAXENT_DEFAULTS["beta_hinge"],
-    beta_categorical: float = MAXENT_DEFAULTS["beta_hinge"],
+    beta_multiplier: float = MaxentConfig.beta_multiplier,
+    beta_lqp: float = MaxentConfig.beta_lqp,
+    beta_threshold: float = MaxentConfig.beta_threshold,
+    beta_hinge: float = MaxentConfig.beta_hinge,
+    beta_categorical: float = MaxentConfig.beta_hinge,
 ) -> ArrayLike:
     """Computes variable regularization values for all feature data.
 
@@ -505,84 +490,3 @@ def compute_regularization(
     max_reg *= beta_multiplier
 
     return max_reg
-
-
-def validate_feature_types(features: Union[str, list]) -> list:
-    """Ensures the feature classes passed are maxent-legible
-
-    Args:
-        features: List or string that must be in ["linear", "quadratic", "product",
-            "hinge", "threshold", "auto"] or string "lqphta"
-
-    Returns:
-        valid_features: List of formatted valid feature values
-    """
-    valid_list = ["linear", "quadratic", "product", "hinge", "threshold"]
-    valid_string = "lqpht"
-    valid_features = list()
-
-    assert features is not None, "Features cannot be empty"
-
-    # ensure the string features are valid, and translate to a standard feature list
-    if type(features) is str:
-        for feature in features:
-
-            if feature == "a":
-                return valid_list
-
-            assert feature in valid_string, "Invalid feature passed: {}".format(feature)
-
-            if feature == "l":
-                valid_features.append("linear")
-            elif feature == "q":
-                valid_features.append("quadratic")
-            elif feature == "p":
-                valid_features.append("product")
-            elif feature == "h":
-                valid_features.append("hinge")
-            elif feature == "t":
-                valid_features.append("threshold")
-
-    # or ensure the list features are valid
-    elif type(features) is list:
-        for feature in features:
-            if feature == "auto":
-                return valid_list
-
-            assert feature in valid_list, "Invalid feature passed: {}".format(feature)
-
-            valid_features.append(feature)
-
-    return valid_features
-
-
-def validate_boolean(var: Any) -> bool:
-    """Evaluates whether an argument is boolean True/False
-
-    Args:
-        var: the input argument to validate
-
-    Returns:
-        var: the value if it passes validation
-
-    Raises:
-        AssertionError: `var` was not boolean
-    """
-    assert isinstance(var, bool), "Argument must be True/False"
-    return var
-
-
-def validate_numeric_scalar(var: Any) -> bool:
-    """Evaluates whether an argument is a single numeric value.
-
-    Args:
-        var: the input argument to validate
-
-    Returns:
-        var: the value if it passes validation
-
-    Raises:
-        AssertionError: `var` was not numeric.
-    """
-    assert isinstance(var, (int, float)), "Argument must be single numeric value"
-    return var

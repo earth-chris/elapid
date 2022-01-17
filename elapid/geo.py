@@ -12,6 +12,7 @@ import rasterio as rio
 from shapely.geometry import MultiPoint, Point
 from sklearn.base import BaseEstimator
 
+from elapid.types import CRSType
 from elapid.utils import (
     NoDataException,
     check_raster_alignment,
@@ -26,8 +27,6 @@ from elapid.utils import (
 tqdm = get_tqdm()
 tqdm_opts = {"desc": "Geometry", "leave": False}
 tqdm.pandas(**tqdm_opts)
-
-CRSType = Union[pyproj.CRS, str]
 
 
 def xy_to_geoseries(

@@ -11,26 +11,9 @@ import numpy as np
 import pandas as pd
 import rasterio as rio
 
+from elapid.types import Number
+
 n_cpus = mp.cpu_count()
-
-MAXENT_DEFAULTS = {
-    "clamp": True,
-    "beta_multiplier": 1.0,
-    "beta_hinge": 1.0,
-    "beta_lqp": 1.0,
-    "beta_threshold": 1.0,
-    "beta_categorical": 1.0,
-    "feature_types": ["linear", "hinge", "product"],
-    "n_hinge_features": 30,
-    "n_threshold_features": 20,
-    "scorer": "roc_auc",
-    "tau": 0.5,
-    "tolerance": 1e-7,
-    "use_lambdas": "last",
-}
-
-Number = Union[int, float]
-ArrayLike = Union[np.array, pd.DataFrame]
 
 
 class NoDataException(Exception):
