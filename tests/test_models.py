@@ -8,7 +8,7 @@ x, y = load_sample_data()
 
 def test_MaxentModel_flow():
     model = models.MaxentModel()
-    model.fit(x.to_numpy(), y, categorical=[2])
+    model.fit(x, y)
     ypred = model.predict(x)
     assert len(ypred) == len(y)
     assert ypred.max() <= 1.0
