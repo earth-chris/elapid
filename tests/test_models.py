@@ -24,8 +24,20 @@ def test_MaxentModel_performance():
     # check that model is not nonsense
     assert 0.5 <= auc_score <= 1.0
 
-    # check that full model close to cv performance
-    assert abs(auc_score - model.estimator.cv_mean_score_[-1]) < 0.1
+    # check that full model close to cross-val performance (+- stderr)
+    assert abs(auc_score - model.estimator.cv_mean_score_[-1]) < 0.1 + model.estimator.cv_standard_error_[-1]
+
+
+def test_tau_scaler():
+    model = models.MaxentModel(tau=0.5)
+    model.fit(x, y)
+    ypred = model.predict(x, transform="logistic")
+    assert 0.48 < ypred[y == 1].mean() < 0.52
+
+    model = models.MaxentModel(tau=0.25)
+    model.fit(x, y)
+    ypred = model.predict(x, transform="logistic")
+    assert 0.23 < ypred[y == 1].mean() < 0.27
 
 
 def test_MaxentModel_feature_types():
