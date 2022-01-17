@@ -138,11 +138,15 @@ class MaxentModel(BaseEstimator):
         elif self.use_lambdas_ == "best":
             self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_best_inx_]
 
-        # maxent specific transformations
-        rr = self.predict(features[y == 0], transform="exponential", is_features=True)
-        raw = rr / np.sum(rr)
-        self.entropy_ = -np.sum(raw * np.log(raw))
-        self.alpha_ = -np.log(np.sum(rr))
+        # maxent-specific transformations
+        raw = self.predict(features[y == 0], transform="raw", is_features=True)
+
+        # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
+        self.alpha_ = -np.log(np.sum(raw))
+
+        # the distance from f(z) is considered the relative entropy of f1(z) WRT f(z)
+        scaled = raw / np.sum(raw)
+        self.entropy_ = -np.sum(scaled * np.log(scaled))
 
     def predict(self, x: ArrayLike, transform: str = "logistic", is_features: bool = False) -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
@@ -165,25 +169,24 @@ class MaxentModel(BaseEstimator):
             features = self.transformer.transform(x)
 
         # apply the model
-        raw = np.matmul(features, self.beta_scores_) + self.alpha_
+        engma = np.matmul(features, self.beta_scores_) + self.alpha_
 
         # scale based on the transform type
         if transform == "raw":
-            return raw
-
-        elif transform == "exponential":
-            return np.exp(raw)
+            return np.exp(engma)
 
         elif transform == "logistic":
-            # R's maxnet (tau-free) logistic formulation
+            # below is R's maxnet (tau-free) logistic formulation
             # return 1 / (1 + np.exp(-self.entropy_ - raw))
-
-            # the elith et al. 2011 formulation
-            logscale = np.exp(raw + self.entropy_)
-            return (self.tau_ * logscale) / ((1 - self.tau_) + (self.tau_ * logscale))
+            # use the java formulation instead
+            logratio = np.exp(engma) * np.exp(self.entropy_)
+            return (self.tau_ * logratio) / ((1 - self.tau_) + (self.tau_ * logratio))
 
         elif transform == "cloglog":
-            return 1 - np.exp(0 - np.exp(self.entropy_ - raw))
+            # below is $'s maxent cloglog formula
+            # return 1 - np.exp(0 - np.exp(self.entropy_ - raw))
+            # use java again
+            return 1 - np.exp(-np.exp(engma) * np.exp(self.entropy_))
 
     def fit_predict(
         self,
