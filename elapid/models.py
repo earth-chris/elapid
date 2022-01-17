@@ -4,7 +4,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from glmnet.logistic import LogitNet
+from glmnet.linear import ElasticNet
 from sklearn.base import BaseEstimator
 
 from elapid import features as _features
@@ -134,9 +134,9 @@ class MaxentModel(BaseEstimator):
         )
 
         if self.use_lambdas_ == "last":
-            self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
+            self.beta_scores_ = self.estimator.coef_path_[:, -1]
         elif self.use_lambdas_ == "best":
-            self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_best_inx_]
+            self.beta_scores_ = self.estimator.coef_path_[:, self.estimator.lambda_best_inx_]
 
         # maxent-specific transformations
         raw = self.predict(features[y == 0], transform="raw", is_features=True)
@@ -183,7 +183,7 @@ class MaxentModel(BaseEstimator):
             return (self.tau_ * logratio) / ((1 - self.tau_) + (self.tau_ * logratio))
 
         elif transform == "cloglog":
-            # below is $'s maxent cloglog formula
+            # below is R's maxent cloglog formula
             # return 1 - np.exp(0 - np.exp(self.entropy_ - raw))
             # use java again
             return 1 - np.exp(-np.exp(engma) * np.exp(self.entropy_))
@@ -234,7 +234,7 @@ class MaxentModel(BaseEstimator):
         Returns:
             None. updates the self.estimator with an sklearn-style model estimator
         """
-        self.estimator = LogitNet(
+        self.estimator = ElasticNet(
             alpha=alpha,
             lambda_path=lambdas,
             standardize=standardize,
