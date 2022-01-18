@@ -20,9 +20,18 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.PYTHON_VERSION }}
+
     - name: Fix conda permissions on mac
       run: sudo chown -R $UID $CONDA
-      if: ${{ matrix.os }} == 'macos-latest'
+      if: matrix.os == 'macos-latest'
+
+    - name: Setup conda on windows
+      if: matrix.os == 'windows-latest'
+      uses: s-weigand/setup-conda@v1
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        conda-channels: anaconda, conda-forge
+
     - name: Install dependencies
       run: |
         make init
