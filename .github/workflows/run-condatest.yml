@@ -20,6 +20,9 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.PYTHON_VERSION }}
+    - name: Fix conda permissions on mac
+      run: sudo chown -R $UID $CONDA
+      if: ${{ matrix.os }} == 'macos-latest'
     - name: Install dependencies
       run: |
         make init
