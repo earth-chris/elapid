@@ -1,6 +1,5 @@
 """Geospatial data operations like reading/writing/indexing raster and vector data."""
 
-from itertools import tee
 from multiprocessing import Pool
 from typing import Union
 
@@ -12,7 +11,7 @@ import rasterio as rio
 from shapely.geometry import MultiPoint, Point
 from sklearn.base import BaseEstimator
 
-from elapid.types import CRSType
+from elapid.types import CRSType, to_iterable
 from elapid.utils import (
     NoDataException,
     check_raster_alignment,
@@ -29,6 +28,9 @@ tqdm_opts = {"desc": "Geometry", "leave": False}
 tqdm.pandas(**tqdm_opts)
 
 
+# sampling tools
+
+
 def xy_to_geoseries(
     x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4236"
 ) -> gpd.GeoSeries:
@@ -43,11 +45,9 @@ def xy_to_geoseries(
     Returns:
         gs: Point geometry geoseries
     """
-    # allow passing single x/y location values
-    if not hasattr(x, "__iter__"):
-        x = [x]
-    if not hasattr(y, "__iter__"):
-        y = [y]
+    # handle single x/y location values
+    x = to_iterable(x)
+    y = to_iterable(y)
 
     points = [Point(x, y) for x, y in zip(x, y)]
     gs = gpd.GeoSeries(points, crs=crs)
@@ -55,7 +55,7 @@ def xy_to_geoseries(
     return gs
 
 
-def pseudoabsence_from_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
+def sample_from_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points based on a raster's extent.
 
     Selects from unmasked locations if the rasters nodata value is set.
@@ -87,7 +87,7 @@ def pseudoabsence_from_raster(raster_path: str, count: int, ignore_mask: bool = 
         return points
 
 
-def pseudoabsence_from_bias_file(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
+def sample_from_bias_file(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a semi-random geographic sampling of points weighted towards biased areas.
 
     Args:
@@ -123,7 +123,7 @@ def pseudoabsence_from_bias_file(raster_path: str, count: int, ignore_mask: bool
         return points
 
 
-def pseudoabsence_from_vector(vector_path: str, count: int, overestimate: float = 2) -> gpd.GeoSeries:
+def sample_from_vector(vector_path: str, count: int, overestimate: float = 2) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points inside of a polygon/multipolygon type vector file.
 
     Args:
@@ -136,10 +136,10 @@ def pseudoabsence_from_vector(vector_path: str, count: int, overestimate: float 
         points: Point geometry geoseries
     """
     gdf = gpd.read_file(vector_path)
-    return pseudoabsence_from_geoseries(gdf.geometry, count, overestimate=overestimate)
+    return sample_from_geoseries(gdf.geometry, count, overestimate=overestimate)
 
 
-def pseudoabsence_from_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float = 2) -> gpd.GeoSeries:
+def sample_from_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float = 2) -> gpd.GeoSeries:
     """Creates random geographic point samples inside a polygon/multipolygon
 
     Args:
@@ -164,6 +164,9 @@ def pseudoabsence_from_geoseries(geoseries: gpd.GeoSeries, count: int, overestim
     points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=geoseries.crs)
 
     return points
+
+
+# crs management tools
 
 
 def parse_crs_string(string: str) -> str:
@@ -231,6 +234,9 @@ def crs_match(crs1: CRSType, crs2: CRSType) -> bool:
     return matches
 
 
+# raster reading tools
+
+
 def _read_pixel_value(point: gpd.GeoSeries, source: rio.io.DatasetReader) -> np.ndarray:
     """Reads raster value from an open rasterio dataset.
 
@@ -270,7 +276,7 @@ def raster_values_from_vector(
 
 
 def raster_values_from_geoseries(
-    geoseries: gpd.GeoSeries, raster_paths: list, labels: list = None, drop_na: bool = True, iterate: bool = False
+    geoseries: gpd.GeoSeries, raster_paths: list, labels: list = None, drop_na: bool = True, save_memory: bool = False
 ) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using point locations.
 
@@ -279,42 +285,41 @@ def raster_values_from_geoseries(
         raster_paths: raster paths to extract pixel values from.
         labels: band name labels. should match the total number of bands across all raster_paths.
         drop_na: drop all records with no-data values.
-        iterate: loop through each record instead of using .apply(). Slower, but saves memory.
+        save_memory: loop through each record instead of using .apply().
 
     Returns:
         gdf: GeoDataFrame annotated with the pixel values from each raster
     """
-
     # make sure the raster_paths are iterable
-    if isinstance(raster_paths, (str)):
-        raster_paths = [raster_paths]
+    raster_paths = to_iterable(raster_paths)
 
     # set raster band column labels
     n_bands = count_raster_bands(raster_paths)
     if labels is None:
         labels = make_band_labels(n_bands)
-    else:
-        n_labels = len(labels)
-        assert n_labels == n_bands, "Number of labels ({n_labels}) doesn't match band count ({n_bands})"
+
+    n_labels = len(labels)
+    assert n_labels == n_bands, "number of band labels ({n_labels}) != n_bands ({n_bands})"
 
     # annotate each point with the pixel values for each raster
     raster_values = []
     for raster_path in tqdm(raster_paths, desc="Raster"):
-        with rio.open(raster_path) as src:
+        with rio.open(raster_path, "r") as src:
 
-            # reproject points to match raster if necessary
+            # reproject points to match raster and convert to a dataframe
             if not crs_match(geoseries.crs, src.crs):
-                points = geoseries.to_crs(src.crs).to_frame("geometry")
-            else:
-                points = geoseries.to_frame("geometry")
+                points = geoseries.to_crs(src.crs, inplace=True)
 
-            # read the data one at a time or with apply()
-            if iterate:
-                row_vals = [
-                    _read_pixel_value(point, src)
-                    for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts)
-                ]
+            points = geoseries.to_frame("geometry")
+
+            # read slowly
+            if save_memory:
+                row_vals = []
+                for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts):
+                    row_vals.append(_read_pixel_value(point, src))
                 values = pd.DataFrame(np.vstack(row_vals))
+
+            # or read quickly
             else:
                 values = points.progress_apply(_read_pixel_value, axis=1, result_type="expand", source=src)
 
@@ -322,24 +327,28 @@ def raster_values_from_geoseries(
             if drop_na and src.nodata is not None:
                 values.replace(src.nodata, np.NaN, inplace=True)
 
+            # explicitly cast the output data type
             raster_values.append(values.astype(src.profile["dtype"]))
 
-    # format the values as a geodataframe
+    # merge the dataframes from each raster extraction
     df = pd.concat(raster_values, axis=1)
-    df.columns = labels
     df.set_index(geoseries.index, inplace=True)
-    gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
+    df.columns = labels
 
+    # convert to a geodataframe
+    gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
     if drop_na:
         gdf.dropna(axis=0, inplace=True)
 
     return gdf
 
 
+# raster writing tools
+
+
 def apply_model_to_raster_array(
     model: BaseEstimator,
     array: np.ndarray,
-    predictions_window: np.ndarray,
     nodata: float,
     nodata_idx: int,
     transform: bool = None,
@@ -359,15 +368,16 @@ def apply_model_to_raster_array(
     Returns:
         predictions_window: Array of shape (1, nrows, ncols) with the predictions to write
     """
-    # run the computations for only good-data pixels
-    good = ~nodata_idx.any(axis=0)
-    ngood = good.sum()
-    if ngood > 0:
-        covariate_array = array[:, good].transpose()
-        predictions_array = model.predict(covariate_array, is_features=False, transform=transform)
-        predictions_window[:, good] = predictions_array.to_numpy().transpose()
+    # only run the computations for valid pixels
+    valid = ~nodata_idx.any(axis=0)
+    covariates = array[:, valid].reshape(-1, 1)
+    ypred = model.predict(covariates, is_features=False, transform=transform)
 
-    return predictions_window
+    # reshape to the original window size
+    ypred_window = np.zeros_like(valid, dtype=np.float32) + nodata
+    ypred_window[valid] = ypred.to_numpy().transpose()
+
+    return ypred_window
 
 
 def apply_model_to_rasters(
@@ -386,7 +396,7 @@ def apply_model_to_rasters(
     """Applies a trained model to a list of raster datasets.
 
     The list and band order of the rasters must match the order of the covariates
-    used to train the model.It reads each dataset in a block-wise basis, applies
+    used to train the model.It reads each dataset block-by-block, applies
     the model, and writes gridded predictions. If the raster datasets are not
     consistent (different extents, resolutions, etc.), it wll re-project the data
     on the fly, with the grid size, extent and projection based on a 'template'
@@ -397,7 +407,7 @@ def apply_model_to_rasters(
         raster_paths: raster paths of covariates to apply the model to
         output_path: path to the output file to create
         windowed: perform a block-by-block data read. slower, but reduces memory use.
-        transform: model transformation type. select from ["raw", "exponential", "logistic", "cloglog"].
+        transform: model transformation type. select from ["raw", "logistic", "cloglog"].
         template_idx: index of the raster file to use as a template. template_idx=0 sets the first raster as template
         resampling: resampling algorithm to apply to on-the-fly reprojection (from rasterio.enums.Resampling)
         nodata: output nodata value to set
@@ -408,10 +418,8 @@ def apply_model_to_rasters(
     Returns:
         None: saves model predictions to disk.
     """
-
     # make sure the raster_paths are iterable
-    if isinstance(raster_paths, (str)):
-        raster_paths = [raster_paths]
+    raster_paths = to_iterable(raster_paths)
 
     # get and set template parameters
     windows, dst_profile = create_output_raster_profile(
@@ -427,32 +435,25 @@ def apply_model_to_rasters(
     # get the bands and indexes for each covariate raster
     nbands, band_idx = get_raster_band_indexes(raster_paths)
 
+    # open all rasters to read from later
+    srcs = [rio.open(raster_path) for raster_path in raster_paths]
+
     # check whether the raster paths are aligned to determine how the data are read
     aligned = check_raster_alignment(raster_paths)
+    if not aligned:
+        vrt_options = {
+            "resampling": resampling,
+            "transform": dst_profile["transform"],
+            "crs": dst_profile["crs"],
+            "height": dst_profile["height"],
+            "width": dst_profile["width"],
+        }
+        srcs = [rio.vrt.WarpedVRT(src, **vrt_options) for src in srcs]
 
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
-
-        # open all raster paths to read from later
-        srcs = [rio.open(raster_path) for raster_path in raster_paths]
-
-        if not aligned:
-            vrt_options = {
-                "resampling": resampling,
-                "transform": dst_profile["transform"],
-                "crs": dst_profile["crs"],
-                "height": dst_profile["height"],
-                "width": dst_profile["width"],
-            }
-            srcs = [rio.vrt.WarpedVRT(src, **vrt_options) for src in srcs]
-
-        # reach each data source block by block and apply the model
-        windows, duplicate = tee(windows)
-        nwindows = len(list(duplicate))
-
-        for _, window in tqdm(windows, total=nwindows, desc="Tiles"):
+        for window in tqdm(windows, desc="Tiles"):
             covariates = np.zeros((nbands, window.height, window.width), dtype=np.float32)
-            predictions = np.zeros((1, window.height, window.width), dtype=np.float32) + nodata
             nodata_idx = np.ones_like(covariates, dtype=bool)
 
             try:
@@ -468,16 +469,11 @@ def apply_model_to_rasters(
                 predictions = apply_model_to_raster_array(
                     model,
                     covariates,
-                    predictions,
                     nodata,
                     nodata_idx,
                     transform=transform,
                 )
-                dst.write(predictions, window=window)
+                dst.write(predictions, 1, window=window)
 
             except NoDataException:
-                dst.write(predictions, window=window)
                 continue
-
-        for src in srcs:
-            src.close()

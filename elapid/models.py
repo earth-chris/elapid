@@ -147,7 +147,7 @@ class MaxentModel(BaseEstimator):
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
             transform: maxent model transformation type. select from
-                ["raw", "exponential", "logistic", "cloglog"].
+                ["raw", "logistic", "cloglog"].
             is_features: flag that x data has already been transformed from covariates to features
 
         Returns:
@@ -156,10 +156,7 @@ class MaxentModel(BaseEstimator):
         assert self.initialized_, "Model must be fit first"
 
         # feature transformations
-        if is_features:
-            features = x
-        else:
-            features = self.transformer.transform(x)
+        features = x if is_features else self.transformer.transform(x)
 
         # apply the model
         engma = np.matmul(features, self.beta_scores_) + self.alpha_

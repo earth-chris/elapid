@@ -90,3 +90,20 @@ def validate_numeric_scalar(var: Any) -> bool:
     """
     assert isinstance(var, (int, float)), "Argument must be single numeric value"
     return var
+
+
+def to_iterable(var: Any) -> list:
+    """Checks and converts variables to an iterable type.
+
+    Args:
+        var: the input variable to check and convert.
+
+    Returns:
+        `var` wrapped in a list.
+    """
+    if not hasattr(var, "__iter__"):
+        return [var]
+    elif isinstance(var, (str)):
+        return [var]
+    else:
+        return var

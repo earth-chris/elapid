@@ -97,7 +97,7 @@ def create_output_raster_profile(
     template_idx: int = 0,
     windowed: bool = True,
     nodata: Number = None,
-    compression: str = None,
+    compress: str = None,
     driver: str = "GTiff",
     bigtiff: bool = True,
     dtype: str = "float32",
@@ -110,7 +110,7 @@ def create_output_raster_profile(
         windowed: perform a block-by-block data read. slower, but reduces memory use.
         nodata: output nodata value
         output_driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
-        compression: compression type to apply to the output file
+        compress: compression type to apply to the output file
         bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
         dtype: rasterio data type string
 
@@ -119,18 +119,16 @@ def create_output_raster_profile(
     """
     with rio.open(raster_paths[template_idx]) as src:
         if windowed:
-            windows = src.block_windows()
+            windows = [window for _, window in src.block_windows()]
         else:
-            idx = (0, 0)
-            window = rio.windows.Window(0, 0, src.width, src.height)
-            windows = iter([(idx, window)])
+            windows = [rio.windows.Window(0, 0, src.width, src.height)]
 
         dst_profile = src.profile
         dst_profile.update(
             count=1,
             dtype=dtype,
             nodata=nodata,
-            compress=compression,
+            compress=compress,
             driver=driver,
         )
         if bigtiff and driver == "GTiff":
