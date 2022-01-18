@@ -11,6 +11,8 @@ def test_MaxentModel_flow():
     model.fit(x, y)
     ypred = model.predict(x)
     assert len(ypred) == len(y)
+    print(ypred)
+    print(ypred.max())
     assert ypred.max() <= 1.0
     assert ypred.min() >= 0.0
 
@@ -26,6 +28,15 @@ def test_MaxentModel_performance():
 
     # check that full model close to cross-val performance (+- stderr)
     assert abs(auc_score - model.estimator.cv_mean_score_[-1]) < 0.1 + model.estimator.cv_standard_error_[-1]
+
+
+def test_MaxentModel_best_lambdas():
+    model = models.MaxentModel(use_lambdas="best")
+    model.fit(x, y)
+    ypred = model.predict(x, transform="logistic")
+    auc_score = metrics.roc_auc_score(y, ypred)
+    assert 0.5 <= auc_score <= 1.0
+    assert 0.48 < ypred[y == 1].mean() < 0.52
 
 
 def test_tau_scaler():

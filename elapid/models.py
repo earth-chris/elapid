@@ -129,7 +129,7 @@ class MaxentModel(BaseEstimator):
         if self.use_lambdas_ == "last":
             self.beta_scores_ = self.estimator.coef_path_[:, -1]
         elif self.use_lambdas_ == "best":
-            self.beta_scores_ = self.estimator.coef_path_[:, self.estimator.lambda_best_inx_]
+            self.beta_scores_ = self.estimator.coef_path_[:, self.estimator.lambda_max_inx_]
 
         # maxent-specific transformations
         raw = self.predict(features[y == 0], transform="raw", is_features=True)
