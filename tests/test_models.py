@@ -53,6 +53,7 @@ def test_tau_scaler():
 
 def test_MaxentModel_feature_types():
     all = models.MaxentModel(feature_types="lqpht", beta_multiplier=1.5)
+    auto = models.MaxentModel(feature_types=["auto"])
     linear = models.MaxentModel(feature_types=["linear"])
     qp = models.MaxentModel(feature_types=["quadratic", "product"], convergence_tolerance=2e-7, beta_lqp=1.5)
     ht = models.MaxentModel(
@@ -62,10 +63,14 @@ def test_MaxentModel_feature_types():
         n_threshold_features=10,
         n_hinge_features=10,
     )
-    auto = models.MaxentModel(feature_types=["auto"])
+
+    all.fit(x, y)
+    auto.fit(x, y)
+    linear.fit(x, y)
+    qp.fit(x, y)
+    ht.fit(x, y)
 
     for model in [all, linear, qp, ht, auto]:
-        model.fit(x, y)
         ypred = model.predict(x)
         auc_score = metrics.roc_auc_score(y, ypred)
         assert 0.5 <= auc_score <= 1.0
