@@ -21,7 +21,7 @@ help:
 init:
 	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.7 -y
 	${CONDA} conda install -c conda-forge mamba -y
-	${CONDA} pip install ruamel.yaml ruamel.yaml.jinja2
+	${CONDA} pip install --ignore-installed ruamel.yaml ruamel.yaml.jinja2
 	${CONDA} python recipe/convert-dependency-format.py
 	${CONDA} mamba install --file recipe/environment.yml -c conda-forge -y
 	rm -f recipe/environment.yml
