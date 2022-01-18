@@ -1,57 +1,56 @@
 """Classes for training species distribution models."""
-
 from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from glmnet.logistic import LogitNet
+from glmnet.linear import ElasticNet
 from sklearn.base import BaseEstimator
 
 from elapid import features as _features
-from elapid.utils import MAXENT_DEFAULTS, ArrayLike, Number, n_cpus
+from elapid.config import MaxentConfig
+from elapid.types import ArrayLike, Number, validate_feature_types
+from elapid.utils import n_cpus
 
 
 class MaxentModel(BaseEstimator):
-    """Creates a model estimator for Maxent-style species distribution models.
+    """Creates a model estimator for Maxent-style species distribution models."""
 
-    Attributes:
-        feature_types_: List of maxent feature types to compute
-        tau_: Float species prevalence scalar
-        clamp_: Boolean for whether to constrain feature min/max ranges
-        convergence_tolerance_: Float model convergence tolerance threshold
-        beta_multiplier_: Float scalar for all feature beta values
-        beta_hinge_: Float scalar for hinge beta values
-        beta_lqp_: Float scalar for linear/quadratic/product beta values
-        beta_threshold_: Float scalar for threshold beta values
-        beta_categorical_: Float scalar for categorical beta values
-        n_hinge_features_: Int number of hinge features to fit
-        n_threshold_features_: Int number of threshold features to fit
-        n_cpus_: Int of cpu threads ot use during model training
-        scorer_: Str of model training metric (from `sklearn.metrics`)
-        use_lambdas_: Str of lambda type to use (in `['best', 'last']`)
-        initialized_: Bool tracking model fit status
-        beta_scores_: Array of trained model betas
-        entropy_: Float of trained model entropy score
-        alpha_: Float of trained model alpha score 0.0
-        estimator: Object of trained model estimator
-        transformer: MaxentFeatureTransformer object
-    """
+    feature_types_: list = MaxentConfig.feature_types
+    tau_: float = MaxentConfig.tau
+    clamp_: bool = MaxentConfig.clamp
+    convergence_tolerance_: float = MaxentConfig.tolerance
+    beta_multiplier_: float = MaxentConfig.beta_multiplier
+    beta_hinge_: float = MaxentConfig.beta_hinge
+    beta_lqp_: float = MaxentConfig.beta_lqp
+    beta_threshold_: float = MaxentConfig.beta_threshold
+    beta_categorical_: float = MaxentConfig.beta_categorical
+    n_hinge_features_: int = MaxentConfig.n_hinge_features
+    n_threshold_features_: int = MaxentConfig.n_threshold_features
+    scorer_: str = MaxentConfig.scorer
+    use_lambdas_: str = MaxentConfig.use_lambdas
+    initialized_: bool = False
+    beta_scores_: np.array = None
+    entropy_: float = 0.0
+    alpha_: float = 0.0
+    estimator: BaseEstimator = None
+    transformer: _features.MaxentFeatureTransformer = None
+    n_cpus_ = n_cpus
 
     def __init__(
         self,
-        feature_types: Union[list, str] = MAXENT_DEFAULTS["feature_types"],
-        tau: float = MAXENT_DEFAULTS["tau"],
-        clamp: bool = MAXENT_DEFAULTS["clamp"],
-        scorer: str = MAXENT_DEFAULTS["scorer"],
-        beta_multiplier: float = MAXENT_DEFAULTS["beta_multiplier"],
-        beta_lqp: float = MAXENT_DEFAULTS["beta_lqp"],
-        beta_hinge: float = MAXENT_DEFAULTS["beta_hinge"],
-        beta_threshold: float = MAXENT_DEFAULTS["beta_lqp"],
-        beta_categorical: float = MAXENT_DEFAULTS["beta_categorical"],
-        n_hinge_features: int = MAXENT_DEFAULTS["n_hinge_features"],
-        n_threshold_features: int = MAXENT_DEFAULTS["n_threshold_features"],
-        convergence_tolerance: float = MAXENT_DEFAULTS["tolerance"],
-        use_lambdas: str = MAXENT_DEFAULTS["use_lambdas"],
+        feature_types: Union[list, str] = MaxentConfig.feature_types,
+        tau: float = MaxentConfig.tau,
+        clamp: bool = MaxentConfig.clamp,
+        scorer: str = MaxentConfig.scorer,
+        beta_multiplier: float = MaxentConfig.beta_multiplier,
+        beta_lqp: float = MaxentConfig.beta_lqp,
+        beta_hinge: float = MaxentConfig.beta_hinge,
+        beta_threshold: float = MaxentConfig.beta_lqp,
+        beta_categorical: float = MaxentConfig.beta_categorical,
+        n_hinge_features: int = MaxentConfig.n_hinge_features,
+        n_threshold_features: int = MaxentConfig.n_threshold_features,
+        convergence_tolerance: float = MaxentConfig.tolerance,
+        use_lambdas: str = MaxentConfig.use_lambdas,
         n_cpus: int = n_cpus,
     ):
         """Create a maxent model object.
@@ -62,16 +61,17 @@ class MaxentModel(BaseEstimator):
             tau: maxent prevalence value for scaling logistic output
             clamp: set features to min/max range from training during prediction
             scorer: sklearn scoring function for model training
-            beta_multiplier: scaler for all regularization parameters. higher values exclude more features
+            beta_multiplier: scaler for all regularization parameters.
+                higher values drop more coeffiecients
             beta_lqp: linear, quadratic and product feature regularization scaler
             beta_hinge: hinge feature regularization scaler
             beta_threshold: threshold feature regularization scaler
             beta_categorical: categorical feature regularization scaler
             convergence_tolerance: model convergence tolerance level
-            use_lambdas: guide for which model lambdas to select, from ["best", "last"]
+            use_lambdas: guide for which model lambdas to select (either "best" or "last")
             n_cpus: threads to use during model training
         """
-        self.feature_types_ = _features.validate_feature_types(feature_types)
+        self.feature_types_ = validate_feature_types(feature_types)
         self.tau_ = tau
         self.clamp_ = clamp
         self.convergence_tolerance_ = convergence_tolerance
@@ -85,13 +85,6 @@ class MaxentModel(BaseEstimator):
         self.n_cpus_ = n_cpus
         self.scorer_ = scorer
         self.use_lambdas_ = use_lambdas
-
-        self.initialized_ = False
-        self.beta_scores_ = None
-        self.entropy_ = 0.0
-        self.alpha_ = 0.0
-        self.estimator = None
-        self.transformer = None
 
     def fit(
         self, x: ArrayLike, y: ArrayLike, categorical: List[int] = None, labels: list = None, is_features: bool = False
@@ -134,15 +127,19 @@ class MaxentModel(BaseEstimator):
         )
 
         if self.use_lambdas_ == "last":
-            self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
+            self.beta_scores_ = self.estimator.coef_path_[:, -1]
         elif self.use_lambdas_ == "best":
-            self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_best_inx_]
+            self.beta_scores_ = self.estimator.coef_path_[:, self.estimator.lambda_max_inx_]
 
-        # maxent specific transformations
-        rr = self.predict(features[y == 0], transform="exponential", is_features=True)
-        raw = rr / np.sum(rr)
-        self.entropy_ = -np.sum(raw * np.log(raw))
-        self.alpha_ = -np.log(np.sum(rr))
+        # maxent-specific transformations
+        raw = self.predict(features[y == 0], transform="raw", is_features=True)
+
+        # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
+        self.alpha_ = -np.log(np.sum(raw))
+
+        # the distance from f(z) is considered the relative entropy of f1(z) WRT f(z)
+        scaled = raw / np.sum(raw)
+        self.entropy_ = -np.sum(scaled * np.log(scaled))
 
     def predict(self, x: ArrayLike, transform: str = "logistic", is_features: bool = False) -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
@@ -165,16 +162,24 @@ class MaxentModel(BaseEstimator):
             features = self.transformer.transform(x)
 
         # apply the model
-        link = np.matmul(features, self.beta_scores_) + self.alpha_
+        engma = np.matmul(features, self.beta_scores_) + self.alpha_
 
+        # scale based on the transform type
         if transform == "raw":
-            return link
-        elif transform == "exponential":
-            return np.exp(link)
+            return np.exp(engma)
+
         elif transform == "logistic":
-            return 1 / (1 + np.exp(-self.entropy_ - link))
+            # below is R's maxnet (tau-free) logistic formulation
+            # return 1 / (1 + np.exp(-self.entropy_ - raw))
+            # use the java formulation instead
+            logratio = np.exp(engma) * np.exp(self.entropy_)
+            return (self.tau_ * logratio) / ((1 - self.tau_) + (self.tau_ * logratio))
+
         elif transform == "cloglog":
-            return 1 - np.exp(0 - np.exp(self.entropy_ + link))
+            # below is R's maxent cloglog formula
+            # return 1 - np.exp(0 - np.exp(self.entropy_ - raw))
+            # use java again
+            return 1 - np.exp(-np.exp(engma) * np.exp(self.entropy_))
 
     def fit_predict(
         self,
@@ -222,7 +227,7 @@ class MaxentModel(BaseEstimator):
         Returns:
             None. updates the self.estimator with an sklearn-style model estimator
         """
-        self.estimator = LogitNet(
+        self.estimator = ElasticNet(
             alpha=alpha,
             lambda_path=lambdas,
             standardize=standardize,
