@@ -10,6 +10,8 @@ from elapid import geo
 # set the test raster data paths
 directory_path, script_path = os.path.split(os.path.abspath(__file__))
 data_path = os.path.join(directory_path, "data")
+points = os.path.join(data_path, "test-point-samples.gpkg")
+poly = os.path.join(data_path, "test-polygon.gpkg")
 raster_1b = os.path.join(data_path, "test-raster-1band.tif")
 raster_2b = os.path.join(data_path, "test-raster-2bands.tif")
 raster_1b_offset = os.path.join(data_path, "test-raster-1band-offset.tif")
@@ -30,24 +32,48 @@ def test_xy_to_geoseries():
     assert geoseries.y[0] == lat
 
 
-# TODO
-def test_pseudoabsence_from_raster():
-    pass
+def test_sample_from_raster():
+    count = 20
+    input_raster = raster_1b
+    for ignore_mask in [True, False]:
+        points = geo.sample_from_raster(input_raster, count, ignore_mask=ignore_mask)
+        with rio.open(input_raster, "r") as src:
+            raster_crs = src.crs
+            rxmin, rymin, rxmax, rymax = src.bounds
+
+        pxmin, pymin, pxmax, pymax = points.total_bounds
+
+        assert geo.crs_match(points.crs, raster_crs)
+        assert pxmin >= rxmin
+        assert pymin >= rymin
+        assert pxmax <= rxmax
+        assert pymax <= rymax
 
 
 # TODO
-def test_pseudoabsence_from_bias_file():
+def test_sample_from_bias_file():
     pass
+
+
+def test_sample_from_vector():
+    count = 20
+    points = geo.sample_from_vector(poly, count)
+    poly_df = gpd.read_file(poly)
+
+    assert len(points) == count
+    for point in points:
+        assert poly_df.contains(point).iloc[0]
 
 
 # TODO
-def test_pseudoabsence_from_vector():
-    pass
+def test_sample_from_geoseries():
+    count = 20
+    poly_df = gpd.read_file(poly)
+    points = geo.sample_from_geoseries(poly_df.geometry, count)
 
-
-# TODO
-def test_pseudoabsence_from_geoseries():
-    pass
+    assert len(points) == count
+    for point in points:
+        assert poly_df.contains(point).iloc[0]
 
 
 def test_parse_crs_string():
@@ -77,35 +103,39 @@ def test_crs_match():
     assert geo.crs_match(gpd_crs, wkt) is True
     assert geo.crs_match(rio_crs, epsg_str) is True
     assert geo.crs_match(wkt, proj4) is True
-
     assert geo.crs_match(rio_crs, "epsg:32610") is False
 
 
-# TODO
 def test_raster_values_from_vector():
-    pass
+    df = geo.raster_values_from_vector(points, [raster_2b], labels=["band_1", "band_2"])
+    pts = gpd.read_file(points)
+    assert len(df) == len(pts)
+    assert np.isfinite(df["band_1"]).all()
+    assert np.isfinite(df["band_2"]).all()
 
 
-def test_raster_values_from_geoseries():
+def test_raster_values_from_df():
     # create a single point in the origin of the test data
     with rio.open(raster_1b, "r") as src:
         x, y = src.xy(0, 0)
-        geoseries = geo.xy_to_geoseries(x, y, crs=src.crs)
+
+    geoseries = geo.xy_to_geoseries(x, y, crs=src.crs)
+    geodf = geoseries.to_frame("geometry")
 
     # test on one band input
-    df = geo.raster_values_from_geoseries(geoseries, [raster_1b])
+    df = geo.raster_values_from_df(geodf, [raster_1b], labels=["band_1"])
     b1 = df["band_1"].iloc[0]
     assert b1 == 0
 
     # test on two band input
-    df = geo.raster_values_from_geoseries(geoseries, [raster_2b])
+    df = geo.raster_values_from_df(geodf, [raster_2b], labels=["band_1", "band_2"])
     b1 = df["band_1"].iloc[0]
     b2 = df["band_2"].iloc[0]
     assert b1 == 0
     assert b2 == 65280
 
     # test on multi-raster input
-    df = geo.raster_values_from_geoseries(geoseries, [raster_1b, raster_2b])
+    df = geo.raster_values_from_df(geodf, [raster_1b, raster_2b], labels=["band_1", "band_2", "band_3"])
     b1 = df["band_1"].iloc[0]
     b2 = df["band_2"].iloc[0]
     b3 = df["band_3"].iloc[0]
@@ -113,14 +143,17 @@ def test_raster_values_from_geoseries():
     assert b2 == 0
     assert b3 == 65280
 
-    # test it works on lots of points
-    n = 100
-    df = geo.raster_values_from_geoseries(geoseries.repeat(n), [raster_1b])
-    b1 = df["band_1"].iloc[n - 1]
-    assert b1 == 0
 
-    # test the slow read
-    n = 10
-    df = geo.raster_values_from_geoseries(geoseries.repeat(n), [raster_1b], iterate=True)
-    b1 = df["band_1"].iloc[n - 1]
-    assert b1 == 0
+def test_annotate():
+    raster_paths = [raster_1b, raster_2b]
+    labels = ["band_1", "band_2", "band_3"]
+    points_df = gpd.read_file(points)
+
+    from_path = geo.annotate(points, raster_paths, labels=labels, drop_na=True)
+    from_df = geo.annotate(points_df, raster_paths, labels=labels, drop_na=False)
+    from_gs = geo.annotate(points_df.geometry, raster_paths, labels=labels, drop_na=True)
+
+    assert (from_path.geometry == from_df.geometry).all()
+    assert (from_path.geometry == from_gs.geometry).all()
+    assert (from_path.band_1 == from_df.band_1).all()
+    assert (from_path.band_3 == from_gs.band_3).all()

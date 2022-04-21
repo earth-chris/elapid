@@ -5,13 +5,17 @@ import os
 import sys
 from copy import copy
 
+import geopandas as gpd
 import numpy as np
 import rasterio as rio
+from shapely.geometry import box
+
+import elapid as ela
 
 # set logging
 logging.basicConfig(
     level=logging.INFO,
-    format=("%(asctime)s %(levelname)s %(name)s [%(funcName)s] | %(message)s"),
+    format=("%(asctime)s %(levelname)s %(name)s | %(message)s"),
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
@@ -61,10 +65,25 @@ with rio.open(output_2b, "w+", **profile) as dst:
     dst.write(data, 1)
     dst.write(np.flip(data, axis=0), 2)
 
-# and move the georeferencing by 1 pixel in each direction to test raster alignment
+# move the georeferencing by 1 pixel in each direction to test raster alignment
 output_1b_offset = os.path.join(data_path, "test-raster-1band-offset.tif")
 jittered_transform = rio.transform.from_bounds(xmin - xres, ymin - yres, xmax - xres, ymax - yres, width, height)
 profile.update(count=1, transform=jittered_transform)
 logger.info(f"Writing: {output_1b_offset}")
 with rio.open(output_1b_offset, "w+", **profile) as dst:
     dst.write(data, 1)
+
+# create a point vector to extract pixel values from
+output_samples = os.path.join(data_path, "test-point-samples.gpkg")
+count = 50
+samples = ela.geo.sample_from_raster(output_1b, count)
+samples_df = samples.to_frame("geometry")
+logger.info(f"Writing: {output_samples}")
+samples_df.to_file(output_samples, driver="GPKG")
+
+# create a square polygon
+output_poly = os.path.join(data_path, "test-polygon.gpkg")
+bbox = box(*samples_df.total_bounds)
+poly_df = gpd.GeoDataFrame(geometry=[bbox], crs=samples_df.crs)
+logger.info(f"Writing: {output_poly}")
+poly_df.to_file(output_poly, driver="GPKG")

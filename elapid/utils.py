@@ -97,7 +97,7 @@ def create_output_raster_profile(
     template_idx: int = 0,
     windowed: bool = True,
     nodata: Number = None,
-    compression: str = None,
+    compress: str = None,
     driver: str = "GTiff",
     bigtiff: bool = True,
     dtype: str = "float32",
@@ -110,7 +110,7 @@ def create_output_raster_profile(
         windowed: perform a block-by-block data read. slower, but reduces memory use.
         nodata: output nodata value
         output_driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
-        compression: compression type to apply to the output file
+        compress: compression type to apply to the output file
         bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
         dtype: rasterio data type string
 
@@ -119,18 +119,16 @@ def create_output_raster_profile(
     """
     with rio.open(raster_paths[template_idx]) as src:
         if windowed:
-            windows = src.block_windows()
+            windows = [window for _, window in src.block_windows()]
         else:
-            idx = (0, 0)
-            window = rio.windows.Window(0, 0, src.width, src.height)
-            windows = iter([(idx, window)])
+            windows = [rio.windows.Window(0, 0, src.width, src.height)]
 
         dst_profile = src.profile
         dst_profile.update(
             count=1,
             dtype=dtype,
             nodata=nodata,
-            compress=compression,
+            compress=compress,
             driver=driver,
         )
         if bigtiff and driver == "GTiff":
@@ -251,5 +249,23 @@ def make_band_labels(n_bands: int) -> list:
     """
     n_zeros = n_digits(n_bands)
     labels = ["band_{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]
+
+    return labels
+
+
+def format_band_labels(raster_paths: list, labels: list = None):
+    """Verifies whether a list of band labels matches the band count,
+        or creates labels when none are passed.
+
+    Args:
+        raster_paths:
+    """
+    n_bands = count_raster_bands(raster_paths)
+
+    if labels is None:
+        labels = make_band_labels(n_bands)
+
+    n_labels = len(labels)
+    assert n_labels == n_bands, "number of band labels ({n_labels}) != n_bands ({n_bands})"
 
     return labels

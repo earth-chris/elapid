@@ -2,13 +2,14 @@
 
 from elapid.features import MaxentFeatureTransformer
 from elapid.geo import (
+    annotate,
     apply_model_to_rasters,
-    pseudoabsence_from_bias_file,
-    pseudoabsence_from_geoseries,
-    pseudoabsence_from_raster,
-    pseudoabsence_from_vector,
-    raster_values_from_geoseries,
+    raster_values_from_df,
     raster_values_from_vector,
+    sample_from_bias_file,
+    sample_from_geoseries,
+    sample_from_raster,
+    sample_from_vector,
     xy_to_geoseries,
 )
 from elapid.models import MaxentModel
