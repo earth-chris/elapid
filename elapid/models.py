@@ -3,7 +3,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from glmnet.linear import ElasticNet
+from glmnet.logistic import LogitNet
 from sklearn.base import BaseEstimator
 
 from elapid import features as _features
@@ -127,9 +127,9 @@ class MaxentModel(BaseEstimator):
         )
 
         if self.use_lambdas_ == "last":
-            self.beta_scores_ = self.estimator.coef_path_[:, -1]
+            self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
         elif self.use_lambdas_ == "best":
-            self.beta_scores_ = self.estimator.coef_path_[:, self.estimator.lambda_max_inx_]
+            self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_max_inx_]
 
         # maxent-specific transformations
         raw = self.predict(features[y == 0], transform="raw", is_features=True)
@@ -224,7 +224,7 @@ class MaxentModel(BaseEstimator):
         Returns:
             None. updates the self.estimator with an sklearn-style model estimator
         """
-        self.estimator = ElasticNet(
+        self.estimator = LogitNet(
             alpha=alpha,
             lambda_path=lambdas,
             standardize=standardize,
