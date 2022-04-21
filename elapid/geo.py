@@ -27,7 +27,6 @@ tqdm = get_tqdm()
 tqdm_opts = {"desc": "Geometry", "leave": False}
 tqdm.pandas(**tqdm_opts)
 
-
 # sampling tools
 
 
@@ -251,7 +250,7 @@ def _read_pixel_value(point: gpd.GeoSeries, source: rio.io.DatasetReader) -> np.
     """
     row, col = source.index(point.geometry.x, point.geometry.y)
     window = rio.windows.Window(col, row, 1, 1)
-    values = source.read(window=window)
+    values = source.read(window=window, boundless=True)
     return np.squeeze(values)
 
 
@@ -308,7 +307,7 @@ def raster_values_from_geoseries(
 
             # reproject points to match raster and convert to a dataframe
             if not crs_match(geoseries.crs, src.crs):
-                points = geoseries.to_crs(src.crs, inplace=True)
+                geoseries.to_crs(src.crs, inplace=True)
 
             points = geoseries.to_frame("geometry")
 
