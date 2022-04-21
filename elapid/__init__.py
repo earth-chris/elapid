@@ -2,8 +2,9 @@
 
 from elapid.features import MaxentFeatureTransformer
 from elapid.geo import (
+    annotate,
     apply_model_to_rasters,
-    raster_values_from_geoseries,
+    raster_values_from_df,
     raster_values_from_vector,
     sample_from_bias_file,
     sample_from_geoseries,

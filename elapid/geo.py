@@ -15,11 +15,10 @@ from elapid.types import CRSType, to_iterable
 from elapid.utils import (
     NoDataException,
     check_raster_alignment,
-    count_raster_bands,
     create_output_raster_profile,
+    format_band_labels,
     get_raster_band_indexes,
     get_tqdm,
-    make_band_labels,
     n_digits,
 )
 
@@ -254,6 +253,56 @@ def _read_pixel_value(point: gpd.GeoSeries, source: rio.io.DatasetReader) -> np.
     return np.squeeze(values)
 
 
+def annotate(
+    points: Union[str, gpd.GeoSeries, gpd.GeoDataFrame],
+    raster_paths: Union[str, list],
+    labels: list = None,
+    drop_na: bool = True,
+):
+    """Read raster values for each point in a vector and append as new columns.
+
+    Args:
+        points: path to a point-format vector, OR
+            GeoDataFrame with point locations, OR
+            GeoSeries (e.g., gdf['geometry']) with point locations
+        raster_paths: raster paths to extract pixel values from.
+        labels: band name labels. number of labels should match the
+            total number of bands across all raster_paths.
+        drop_na: drop all records with no-data values.
+
+    Returns:
+        gdf: GeoDataFrame annotated with the pixel values from each raster
+    """
+    # format the inputs
+    raster_paths = to_iterable(raster_paths)
+    labels = format_band_labels(raster_paths, labels)
+
+    # read raster values based on the points dtype
+    if type(points) is str:
+        gdf = raster_values_from_vector(points, raster_paths, labels=labels, drop_na=drop_na)
+
+    elif type(points) is gpd.GeoDataFrame:
+        gdf = raster_values_from_df(
+            points,
+            raster_paths,
+            labels=labels,
+            drop_na=drop_na,
+        )
+
+    elif type(points) is gpd.GeoSeries:
+        gdf = raster_values_from_df(
+            points.to_frame("geometry"),
+            raster_paths,
+            labels=labels,
+            drop_na=drop_na,
+        )
+
+    else:
+        raise TypeError("input must be a string (path), GeoDataFrame, or GeoSeries")
+
+    return gdf
+
+
 def raster_values_from_vector(
     vector_path: str, raster_paths: list, labels: list = None, drop_na: bool = True
 ) -> gpd.GeoDataFrame:
@@ -268,19 +317,23 @@ def raster_values_from_vector(
     Returns:
         gdf: GeoDataFrame annotated with the pixel values from each raster
     """
+    # format the inputs
+    raster_paths = to_iterable(raster_paths)
+    labels = format_band_labels(raster_paths, labels)
+
     gdf = gpd.read_file(vector_path)
-    raster_df = raster_values_from_geoseries(gdf.geometry, raster_paths, labels, drop_na)
+    raster_df = raster_values_from_df(gdf, raster_paths, labels, drop_na)
     gdf = pd.concat([gdf, raster_df.drop(["geometry"], axis=1, errors="ignore")], axis=1)
     return gdf
 
 
-def raster_values_from_geoseries(
-    geoseries: gpd.GeoSeries, raster_paths: list, labels: list = None, drop_na: bool = True, save_memory: bool = False
+def raster_values_from_df(
+    points: gpd.GeoDataFrame, raster_paths: list, labels: list = None, drop_na: bool = True, save_memory: bool = False
 ) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
-        geoseries: GeoSeries (e.g., gdf['geometry']) with point locations.
+        points: GeoDataFrame with point locations.
         raster_paths: raster paths to extract pixel values from.
         labels: band name labels. should match the total number of bands across all raster_paths.
         drop_na: drop all records with no-data values.
@@ -289,16 +342,9 @@ def raster_values_from_geoseries(
     Returns:
         gdf: GeoDataFrame annotated with the pixel values from each raster
     """
-    # make sure the raster_paths are iterable
+    # format the inputs
     raster_paths = to_iterable(raster_paths)
-
-    # set raster band column labels
-    n_bands = count_raster_bands(raster_paths)
-    if labels is None:
-        labels = make_band_labels(n_bands)
-
-    n_labels = len(labels)
-    assert n_labels == n_bands, "number of band labels ({n_labels}) != n_bands ({n_bands})"
+    labels = format_band_labels(raster_paths, labels)
 
     # annotate each point with the pixel values for each raster
     raster_values = []
@@ -306,10 +352,8 @@ def raster_values_from_geoseries(
         with rio.open(raster_path, "r") as src:
 
             # reproject points to match raster and convert to a dataframe
-            if not crs_match(geoseries.crs, src.crs):
-                geoseries.to_crs(src.crs, inplace=True)
-
-            points = geoseries.to_frame("geometry")
+            if not crs_match(points.crs, src.crs):
+                points.to_crs(src.crs, inplace=True)
 
             # read slowly
             if save_memory:
@@ -331,11 +375,11 @@ def raster_values_from_geoseries(
 
     # merge the dataframes from each raster extraction
     df = pd.concat(raster_values, axis=1)
-    df.set_index(geoseries.index, inplace=True)
+    df.set_index(points.index, inplace=True)
     df.columns = labels
 
     # convert to a geodataframe
-    gdf = gpd.GeoDataFrame(df, geometry=geoseries, crs=geoseries.crs)
+    gdf = gpd.GeoDataFrame(df, geometry=points.geometry, crs=points.crs)
     if drop_na:
         gdf.dropna(axis=0, inplace=True)
 
