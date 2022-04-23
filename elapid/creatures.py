@@ -7,7 +7,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, QuantileTransformer
 
-from elapid.config import MaxentConfig
+from elapid.config import MaxentConfig, RegularizationConfig
 from elapid.types import ArrayLike, validate_boolean, validate_feature_types, validate_numeric_scalar
 from elapid.utils import make_band_labels, repeat_array
 
@@ -15,8 +15,8 @@ from elapid.utils import make_band_labels, repeat_array
 class LinearTransformer(MinMaxScaler):
     """Applies linear feature transformations to rescale features from 0-1."""
 
-    clamp: bool = False
-    feature_range: Tuple[float, float] = (0.0, 1.0)
+    clamp: bool = None
+    feature_range: None
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class QuadraticTransformer(BaseEstimator):
 
     clamp: bool = None
     feature_range: Tuple[float, float] = None
-    estimator: BaseEstimator
+    estimator: BaseEstimator = None
 
     def __init__(
         self,
@@ -47,14 +47,14 @@ class QuadraticTransformer(BaseEstimator):
     def fit(self, x: ArrayLike) -> None:
         self.estimator.fit(np.array(x) ** 2)
 
-    def transform(self, x: ArrayLike) -> np.array:
+    def transform(self, x: ArrayLike) -> np.ndarray:
         return self.estimator.transform(np.array(x) ** 2)
 
-    def fit_transform(self, x: ArrayLike) -> np.array:
+    def fit_transform(self, x: ArrayLike) -> np.ndarray:
         self.fit(x)
         return self.estimator.transform(np.array(x) ** 2)
 
-    def inverse_transform(self, x: ArrayLike) -> np.array:
+    def inverse_transform(self, x: ArrayLike) -> np.ndarray:
         return self.estimator.inverse_transform(np.array(x)) ** 0.5
 
 
@@ -63,7 +63,7 @@ class ProductTransformer(BaseEstimator):
 
     clamp: bool = None
     feature_range: Tuple[float, float] = None
-    estimator: BaseEstimator
+    estimator: BaseEstimator = None
 
     def __init__(
         self,
@@ -77,10 +77,10 @@ class ProductTransformer(BaseEstimator):
     def fit(self, x: ArrayLike):
         self.estimator.fit(column_product(np.array(x)))
 
-    def transform(self, x: ArrayLike) -> np.array:
+    def transform(self, x: ArrayLike) -> np.ndarray:
         return self.estimator.transform(column_product(np.array(x)))
 
-    def fit_transform(self, x: ArrayLike) -> np.array:
+    def fit_transform(self, x: ArrayLike) -> np.ndarray:
         self.fit(x)
         return self.transform(x)
 
@@ -90,9 +90,9 @@ class ThresholdTransformer(BaseEstimator):
     thresholds across it's min/max range."""
 
     n_thresholds_: int = None
-    mins_: np.array = None
-    maxs_: np.array = None
-    threshold_indices_: np.array = None
+    mins_: np.ndarray = None
+    maxs_: np.ndarray = None
+    threshold_indices_: np.ndarray = None
 
     def __init__(self, n_thresholds: int = MaxentConfig.n_threshold_features):
         self.n_thresholds_ = n_thresholds
@@ -103,14 +103,14 @@ class ThresholdTransformer(BaseEstimator):
         self.maxs_ = x.max(axis=0)
         self.threshold_indices_ = np.linspace(self.mins_, self.maxs_, self.n_thresholds_)
 
-    def transform(self, x: ArrayLike) -> np.array:
+    def transform(self, x: ArrayLike) -> np.ndarray:
         x = np.array(x)
         xarr = repeat_array(x, len(self.threshold_indices_), axis=-1)
         tarr = repeat_array(self.threshold_indices_.transpose(), len(x), axis=0)
         thresh = (xarr > tarr).reshape(x.shape[0], -1)
         return thresh.astype(np.uint8)
 
-    def fit_transform(self, x: ArrayLike) -> np.array:
+    def fit_transform(self, x: ArrayLike) -> np.ndarray:
         self.fit(x)
         return self.transform(x)
 
@@ -119,9 +119,9 @@ class HingeTransformer(BaseEstimator):
     """Fits hinge transformations to an array of covariates."""
 
     n_hinges_: int = None
-    mins_: np.array = None
-    maxs_: np.array = None
-    hinge_indices_: np.array = None
+    mins_: np.ndarray = None
+    maxs_: np.ndarray = None
+    hinge_indices_: np.ndarray = None
 
     def __init__(self, n_hinges: int = MaxentConfig.n_hinge_features):
         self.n_hinges_ = n_hinges
@@ -132,7 +132,7 @@ class HingeTransformer(BaseEstimator):
         self.maxs_ = x.max(axis=0)
         self.hinge_indices_ = np.linspace(self.mins_, self.maxs_, self.n_hinges_)
 
-    def transform(self, x: ArrayLike) -> np.array:
+    def transform(self, x: ArrayLike) -> np.ndarray:
         x = np.array(x)
         xarr = repeat_array(x, self.n_hinges_ - 1, axis=-1)
         lharr = repeat_array(self.hinge_indices_[:-1].transpose(), len(x), axis=0)
@@ -141,7 +141,7 @@ class HingeTransformer(BaseEstimator):
         rh = right_hinge(xarr, self.mins_, rharr)
         return np.concatenate((lh, rh), axis=2).reshape(x.shape[0], -1)
 
-    def fit_transform(self, x: ArrayLike) -> np.array:
+    def fit_transform(self, x: ArrayLike) -> np.ndarray:
         self.fit(x)
         return self.transform(x)
 
@@ -167,7 +167,7 @@ class CategoricalTransformer(BaseEstimator):
                 estimator = OneHotEncoder(dtype=np.uint8, sparse=False)
                 self.estimators_.append(estimator.fit(xsub))
 
-    def transform(self, x: ArrayLike) -> np.array:
+    def transform(self, x: ArrayLike) -> np.ndarray:
         x = np.array(x)
         if x.ndim == 1:
             estimator = self.estimators_[0]
@@ -181,7 +181,7 @@ class CategoricalTransformer(BaseEstimator):
                 class_data.append(estimator.transform(xsub))
             return np.concatenate(class_data, axis=1)
 
-    def fit_transform(self, x: ArrayLike) -> np.array:
+    def fit_transform(self, x: ArrayLike) -> np.ndarray:
         self.fit(x)
         return self.transform(x)
 
@@ -211,14 +211,7 @@ class MaxentFeatureTransformer(BaseEstimator):
         "hinge": None,
         "categorical": None,
     }
-    feature_ranges_: dict = {
-        "linear": None,
-        "quadratic": None,
-        "product": None,
-        "threshold": None,
-        "hinge": None,
-        "categorical": None,
-    }
+    feature_names_: list = None
 
     def __init__(
         self,
@@ -283,36 +276,47 @@ class MaxentFeatureTransformer(BaseEstimator):
     def fit(self, x: ArrayLike, categorical: list = None, labels: list = None):
         self._format_labels_and_dtypes(x, categorical=categorical, labels=labels)
         con, cat = self._format_covariate_data(x)
+        nrows, ncols = con.shape
 
+        feature_names = []
         if "linear" in self.feature_types_:
             estimator = LinearTransformer(clamp=self.clamp_)
             estimator.fit(con)
             self.estimators_["linear"] = estimator
+            feature_names += ["linear"] * estimator.n_features_in_
 
         if "quadratic" in self.feature_types_:
             estimator = QuadraticTransformer(clamp=self.clamp_)
             estimator.fit(con)
             self.estimators_["quadratic"] = estimator
+            feature_names += ["quadratic"] * estimator.estimator.n_features_in_
 
         if "product" in self.feature_types_:
             estimator = ProductTransformer(clamp=self.clamp_)
             estimator.fit(con)
             self.estimators_["product"] = estimator
+            feature_names += ["product"] * estimator.estimator.n_features_in_
 
         if "threshold" in self.feature_types_:
             estimator = ThresholdTransformer(n_thresholds=self.n_threshold_features_)
             estimator.fit(con)
             self.estimators_["threshold"] = estimator
+            feature_names += ["threshold"] * (estimator.n_thresholds_ * ncols)
 
         if "hinge" in self.feature_types_:
             estimator = HingeTransformer(n_hinges=self.n_hinge_features_)
             estimator.fit(con)
             self.estimators_["hinge"] = estimator
+            feature_names += ["hinge"] * ((estimator.n_hinges_ - 1) * 2 * ncols)
 
         if cat is not None:
             estimator = CategoricalTransformer()
             estimator.fit(cat)
             self.estimators_["categorical"] = estimator
+            for est in estimator.estimators_:
+                feature_names += ["categorical"] * len(est.categories_[0])
+
+        self.feature_names_ = feature_names
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         con, cat = self._format_covariate_data(x)
@@ -338,11 +342,15 @@ class MaxentFeatureTransformer(BaseEstimator):
 
         return np.concatenate(features, axis=1)
 
+    def fit_transform(self, x: ArrayLike, categorical: list = None, labels: list = None) -> np.ndarray:
+        self.fit(x, categorical=categorical, labels=labels)
+        return self.transform(x)
+
 
 # helper functions
 
 
-def column_product(array: np.array) -> np.array:
+def column_product(array: np.ndarray) -> np.ndarray:
     """Computes the column-wise product of a 2D array."""
     nrows, ncols = array.shape
 
@@ -355,7 +363,7 @@ def column_product(array: np.array) -> np.array:
         return np.concatenate(products, axis=1)
 
 
-def left_hinge(x: ArrayLike, mn: float, mx: float) -> ArrayLike:
+def left_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     """Computes hinge transformation values.
 
     Args:
@@ -369,7 +377,7 @@ def left_hinge(x: ArrayLike, mn: float, mx: float) -> ArrayLike:
     return np.minimum(1, np.maximum(0, (x - mn) / (repeat_array(mx, mn.shape[-1], axis=1) - mn)))
 
 
-def right_hinge(x: ArrayLike, mn: float, mx: float) -> ArrayLike:
+def right_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     """Computes hinge transformation values.
 
     Args:
@@ -384,7 +392,7 @@ def right_hinge(x: ArrayLike, mn: float, mx: float) -> ArrayLike:
     return np.minimum(1, np.maximum(0, (x - mn_broadcast) / (mx - mn_broadcast)))
 
 
-def compute_weights(y: ArrayLike, pbr: int = 100) -> ArrayLike:
+def compute_weights(y: ArrayLike, pbr: int = 100) -> np.ndarray:
     """Compute Maxent-format per-sample model weights.
 
     Args:
@@ -398,9 +406,34 @@ def compute_weights(y: ArrayLike, pbr: int = 100) -> ArrayLike:
     return weights
 
 
+def compute_regularization(
+    f: np.ndarray,
+    y: ArrayLike,
+    beta_multiplier: float = MaxentConfig.beta_multiplier,
+    beta_lqp: float = MaxentConfig.beta_lqp,
+    beta_threshold: float = MaxentConfig.beta_threshold,
+    beta_hinge: float = MaxentConfig.beta_hinge,
+    beta_categorical: float = MaxentConfig.beta_hinge,
+) -> np.ndarray:
+    """Computes variable regularization values for all feature data.
+
+    Args:
+        f: model features (transformations applied to covariates)
+        y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        beta_multiplier: scaler for all regularization parameters. higher values exclude more features
+        beta_lqp: scaler for linear, quadratic and product feature regularization
+        beta_threshold: scaler for threshold feature regularization
+        beta_hinge: scaler for hinge feature regularization
+        beta_categorical: scaler for categorical feature regularization
+
+    Returns:
+        max_reg: Array with per-feature regularization parameters
+    """
+
+
 def compute_lambdas(
     y: ArrayLike, weights: ArrayLike, reg: ArrayLike, n_lambdas: int = MaxentConfig.n_lambdas
-) -> ArrayLike:
+) -> np.ndarray:
     """Computes lambda parameter values for elastic lasso fits.
 
     Args:
