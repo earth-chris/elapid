@@ -1,4 +1,5 @@
 """SDM model configuration parameters."""
+from typing import Union
 
 
 class MaxentConfig:
@@ -35,6 +36,9 @@ class MaxentConfig:
     # elasticnet lambda type to use ('best' or 'last')
     use_lambdas: str = "best"
     n_lambdas: int = 100
+
+    # method for weighting presence samples
+    weights: Union[str, float] = "balance"
 
 
 # maxent default regularization parameters (from the maxnet R package)
