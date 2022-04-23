@@ -28,12 +28,17 @@ class MaxentModel(BaseEstimator):
     n_threshold_features_: int = MaxentConfig.n_threshold_features
     scorer_: str = MaxentConfig.scorer
     use_lambdas_: str = MaxentConfig.use_lambdas
+    n_lambdas_: str = MaxentConfig.n_lambdas
     initialized_: bool = False
     beta_scores_: np.array = None
     entropy_: float = 0.0
     alpha_: float = 0.0
     estimator: BaseEstimator = None
     transformer: _features.MaxentFeatureTransformer = None
+    weights_: np.ndarray = None
+    regularization_: np.ndarray = None
+    lambdas_: np.ndarray = None
+    weight_strategy_: Union[str, float] = None
     n_cpus_ = n_cpus
 
     def __init__(
@@ -51,6 +56,8 @@ class MaxentModel(BaseEstimator):
         n_threshold_features: int = MaxentConfig.n_threshold_features,
         convergence_tolerance: float = MaxentConfig.tolerance,
         use_lambdas: str = MaxentConfig.use_lambdas,
+        n_lambdas: int = MaxentConfig.n_lambdas,
+        weights: Union[str, float] = MaxentConfig.weights,
         n_cpus: int = n_cpus,
     ):
         """Create a maxent model object.
@@ -69,6 +76,10 @@ class MaxentModel(BaseEstimator):
             beta_categorical: categorical feature regularization scaler
             convergence_tolerance: model convergence tolerance level
             use_lambdas: guide for which model lambdas to select (either "best" or "last")
+            n_lambdas: number of lamba values to fit models with
+            weights: strategy for weighting presence samples.
+                pass "balance" to compute the ratio based on sample frequency
+                or pass a float for the presence:background weight ratio
             n_cpus: threads to use during model training
         """
         self.feature_types_ = validate_feature_types(feature_types)
@@ -85,6 +96,8 @@ class MaxentModel(BaseEstimator):
         self.n_cpus_ = n_cpus
         self.scorer_ = scorer
         self.use_lambdas_ = use_lambdas
+        self.n_lambdas_ = n_lambdas
+        self.weight_strategy_ = weights
 
     def fit(
         self, x: ArrayLike, y: ArrayLike, categorical: List[int] = None, labels: list = None, is_features: bool = False
@@ -113,17 +126,27 @@ class MaxentModel(BaseEstimator):
             )
             features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
 
-        weights = _features.compute_weights(y)
-        regularization = _features.compute_regularization(features, y)
-        lambdas = _features.compute_lambdas(y, weights, regularization)
+        # compute sample weights
+        if self.weight_strategy_ == "balance":
+            pbr = len(y) / y.sum()
+        else:
+            pbr = self.weight_strategy_
+
+        self.weights_ = _features.compute_weights(y, pbr=pbr)
+
+        # set feature regularization parameters
+        self.regularization_ = _features.compute_regularization(features, y)
+
+        # get model lambda scores to initialize the glm
+        self.lambdas_ = _features.compute_lambdas(y, self.weights_, self.regularization_)
 
         # model fitting
-        self.initialize_model(lambdas=lambdas)
+        self.initialize_model(lambdas=self.lambdas_)
         self.estimator.fit(
             features,
             y,
-            sample_weight=weights,
-            relative_penalties=regularization,
+            sample_weight=self.weights_,
+            relative_penalties=self.regularization_,
         )
 
         if self.use_lambdas_ == "last":
@@ -135,11 +158,10 @@ class MaxentModel(BaseEstimator):
         raw = self.predict(features[y == 0], transform="raw", is_features=True)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
-        self.alpha_ = -np.log(np.sum(raw))
+        self.alpha_ = maxent_alpha(raw)
 
         # the distance from f(z) is considered the relative entropy of f1(z) WRT f(z)
-        scaled = raw / np.sum(raw)
-        self.entropy_ = -np.sum(scaled * np.log(scaled))
+        self.entropy_ = maxent_entropy(raw)
 
     def predict(self, x: ArrayLike, transform: str = "logistic", is_features: bool = False) -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
@@ -235,3 +257,28 @@ class MaxentModel(BaseEstimator):
         )
 
         self.initialized_ = True
+
+
+def maxent_alpha(raw: np.ndarray) -> float:
+    """Compute the sum-to-one alpha maxent model parameter.
+
+    Args:
+        raw: uncalibrated maxent raw (exponential) model output
+
+    Returns:
+        alpha: the output sum-to-one scaling factor
+    """
+    return -np.log(np.sum(raw))
+
+
+def maxent_entropy(raw: np.ndarray) -> float:
+    """Compute the maxent model entropy score for scaling the logistic output
+
+    Args:
+        raw: uncalibrated maxent raw (exponential) model output
+
+    Returns:
+        entropy: background distribution entropy score
+    """
+    scaled = raw / np.sum(raw)
+    return -np.sum(scaled * np.log(scaled))
