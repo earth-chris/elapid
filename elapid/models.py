@@ -6,7 +6,7 @@ import pandas as pd
 from glmnet.logistic import LogitNet
 from sklearn.base import BaseEstimator
 
-from elapid import features as _features
+from elapid import creatures as _features
 from elapid.config import MaxentConfig
 from elapid.types import ArrayLike, Number, validate_feature_types
 from elapid.utils import n_cpus
@@ -135,7 +135,15 @@ class MaxentModel(BaseEstimator):
         self.weights_ = _features.compute_weights(y, pbr=pbr)
 
         # set feature regularization parameters
-        self.regularization_ = _features.compute_regularization(features, y)
+        self.regularization_ = _features.compute_regularization(
+            y,
+            features,
+            feature_labels=self.transformer.feature_names_,
+            beta_multiplier=self.beta_multiplier_,
+            beta_threshold=self.beta_threshold_,
+            beta_hinge=self.beta_hinge_,
+            beta_categorical=self.beta_categorical_,
+        )
 
         # get model lambda scores to initialize the glm
         self.lambdas_ = _features.compute_lambdas(y, self.weights_, self.regularization_)
