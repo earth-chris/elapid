@@ -6,7 +6,7 @@ import pandas as pd
 from glmnet.logistic import LogitNet
 from sklearn.base import BaseEstimator
 
-from elapid import creatures as _features
+from elapid import features as _features
 from elapid.config import MaxentConfig
 from elapid.types import ArrayLike, Number, validate_feature_types
 from elapid.utils import n_cpus
