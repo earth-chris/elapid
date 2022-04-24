@@ -43,9 +43,9 @@ class MaxentConfig:
 
 # maxent default regularization parameters (from the maxnet R package)
 class RegularizationConfig:
-    linear_reg: list = [[0, 10, 30, 100], [1, 1, 0.2, 0.05]]
-    quadratic_reg: list = [[0, 10, 17, 30, 100], [1.3, 0.8, 0.5, 0.25, 0.05]]
-    product_reg: list = [[0, 10, 17, 30, 100], [2.6, 1.6, 0.9, 0.55, 0.05]]
-    hinge_reg: list = [[0, 1], [0.5, 0.5]]
-    threshold_reg: list = [[0, 100], [2, 1]]
-    class_reg: list = [[0, 10, 17], [0.65, 0.5, 0.25]]
+    linear: list = [[0, 10, 30, 100], [1, 1, 0.2, 0.05]]
+    quadratic: list = [[0, 10, 17, 30, 100], [1.3, 0.8, 0.5, 0.25, 0.05]]
+    product: list = [[0, 10, 17, 30, 100], [2.6, 1.6, 0.9, 0.55, 0.05]]
+    hinge: list = [[0, 1], [0.5, 0.5]]
+    threshold: list = [[0, 100], [2, 1]]
+    categorical: list = [[0, 10, 17], [0.65, 0.5, 0.25]]

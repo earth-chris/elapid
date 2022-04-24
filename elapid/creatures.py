@@ -407,8 +407,9 @@ def compute_weights(y: ArrayLike, pbr: int = 100) -> np.ndarray:
 
 
 def compute_regularization(
-    f: np.ndarray,
     y: ArrayLike,
+    z: np.ndarray,
+    feature_labels: List[str],
     beta_multiplier: float = MaxentConfig.beta_multiplier,
     beta_lqp: float = MaxentConfig.beta_lqp,
     beta_threshold: float = MaxentConfig.beta_threshold,
@@ -418,8 +419,10 @@ def compute_regularization(
     """Computes variable regularization values for all feature data.
 
     Args:
-        f: model features (transformations applied to covariates)
         y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+        z: model features (transformations applied to covariates)
+        feature_labels: list of length n_features, with labels identifying each column's feature type
+            with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
         beta_multiplier: scaler for all regularization parameters. higher values exclude more features
         beta_lqp: scaler for linear, quadratic and product feature regularization
         beta_threshold: scaler for threshold feature regularization
@@ -429,6 +432,98 @@ def compute_regularization(
     Returns:
         max_reg: Array with per-feature regularization parameters
     """
+    # compute regularization based on presence-only locations
+    z1 = z[y == 1]
+    nrows, ncols = z1.shape
+    labels = np.array(feature_labels)
+    nlabels = len(feature_labels)
+
+    assert nlabels == ncols, f"number of feature_labels ({nlabels}) must match number of features ({ncols})"
+
+    # create arrays to store the regularization params
+    base_regularization = np.zeros(ncols)
+    hinge_regularization = np.zeros(ncols)
+    threshold_regularization = np.zeros(ncols)
+
+    # use a different reg table based on the features set
+    if "product" in labels:
+        table_lqp = RegularizationConfig.product
+    elif "quadratic" in labels:
+        table_lqp = RegularizationConfig.quadratic
+    else:
+        table_lqp = RegularizationConfig.linear
+
+    if "linear" in labels:
+        linear_idxs = labels == "linear"
+        fr_max, fr_min = table_lqp
+        multiplier = beta_lqp
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
+        base_regularization[linear_idxs] = reg
+
+    if "quadratic" in labels:
+        quadratic_idxs = labels == "quadratic"
+        fr_max, fr_min = table_lqp
+        multiplier = beta_lqp
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
+        base_regularization[quadratic_idxs] = reg
+
+    if "product" in labels:
+        product_idxs = labels == "product"
+        fr_max, fr_min = table_lqp
+        multiplier = beta_lqp
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
+        base_regularization[product_idxs] = reg
+
+    if "threshold" in labels:
+        threshold_idxs = labels == "threshold"
+        fr_max, fr_min = RegularizationConfig.threshold
+        multiplier = beta_threshold
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
+        base_regularization[threshold_idxs] = reg
+
+        # increase regularization for uniform threshlold values
+        all_zeros = np.all(z1 == 0, axis=0)
+        all_ones = np.all(z1 == 1, axis=0)
+        threshold_regularization[all_zeros] = 1
+        threshold_regularization[all_ones] = 1
+
+    if "hinge" in labels:
+        hinge_idxs = labels == "hinge"
+        fr_max, fr_min = RegularizationConfig.hinge
+        multiplier = beta_hinge
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
+        base_regularization[hinge_idxs] = reg
+
+        # increase regularization for extreme hinge values
+        hinge_std = np.std(z1[:, hinge_idxs], ddof=1, axis=0)
+        hinge_sqrt = np.zeros(len(hinge_std)) + (1 / np.sqrt(nrows))
+        std = np.max((hinge_std, hinge_sqrt), axis=0)
+        hinge_regularization[hinge_idxs] = (0.5 * std) / np.sqrt(nrows)
+
+    if "categorical" in labels:
+        categorical_idxs = labels == "categorical"
+        fr_max, fr_min = RegularizationConfig.categorical
+        multiplier = beta_categorical
+        ap = np.interp(nrows, fr_max, fr_min)
+        reg = multiplier * ap / np.sqrt(nrows)
+        base_regularization[categorical_idxs] = reg
+
+    # compute the maximum regularization based on a few different approaches
+    default_regularization = 0.001 * (np.max(z, axis=0) - np.min(z, axis=0))
+    variance_regularization = np.std(z1, ddof=1, axis=0) * base_regularization
+    max_regularization = np.max(
+        (default_regularization, variance_regularization, hinge_regularization, threshold_regularization), axis=0
+    )
+
+    # apply the final scaling factor
+    max_regularization *= beta_multiplier
+
+    return max_regularization
 
 
 def compute_lambdas(
