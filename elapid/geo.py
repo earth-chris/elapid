@@ -24,7 +24,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"ncols": 10}
+tqdm_opts = {"bar_format": "{l_bar}{bar:10}{r_bar}{bar:-10b}"}
 
 # sampling tools
 
