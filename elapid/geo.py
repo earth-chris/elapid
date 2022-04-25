@@ -1,5 +1,6 @@
 """Geospatial data operations like reading/writing/indexing raster and vector data."""
 
+import os
 from multiprocessing import Pool
 from typing import Union
 
@@ -23,8 +24,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"desc": "Geometry", "leave": False}
-tqdm.pandas(**tqdm_opts)
+tqdm_opts = {"ncols": 10}
 
 # sampling tools
 
@@ -53,7 +53,7 @@ def xy_to_geoseries(
     return gs
 
 
-def sample_from_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
+def sample_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points based on a raster's extent.
 
     Selects from unmasked locations if the rasters nodata value is set.
@@ -85,7 +85,7 @@ def sample_from_raster(raster_path: str, count: int, ignore_mask: bool = False) 
         return points
 
 
-def sample_from_bias_file(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
+def sample_bias_file(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a semi-random geographic sampling of points weighted towards biased areas.
 
     Args:
@@ -121,7 +121,7 @@ def sample_from_bias_file(raster_path: str, count: int, ignore_mask: bool = Fals
         return points
 
 
-def sample_from_vector(vector_path: str, count: int, overestimate: float = 2) -> gpd.GeoSeries:
+def sample_vector(vector_path: str, count: int, overestimate: float = 2) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points inside of a polygon/multipolygon type vector file.
 
     Args:
@@ -134,10 +134,10 @@ def sample_from_vector(vector_path: str, count: int, overestimate: float = 2) ->
         points: Point geometry geoseries
     """
     gdf = gpd.read_file(vector_path)
-    return sample_from_geoseries(gdf.geometry, count, overestimate=overestimate)
+    return sample_geoseries(gdf.geometry, count, overestimate=overestimate)
 
 
-def sample_from_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float = 2) -> gpd.GeoSeries:
+def sample_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float = 2) -> gpd.GeoSeries:
     """Creates random geographic point samples inside a polygon/multipolygon
 
     Args:
@@ -156,9 +156,11 @@ def sample_from_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: fl
     samples = np.random.uniform((xmin, ymin), (xmax, ymax), (int(count / ratio * overestimate), 2))
     multipoint = MultiPoint(samples)
     multipoint = multipoint.intersection(polygon)
-    samples = np.array(multipoint)
+    sample_array = np.zeros((len(multipoint.geoms), 2))
+    for idx, point in enumerate(multipoint.geoms):
+        sample_array[idx] = (point.x, point.y)
 
-    xy = samples[np.random.choice(len(samples), count)]
+    xy = sample_array[np.random.choice(len(sample_array), count)]
     points = xy_to_geoseries(xy[:, 0], xy[:, 1], crs=geoseries.crs)
 
     return points
@@ -278,33 +280,39 @@ def annotate(
     labels = format_band_labels(raster_paths, labels)
 
     # read raster values based on the points dtype
-    if type(points) is str:
-        gdf = raster_values_from_vector(points, raster_paths, labels=labels, drop_na=drop_na)
-
-    elif type(points) is gpd.GeoDataFrame:
-        gdf = raster_values_from_df(
+    if type(points) is gpd.GeoSeries:
+        gdf = annotate_geoseries(
             points,
             raster_paths,
             labels=labels,
             drop_na=drop_na,
         )
 
-    elif type(points) is gpd.GeoSeries:
-        gdf = raster_values_from_df(
-            points.to_frame("geometry"),
+    elif type(points) is gpd.GeoDataFrame:
+        gdf = annotate_geoseries(
+            points.geometry,
             raster_paths,
             labels=labels,
             drop_na=drop_na,
         )
 
+        # append annotations to the input dataframe
+        gdf = pd.concat([points, gdf.drop(["geometry"], axis=1, errors="ignore")], axis=1)
+
+    elif os.path.isfile(points):
+        gdf = annotate_vector(points, raster_paths, labels=labels, drop_na=drop_na)
+
     else:
-        raise TypeError("input must be a string (path), GeoDataFrame, or GeoSeries")
+        raise TypeError("points arg must be a valid path, GeoDataFrame, or GeoSeries")
 
     return gdf
 
 
-def raster_values_from_vector(
-    vector_path: str, raster_paths: list, labels: list = None, drop_na: bool = True
+def annotate_vector(
+    vector_path: str,
+    raster_paths: list,
+    labels: list = None,
+    drop_na: bool = True,
 ) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using a point-format vector file.
 
@@ -322,22 +330,22 @@ def raster_values_from_vector(
     labels = format_band_labels(raster_paths, labels)
 
     gdf = gpd.read_file(vector_path)
-    raster_df = raster_values_from_df(gdf, raster_paths, labels, drop_na)
+    raster_df = annotate_geoseries(gdf.geometry, raster_paths, labels, drop_na)
     gdf = pd.concat([gdf, raster_df.drop(["geometry"], axis=1, errors="ignore")], axis=1)
     return gdf
 
 
-def raster_values_from_df(
-    points: gpd.GeoDataFrame, raster_paths: list, labels: list = None, drop_na: bool = True, save_memory: bool = False
+def annotate_geoseries(
+    points: gpd.GeoSeries, raster_paths: list, labels: list = None, drop_na: bool = True, dtype: str = None
 ) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
-        points: GeoDataFrame with point locations.
-        raster_paths: raster paths to extract pixel values from.
-        labels: band name labels. should match the total number of bands across all raster_paths.
-        drop_na: drop all records with no-data values.
-        save_memory: loop through each record instead of using .apply().
+        points: GeoSeries with point locations.
+        raster_paths: rasters to extract pixel values from.
+        labels: band labels. must match the total number of bands for all raster_paths.
+        drop_na: drop records with no-data values.
+        dtype: output column data type. uses the first raster's dtype by default.
 
     Returns:
         gdf: GeoDataFrame annotated with the pixel values from each raster
@@ -346,42 +354,56 @@ def raster_values_from_df(
     raster_paths = to_iterable(raster_paths)
     labels = format_band_labels(raster_paths, labels)
 
-    # annotate each point with the pixel values for each raster
+    # get the dataset dimensions
+    n_rasters = len(raster_paths)
+    n_points = len(points)
+
+    # create arrays and flags for updating
     raster_values = []
-    for raster_path in tqdm(raster_paths, desc="Raster"):
+    valid_idxs = []
+    nodata_flag = False
+
+    # annotate each point with the pixel values for each raster
+    for raster_idx, raster_path in tqdm(enumerate(raster_paths), desc="Raster", total=n_rasters, **tqdm_opts):
         with rio.open(raster_path, "r") as src:
 
             # reproject points to match raster and convert to a dataframe
             if not crs_match(points.crs, src.crs):
                 points.to_crs(src.crs, inplace=True)
 
-            # read slowly
-            if save_memory:
-                row_vals = []
-                for idx, point in tqdm(points.iterrows(), total=len(points), **tqdm_opts):
-                    row_vals.append(_read_pixel_value(point, src))
-                values = pd.DataFrame(np.vstack(row_vals))
+            # use the first rasters dtype for the output array if not set
+            if raster_idx == 0 and dtype is None:
+                dtype = src.dtypes[0]
 
-            # or read quickly
-            else:
-                values = points.progress_apply(_read_pixel_value, axis=1, result_type="expand", source=src)
+            # get the raster row/col indices for each point and the respective read windows
+            xys = [(point.x, point.y) for point in points]
 
-            # filter out nodata pixels
+            # read each pixel value
+            samples = src.sample(xys, masked=False)
+
+            # assign to an output array
+            outarr = np.zeros((n_points, src.count), dtype=dtype)
+            for idx, sample in enumerate(samples):
+                outarr[idx] = sample
+
+            # identify nodata points to remove later
             if drop_na and src.nodata is not None:
-                values.replace(src.nodata, np.NaN, inplace=True)
+                nodata_flag = True
+                valid_idxs.append(outarr[:, 0] != src.nodata)
 
-            # explicitly cast the output data type
-            raster_values.append(values.astype(src.profile["dtype"]))
+            raster_values.append(outarr)
 
-    # merge the dataframes from each raster extraction
-    df = pd.concat(raster_values, axis=1)
-    df.set_index(points.index, inplace=True)
-    df.columns = labels
+    # merge the arrays from each raster
+    values = np.concatenate(raster_values, axis=1, dtype=dtype)
+
+    if nodata_flag:
+        valid = np.max(valid_idxs, axis=0)
+        values = values[valid, :]
+        points = points.iloc[valid]
+        points.index = range(valid.sum())
 
     # convert to a geodataframe
-    gdf = gpd.GeoDataFrame(df, geometry=points.geometry, crs=points.crs)
-    if drop_na:
-        gdf.dropna(axis=0, inplace=True)
+    gdf = gpd.GeoDataFrame(values, geometry=points.geometry, columns=labels)
 
     return gdf
 
@@ -495,7 +517,7 @@ def apply_model_to_rasters(
 
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
-        for window in tqdm(windows, desc="Tiles"):
+        for window in tqdm(windows, desc="Tile", **tqdm_opts):
             covariates = np.zeros((nbands, window.height, window.width), dtype=np.float32)
             nodata_idx = np.ones_like(covariates, dtype=bool)
 
