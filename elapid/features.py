@@ -45,16 +45,52 @@ class QuadraticTransformer(BaseEstimator):
         self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
 
     def fit(self, x: ArrayLike) -> None:
+        """Compute the minimum and maximum for scaling.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                The data used to compute the per-feature minimum and maximum
+                used for later scaling along the features axis.
+        Returns:
+            None. Updates the transformer with feature fitting parameters.
+        """
         self.estimator.fit(np.array(x) ** 2)
 
     def transform(self, x: ArrayLike) -> np.ndarray:
+        """Scale covariates according to the feature range.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data that will be transformed.
+
+        Returns:
+            ndarray with transformed data.
+        """
         return self.estimator.transform(np.array(x) ** 2)
 
     def fit_transform(self, x: ArrayLike) -> np.ndarray:
+        """Fits scaler to x and returns transformed features.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data to fit the scaler and to transform.
+
+        Returns:
+            ndarray with transformed data.
+        """
         self.fit(x)
         return self.estimator.transform(np.array(x) ** 2)
 
     def inverse_transform(self, x: ArrayLike) -> np.ndarray:
+        """Revert from transformed features to original covariate values.
+
+        Args:
+            x: array-like of shape (n_xamples, n_features)
+                Transformed feature data to convert to covariate data.
+
+        Returns:
+            ndarray with unscaled covariate values.
+        """
         return self.estimator.inverse_transform(np.array(x)) ** 0.5
 
 
@@ -75,12 +111,39 @@ class ProductTransformer(BaseEstimator):
         self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
 
     def fit(self, x: ArrayLike):
+        """Compute the minimum and maximum for scaling.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                The data used to compute the per-feature minimum and maximum
+                used for later scaling along the features axis.
+        Returns:
+            None. Updates the transformer with feature fitting parameters.
+        """
         self.estimator.fit(column_product(np.array(x)))
 
     def transform(self, x: ArrayLike) -> np.ndarray:
+        """Scale covariates according to the feature range.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data that will be transformed.
+
+        Returns:
+            ndarray with transformed data.
+        """
         return self.estimator.transform(column_product(np.array(x)))
 
     def fit_transform(self, x: ArrayLike) -> np.ndarray:
+        """Fits scaler to x and returns transformed features.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data to fit the scaler and to transform.
+
+        Returns:
+            ndarray with transformed data.
+        """
         self.fit(x)
         return self.transform(x)
 
@@ -98,12 +161,30 @@ class ThresholdTransformer(BaseEstimator):
         self.n_thresholds_ = n_thresholds
 
     def fit(self, x: ArrayLike):
+        """Compute the minimum and maximum for scaling.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                The data used to compute the per-feature minimum and maximum
+                used for later scaling along the features axis.
+        Returns:
+            None. Updates the transformer with feature fitting parameters.
+        """
         x = np.array(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
         self.threshold_indices_ = np.linspace(self.mins_, self.maxs_, self.n_thresholds_)
 
     def transform(self, x: ArrayLike) -> np.ndarray:
+        """Scale covariates according to the feature range.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data that will be transformed.
+
+        Returns:
+            ndarray with transformed data.
+        """
         x = np.array(x)
         xarr = repeat_array(x, len(self.threshold_indices_), axis=-1)
         tarr = repeat_array(self.threshold_indices_.transpose(), len(x), axis=0)
@@ -111,6 +192,15 @@ class ThresholdTransformer(BaseEstimator):
         return thresh.astype(np.uint8)
 
     def fit_transform(self, x: ArrayLike) -> np.ndarray:
+        """Fits scaler to x and returns transformed features.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data to fit the scaler and to transform.
+
+        Returns:
+            ndarray with transformed data.
+        """
         self.fit(x)
         return self.transform(x)
 
@@ -127,12 +217,30 @@ class HingeTransformer(BaseEstimator):
         self.n_hinges_ = n_hinges
 
     def fit(self, x: ArrayLike):
+        """Compute the minimum and maximum for scaling.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                The data used to compute the per-feature minimum and maximum
+                used for later scaling along the features axis.
+        Returns:
+            None. Updates the transformer with feature fitting parameters.
+        """
         x = np.array(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
         self.hinge_indices_ = np.linspace(self.mins_, self.maxs_, self.n_hinges_)
 
     def transform(self, x: ArrayLike) -> np.ndarray:
+        """Scale covariates according to the feature range.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data that will be transformed.
+
+        Returns:
+            ndarray with transformed data.
+        """
         x = np.array(x)
         xarr = repeat_array(x, self.n_hinges_ - 1, axis=-1)
         lharr = repeat_array(self.hinge_indices_[:-1].transpose(), len(x), axis=0)
@@ -142,6 +250,15 @@ class HingeTransformer(BaseEstimator):
         return np.concatenate((lh, rh), axis=2).reshape(x.shape[0], -1)
 
     def fit_transform(self, x: ArrayLike) -> np.ndarray:
+        """Fits scaler to x and returns transformed features.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data to fit the scaler and to transform.
+
+        Returns:
+            ndarray with transformed data.
+        """
         self.fit(x)
         return self.transform(x)
 
@@ -155,6 +272,15 @@ class CategoricalTransformer(BaseEstimator):
         pass
 
     def fit(self, x: ArrayLike):
+        """Compute the minimum and maximum for scaling.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                The data used to compute the per-feature minimum and maximum
+                used for later scaling along the features axis.
+        Returns:
+            None. Updates the transformer with feature fitting parameters.
+        """
         self.estimators_ = []
         x = np.array(x)
         if x.ndim == 1:
@@ -168,6 +294,15 @@ class CategoricalTransformer(BaseEstimator):
                 self.estimators_.append(estimator.fit(xsub))
 
     def transform(self, x: ArrayLike) -> np.ndarray:
+        """Scale covariates according to the feature range.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data that will be transformed.
+
+        Returns:
+            ndarray with transformed data.
+        """
         x = np.array(x)
         if x.ndim == 1:
             estimator = self.estimators_[0]
@@ -182,6 +317,15 @@ class CategoricalTransformer(BaseEstimator):
             return np.concatenate(class_data, axis=1)
 
     def fit_transform(self, x: ArrayLike) -> np.ndarray:
+        """Fits scaler to x and returns transformed features.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data to fit the scaler and to transform.
+
+        Returns:
+            ndarray with transformed data.
+        """
         self.fit(x)
         return self.transform(x)
 
@@ -236,6 +380,15 @@ class MaxentFeatureTransformer(BaseEstimator):
         self.n_threshold_features_ = validate_numeric_scalar(n_threshold_features)
 
     def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
+        """Reads input x data and formats it to consistent array dtypes.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+
+        Returns:
+            (continuous, categorical) tuple of ndarrays with continuous and
+                categorical covariate data.
+        """
         if type(x) is np.ndarray:
             if self.categorical_ is None:
                 con = x
@@ -257,6 +410,14 @@ class MaxentFeatureTransformer(BaseEstimator):
         return con, cat
 
     def _format_labels_and_dtypes(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
+        """Read input x data and lists of categorical data indices and band
+            labels to format and store this info for later indexing.
+
+        Args:
+            s: array-like of shape (n_samples, n_features)
+            categorical: indices indicating which x columns are categorical
+            labels: covariate column labels. ignored if x is a pandas DataFrame
+        """
         if type(x) is np.ndarray:
             nrows, ncols = x.shape
             if categorical is None:
@@ -273,7 +434,19 @@ class MaxentFeatureTransformer(BaseEstimator):
             self.continuous_ = list(x.select_dtypes(exclude="category").columns)
             self.categorical_ = list(x.select_dtypes(include="category").columns)
 
-    def fit(self, x: ArrayLike, categorical: list = None, labels: list = None):
+    def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
+        """Compute the minimum and maximum for scaling.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                The data used to compute the per-feature minimum and maximum
+                used for later scaling along the features axis.
+            categorical: indices indicating which x columns are categorical
+            labels: covariate column labels. ignored if x is a pandas DataFrame
+
+        Returns:
+            None. Updates the transformer with feature fitting parameters.
+        """
         self._format_labels_and_dtypes(x, categorical=categorical, labels=labels)
         con, cat = self._format_covariate_data(x)
         nrows, ncols = con.shape
@@ -319,6 +492,15 @@ class MaxentFeatureTransformer(BaseEstimator):
         self.feature_names_ = feature_names
 
     def transform(self, x: ArrayLike) -> np.ndarray:
+        """Scale covariates according to the feature range.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data that will be transformed.
+
+        Returns:
+            ndarray with transformed data.
+        """
         con, cat = self._format_covariate_data(x)
         features = []
 
@@ -343,6 +525,15 @@ class MaxentFeatureTransformer(BaseEstimator):
         return np.concatenate(features, axis=1)
 
     def fit_transform(self, x: ArrayLike, categorical: list = None, labels: list = None) -> np.ndarray:
+        """Fits scaler to x and returns transformed features.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+                Input data to fit the scaler and to transform.
+
+        Returns:
+            ndarray with transformed data.
+        """
         self.fit(x, categorical=categorical, labels=labels)
         return self.transform(x)
 
@@ -351,7 +542,14 @@ class MaxentFeatureTransformer(BaseEstimator):
 
 
 def column_product(array: np.ndarray) -> np.ndarray:
-    """Computes the column-wise product of a 2D array."""
+    """Computes the column-wise product of a 2D array.
+
+    Args:
+        array: array-like of shape (n_samples, n_features)
+
+    Returns:
+        ndarray with of shape (n_samples, factorial(n_features-1))
+    """
     nrows, ncols = array.shape
 
     if ncols == 1:
