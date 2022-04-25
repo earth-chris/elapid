@@ -149,6 +149,9 @@ def sample_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float =
     Returns:
         points: Point geometry geoseries
     """
+    if type(geoseries) is gpd.GeoDataFrame:
+        geoseries = geoseries.geometry
+
     polygon = geoseries.unary_union
     xmin, ymin, xmax, ymax = polygon.bounds
     ratio = polygon.area / polygon.envelope.area
