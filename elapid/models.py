@@ -171,7 +171,7 @@ class MaxentModel(BaseEstimator):
         # the distance from f(z) is considered the relative entropy of f1(z) WRT f(z)
         self.entropy_ = maxent_entropy(raw)
 
-    def predict(self, x: ArrayLike, transform: str = "logistic", is_features: bool = False) -> ArrayLike:
+    def predict(self, x: ArrayLike, transform: str = "cloglog", is_features: bool = False) -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
