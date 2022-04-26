@@ -174,7 +174,7 @@ class MaxentModel(BaseEstimator):
         elif self.use_lambdas_ == "best":
             self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_max_inx_]
 
-        # mapply axent-specific transformations
+        # apply maxent-specific transformations
         raw = self.predict(features[y == 0], transform="raw", is_features=True)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
