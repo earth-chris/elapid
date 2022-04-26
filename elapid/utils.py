@@ -125,7 +125,7 @@ def create_output_raster_profile(
         else:
             windows = [rio.windows.Window(0, 0, src.width, src.height)]
 
-        dst_profile = src.profile
+        dst_profile = src.profile.copy()
         dst_profile.update(
             count=count,
             dtype=dtype,
