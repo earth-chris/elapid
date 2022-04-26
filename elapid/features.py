@@ -389,7 +389,7 @@ class MaxentFeatureTransformer(BaseEstimator):
             (continuous, categorical) tuple of ndarrays with continuous and
                 categorical covariate data.
         """
-        if type(x) is np.ndarray:
+        if isinstance(x, np.ndarray):
             if self.categorical_ is None:
                 con = x
                 cat = None
@@ -397,10 +397,10 @@ class MaxentFeatureTransformer(BaseEstimator):
                 con = x[:, self.continuous_]
                 cat = x[:, self.categorical_]
 
-        elif type(x) is pd.DataFrame:
-            con = x[self.continuous_].to_numpy()
-            if len(self.categorical_) > 0:
-                cat = x[self.categorical_].to_numpy()
+        elif isinstance(x, pd.DataFrame):
+            con = x[self.continuous_pd_].to_numpy()
+            if len(self.categorical_pd_) > 0:
+                cat = x[self.categorical_pd_].to_numpy()
             else:
                 cat = None
 
@@ -418,7 +418,7 @@ class MaxentFeatureTransformer(BaseEstimator):
             categorical: indices indicating which x columns are categorical
             labels: covariate column labels. ignored if x is a pandas DataFrame
         """
-        if type(x) is np.ndarray:
+        if isinstance(x, np.ndarray):
             nrows, ncols = x.shape
             if categorical is None:
                 continuous = list(range(ncols))
@@ -428,11 +428,20 @@ class MaxentFeatureTransformer(BaseEstimator):
             self.categorical_ = categorical
             self.continuous_ = continuous
 
-        elif type(x) is pd.DataFrame:
+        elif isinstance(x, pd.DataFrame):
             x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
             self.labels_ = labels or list(x.columns)
-            self.continuous_ = list(x.select_dtypes(exclude="category").columns)
-            self.categorical_ = list(x.select_dtypes(include="category").columns)
+
+            # store both pandas and numpy indexing of these values
+            self.continuous_pd_ = list(x.select_dtypes(exclude="category").columns)
+            self.categorical_pd_ = list(x.select_dtypes(include="category").columns)
+
+            all_columns = list(x.columns)
+            self.continuous_ = [all_columns.index(item) for item in self.continuous_pd_ if item in all_columns]
+            if len(self.categorical_pd_) != 0:
+                self.categorical_ = [all_columns.index(item) for item in self.categorical_pd_ if item in all_columns]
+            else:
+                self.categorical_ = None
 
     def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Compute the minimum and maximum for scaling.

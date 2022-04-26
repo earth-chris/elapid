@@ -97,6 +97,7 @@ def create_output_raster_profile(
     template_idx: int = 0,
     windowed: bool = True,
     nodata: Number = None,
+    count: int = 1,
     compress: str = None,
     driver: str = "GTiff",
     bigtiff: bool = True,
@@ -107,15 +108,16 @@ def create_output_raster_profile(
     Args:
         raster_paths: raster paths of covariates to apply the model to
         template_idx: index of the raster file to use as a template. template_idx=0 sets the first raster as template
-        windowed: perform a block-by-block data read. slower, but reduces memory use.
+        windowed: perform a block-by-block data read. slower, but reduces memory use
         nodata: output nodata value
+        count: number of bands in the prediction output
         output_driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
         compress: compression type to apply to the output file
         bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
         dtype: rasterio data type string
 
     Returns:
-        (windows, profile): an iterable and a dictionary for the window reads and the raster profile.
+        (windows, profile): an iterable and a dictionary for the window reads and the raster profile
     """
     with rio.open(raster_paths[template_idx]) as src:
         if windowed:
@@ -123,9 +125,9 @@ def create_output_raster_profile(
         else:
             windows = [rio.windows.Window(0, 0, src.width, src.height)]
 
-        dst_profile = src.profile
+        dst_profile = src.profile.copy()
         dst_profile.update(
-            count=1,
+            count=count,
             dtype=dtype,
             nodata=nodata,
             compress=compress,

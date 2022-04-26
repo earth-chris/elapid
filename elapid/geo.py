@@ -1,7 +1,7 @@
 """Geospatial data operations like reading/writing/indexing raster and vector data."""
 
 import os
-from multiprocessing import Pool
+import warnings
 from typing import Union
 
 import geopandas as gpd
@@ -283,7 +283,7 @@ def annotate(
     labels = format_band_labels(raster_paths, labels)
 
     # read raster values based on the points dtype
-    if type(points) is gpd.GeoSeries:
+    if isinstance(points, gpd.GeoSeries):
         gdf = annotate_geoseries(
             points,
             raster_paths,
@@ -291,7 +291,7 @@ def annotate(
             drop_na=drop_na,
         )
 
-    elif type(points) is gpd.GeoDataFrame:
+    elif isinstance(points, gpd.GeoDataFrame) or isinstance(points, pd.DataFrame):
         gdf = annotate_geoseries(
             points.geometry,
             raster_paths,
@@ -414,12 +414,15 @@ def annotate_geoseries(
 # raster writing tools
 
 
-def apply_model_to_raster_array(
+def apply_model_to_array(
     model: BaseEstimator,
     array: np.ndarray,
     nodata: float,
     nodata_idx: int,
-    transform: bool = None,
+    count: int = 1,
+    dtype: str = "float32",
+    predict_proba: bool = False,
+    **kwargs,
 ) -> np.ndarray:
     """Applies a model to an array of covariates.
 
@@ -428,22 +431,26 @@ def apply_model_to_raster_array(
     Args:
         model: object with a `model.predict()` function
         array: array of shape (nbands, nrows, ncols) with pixel values
-        predictions_window: array to fill with model prediction values
         nodata: numeric nodata value to apply to the output array
         nodata_idx: array of bools with shape (nbands, nrows, ncols) containing nodata locations
-        transform: method for transforming maxent model output from ["raw", "exponential", "logistic", "cloglog"]
+        count: number of bands in the prediction output
+        dtype: prediction array dtype
+        predict_proba: use model.predict_proba() instead of model.predict()
+        **kwargs: additonal keywords to pass to model.predict().
+            For MaxentModels, this would include transform="logistic"
 
     Returns:
-        predictions_window: Array of shape (1, nrows, ncols) with the predictions to write
+        ypred_window: Array of shape (nrows, ncols) with model predictions
     """
-    # only run the computations for valid pixels
+    # only apply to valid pixels
     valid = ~nodata_idx.any(axis=0)
-    covariates = array[:, valid].reshape(-1, 1)
-    ypred = model.predict(covariates, is_features=False, transform=transform)
+    covariates = array[:, valid].transpose()
+    ypred = model.predict(covariates, **kwargs) if not predict_proba else model.predict_proba(covariates, **kwargs)
 
     # reshape to the original window size
-    ypred_window = np.zeros_like(valid, dtype=np.float32) + nodata
-    ypred_window[valid] = ypred.to_numpy().transpose()
+    rows, cols = valid.shape
+    ypred_window = np.zeros((count, rows, cols), dtype=dtype) + nodata
+    ypred_window[:, valid] = ypred.transpose()
 
     return ypred_window
 
@@ -452,19 +459,23 @@ def apply_model_to_rasters(
     model: BaseEstimator,
     raster_paths: list,
     output_path: str,
-    windowed: bool = True,
-    transform: str = "logistic",
-    template_idx: int = 0,
     resampling: rio.enums.Enum = rio.enums.Resampling.average,
+    count: int = 1,
+    dtype: str = "float32",
     nodata: float = -9999,
     driver: str = "GTiff",
     compress: str = "deflate",
     bigtiff: bool = True,
+    template_idx: int = 0,
+    windowed: bool = True,
+    predict_proba: bool = False,
+    ignore_sklearn: bool = True,
+    **kwargs,
 ) -> None:
     """Applies a trained model to a list of raster datasets.
 
     The list and band order of the rasters must match the order of the covariates
-    used to train the model.It reads each dataset block-by-block, applies
+    used to train the model. It reads each dataset block-by-block, applies
     the model, and writes gridded predictions. If the raster datasets are not
     consistent (different extents, resolutions, etc.), it wll re-project the data
     on the fly, with the grid size, extent and projection based on a 'template'
@@ -474,14 +485,23 @@ def apply_model_to_rasters(
         model: object with a model.predict() function
         raster_paths: raster paths of covariates to apply the model to
         output_path: path to the output file to create
-        windowed: perform a block-by-block data read. slower, but reduces memory use.
-        transform: model transformation type. select from ["raw", "logistic", "cloglog"].
-        template_idx: index of the raster file to use as a template. template_idx=0 sets the first raster as template
-        resampling: resampling algorithm to apply to on-the-fly reprojection (from rasterio.enums.Resampling)
-        nodata: output nodata value to set
-        driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
-        compress: compression type to apply to the output file
+        resampling: resampling algorithm to apply to on-the-fly reprojection
+            from rasterio.enums.Resampling
+        count: number of bands in the prediction output
+        dtype: the output raster data type
+        nodata: output nodata value
+        driver: output raster format
+            from rasterio.drivers.raster_driver_extensions()
+        compress: compression to apply to the output file
         bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
+        template_idx: index of the raster file to use as a template.
+            template_idx=0 sets the first raster as template
+        windowed: apply the model using windowed read/write
+            slower, but more memory efficient
+        predict_proba: use model.predict_proba() instead of model.predict()
+        ignore_sklearn: silence sklearn warning messages
+        **kwargs: additonal keywords to pass to model.predict()
+            For MaxentModels, this would include transform="logistic"
 
     Returns:
         None: saves model predictions to disk.
@@ -493,6 +513,7 @@ def apply_model_to_rasters(
     windows, dst_profile = create_output_raster_profile(
         raster_paths,
         template_idx,
+        count=count,
         windowed=windowed,
         nodata=nodata,
         compress=compress,
@@ -503,11 +524,21 @@ def apply_model_to_rasters(
     # get the bands and indexes for each covariate raster
     nbands, band_idx = get_raster_band_indexes(raster_paths)
 
+    # check whether the raster paths are aligned to determine how the data are read
+    aligned = check_raster_alignment(raster_paths)
+
+    # set a dummy nodata variable if none is set
+    # (acutal nodata reads handled by rasterios src.read(masked=True) method)
+    nodata = nodata or 0
+
+    # turn off sklearn warnings
+    if ignore_sklearn:
+        warnings.filterwarnings("ignore", category=UserWarning)
+
     # open all rasters to read from later
     srcs = [rio.open(raster_path) for raster_path in raster_paths]
 
-    # check whether the raster paths are aligned to determine how the data are read
-    aligned = check_raster_alignment(raster_paths)
+    # use warped VRT reads to align all rasters pixel-pixel if not aligned
     if not aligned:
         vrt_options = {
             "resampling": resampling,
@@ -520,7 +551,10 @@ def apply_model_to_rasters(
 
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
-        for window in tqdm(windows, desc="Tile", **tqdm_opts):
+        for window in tqdm(windows, desc="Window", **tqdm_opts):
+
+            # create stacked arrays to handle multi-raster, multi-band inputs
+            # that may have different nodata locations
             covariates = np.zeros((nbands, window.height, window.width), dtype=np.float32)
             nodata_idx = np.ones_like(covariates, dtype=bool)
 
@@ -534,14 +568,17 @@ def apply_model_to_rasters(
                     if data.mask.all():
                         raise NoDataException()
 
-                predictions = apply_model_to_raster_array(
+                predictions = apply_model_to_array(
                     model,
                     covariates,
                     nodata,
                     nodata_idx,
-                    transform=transform,
+                    count=count,
+                    dtype=dtype,
+                    predict_proba=predict_proba,
+                    **kwargs,
                 )
-                dst.write(predictions, 1, window=window)
+                dst.write(predictions, window=window)
 
             except NoDataException:
                 continue

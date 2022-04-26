@@ -100,7 +100,13 @@ class MaxentModel(BaseEstimator):
         self.weight_strategy_ = weights
 
     def fit(
-        self, x: ArrayLike, y: ArrayLike, categorical: List[int] = None, labels: list = None, is_features: bool = False
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        categorical: List[int] = None,
+        labels: list = None,
+        is_features: bool = False,
+        feature_labels: list = None,
     ) -> None:
         """Trains a maxent model using a set of covariates and presence/background points.
 
@@ -110,13 +116,17 @@ class MaxentModel(BaseEstimator):
             categorical: indices for which columns are categorical
             labels: covariate labels. ignored if x is a pandas DataFrame
             is_features: specify that x data has been transformed from covariates to features
+            feature_labels: list of length n_features, with labels identifying each column's feature type
+                with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
 
         Returns:
             None: Updates the model object
         """
-        # data pre-processing
+        # fir the feature transformer
         if is_features:
             features = x
+            assert feature_labels is not None, "feature_labels must be set if is_features=True"
+
         else:
             self.transformer = _features.MaxentFeatureTransformer(
                 feature_types=self.feature_types_,
@@ -125,6 +135,7 @@ class MaxentModel(BaseEstimator):
                 n_threshold_features=self.n_threshold_features_,
             )
             features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
+            feature_labels = self.transformer.feature_names_
 
         # compute sample weights
         if self.weight_strategy_ == "balance":
@@ -138,7 +149,7 @@ class MaxentModel(BaseEstimator):
         self.regularization_ = _features.compute_regularization(
             y,
             features,
-            feature_labels=self.transformer.feature_names_,
+            feature_labels=feature_labels,
             beta_multiplier=self.beta_multiplier_,
             beta_threshold=self.beta_threshold_,
             beta_hinge=self.beta_hinge_,
@@ -157,21 +168,22 @@ class MaxentModel(BaseEstimator):
             relative_penalties=self.regularization_,
         )
 
+        # get the beta values based on which lamba selection method to use
         if self.use_lambdas_ == "last":
             self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
         elif self.use_lambdas_ == "best":
             self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_max_inx_]
 
-        # maxent-specific transformations
+        # apply maxent-specific transformations
         raw = self.predict(features[y == 0], transform="raw", is_features=True)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
         self.alpha_ = maxent_alpha(raw)
 
-        # the distance from f(z) is considered the relative entropy of f1(z) WRT f(z)
+        # the distance from f(z) is the relative entropy of f1(z) WRT f(z)
         self.entropy_ = maxent_entropy(raw)
 
-    def predict(self, x: ArrayLike, transform: str = "logistic", is_features: bool = False) -> ArrayLike:
+    def predict(self, x: ArrayLike, transform: str = "cloglog", is_features: bool = False) -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
