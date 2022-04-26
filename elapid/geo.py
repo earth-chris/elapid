@@ -415,7 +415,14 @@ def annotate_geoseries(
 
 
 def apply_model_to_array(
-    model: BaseEstimator, array: np.ndarray, nodata: float, nodata_idx: int, dtype: str = "float32", **kwargs
+    model: BaseEstimator,
+    array: np.ndarray,
+    nodata: float,
+    nodata_idx: int,
+    count: int = 1,
+    dtype: str = "float32",
+    predict_proba: bool = False,
+    **kwargs,
 ) -> np.ndarray:
     """Applies a model to an array of covariates.
 
@@ -426,6 +433,9 @@ def apply_model_to_array(
         array: array of shape (nbands, nrows, ncols) with pixel values
         nodata: numeric nodata value to apply to the output array
         nodata_idx: array of bools with shape (nbands, nrows, ncols) containing nodata locations
+        count: number of bands in the prediction output
+        dtype: prediction array dtype
+        predict_proba: use model.predict_proba() instead of model.predict()
         **kwargs: additonal keywords to pass to model.predict().
             For MaxentModels, this would include transform="logistic"
 
@@ -435,11 +445,12 @@ def apply_model_to_array(
     # only apply to valid pixels
     valid = ~nodata_idx.any(axis=0)
     covariates = array[:, valid].transpose()
-    ypred = model.predict(covariates, **kwargs)
+    ypred = model.predict(covariates, **kwargs) if not predict_proba else model.predict_proba(covariates, **kwargs)
 
     # reshape to the original window size
-    ypred_window = np.zeros_like(valid, dtype=dtype) + nodata
-    ypred_window[valid] = ypred.transpose()
+    rows, cols = valid.shape
+    ypred_window = np.zeros((count, rows, cols), dtype=dtype) + nodata
+    ypred_window[:, valid] = ypred.transpose()
 
     return ypred_window
 
@@ -449,6 +460,7 @@ def apply_model_to_rasters(
     raster_paths: list,
     output_path: str,
     resampling: rio.enums.Enum = rio.enums.Resampling.average,
+    count: int = 1,
     dtype: str = "float32",
     nodata: float = -9999,
     driver: str = "GTiff",
@@ -456,13 +468,14 @@ def apply_model_to_rasters(
     bigtiff: bool = True,
     template_idx: int = 0,
     windowed: bool = True,
+    predict_proba: bool = False,
     ignore_sklearn: bool = True,
     **kwargs,
 ) -> None:
     """Applies a trained model to a list of raster datasets.
 
     The list and band order of the rasters must match the order of the covariates
-    used to train the model.It reads each dataset block-by-block, applies
+    used to train the model. It reads each dataset block-by-block, applies
     the model, and writes gridded predictions. If the raster datasets are not
     consistent (different extents, resolutions, etc.), it wll re-project the data
     on the fly, with the grid size, extent and projection based on a 'template'
@@ -474,6 +487,7 @@ def apply_model_to_rasters(
         output_path: path to the output file to create
         resampling: resampling algorithm to apply to on-the-fly reprojection
             from rasterio.enums.Resampling
+        count: number of bands in the prediction output
         dtype: the output raster data type
         nodata: output nodata value
         driver: output raster format
@@ -484,6 +498,7 @@ def apply_model_to_rasters(
             template_idx=0 sets the first raster as template
         windowed: apply the model using windowed read/write
             slower, but more memory efficient
+        predict_proba: use model.predict_proba() instead of model.predict()
         ignore_sklearn: silence sklearn warning messages
         **kwargs: additonal keywords to pass to model.predict()
             For MaxentModels, this would include transform="logistic"
@@ -498,6 +513,7 @@ def apply_model_to_rasters(
     windows, dst_profile = create_output_raster_profile(
         raster_paths,
         template_idx,
+        count=count,
         windowed=windowed,
         nodata=nodata,
         compress=compress,
@@ -557,10 +573,12 @@ def apply_model_to_rasters(
                     covariates,
                     nodata,
                     nodata_idx,
+                    count=count,
                     dtype=dtype,
+                    predict_proba=predict_proba,
                     **kwargs,
                 )
-                dst.write(predictions, 1, window=window)
+                dst.write(predictions, window=window)
 
             except NoDataException:
                 continue
