@@ -626,8 +626,17 @@ def validate_polygons(geometry: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> pd.In
     return geometry.index
 
 
-def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiPolygon]):
-    """"""
+def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiPolygon]) -> np.ma.MaskedArray:
+    """Read valid pixel values from all locations inside a polygon
+        Uses the polygon as a mask in addition to the existing raster mask
+
+    Args:
+        src: an open rasterio dataset to read from
+        poly: a shapely Polygon or MultiPolygon
+
+    Returns:
+        masked array of shape (n_bands, n_valid_pixels)
+    """
     # get the read parameters
     window = rio.windows.from_bounds(*poly.bounds, src.transform)
     transform = rio.windows.transform(window, src.transform)
@@ -652,21 +661,32 @@ def zonal_stats(
     mean: bool = True,
     min: bool = False,
     max: bool = False,
-    count: bool = False,
+    count: bool = True,
     sum: bool = False,
-    stdv: bool = False,
+    stdv: bool = True,
     skew: bool = False,
     kurtosis: bool = False,
     mode: bool = False,
+    all: bool = False,
     percentiles: list = [],
 ) -> gpd.GeoDataFrame:
     """Compute raster summary stats for each polygon in a GeoSeries or GeoDataFrame.
 
     Args:
-        blah blah
+        polygons: GeoSeries or GeoDataFrame with polygon geometries.
+        raster_paths: list of paths to rasters to summarize
+        labels: band labels. must match the total number of bands for all raster_paths.
+        all_touched: include all pixels that touch a polygon.
+            set to False to only include pixels whose centers intersect the polygon
+        mean, min, max, count, sum, stdv, skew, kurtosis, mode:
+            set to True to compute these stats
+        all: compute all of the above stats
+        percentiles: list of 0-100 percentile ranges to compute
 
     Returns:
-
+        GeoDataFrame with zonal stats for each raster band in new columns.
+            If `polygons` is a GeoDataFrame, the zonal stats columns are appended
+            to the original input.
     """
     # format the input geometries
     validate_gpd(polygons)
@@ -694,6 +714,7 @@ def zonal_stats(
         kurtosis=kurtosis,
         mode=mode,
         percentiles=percentiles,
+        all=all,
     )
 
     # create dataframes for each raster and concatenate at the end
@@ -725,7 +746,7 @@ def zonal_stats(
             for p, poly in enumerate(polys):
                 data = read_raster_from_polygon(src, poly)
                 for method, array in zip(stats_methods, stats_arrays):
-                    array[p, :] = method.apply(data)
+                    array[p, :] = method.reduce(data)
 
         # convert each stat's array into dataframes and merge them together
         stats_dfs = [pd.DataFrame(array, columns=labels) for array, labels in zip(stats_arrays, stats_labels)]
