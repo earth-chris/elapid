@@ -613,7 +613,7 @@ def validate_polygons(geometry: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> pd.In
 
     index = []
     for idx, geom in enumerate(geometry):
-        if not isinstance(geom, Polygon) or isinstance(geom, MultiPolygon):
+        if not (isinstance(geom, Polygon) or isinstance(geom, MultiPolygon)):
             index.append(idx)
 
     if len(index) > 0:
