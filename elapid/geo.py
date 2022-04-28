@@ -635,7 +635,7 @@ def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiP
         poly: a shapely Polygon or MultiPolygon
 
     Returns:
-        masked array of shape (n_bands, n_valid_pixels)
+        masked array of shape (nbands, nrows, ncols)
     """
     # get the read parameters
     window = rio.windows.from_bounds(*poly.bounds, src.transform)
@@ -649,8 +649,7 @@ def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiP
     # update the mask
     data[:, poly_mask] = np.ma.masked
 
-    # and return the valid data as shape (bands, n_valid_pixels)
-    return data[:, ~data.mask[0]]
+    return data
 
 
 def zonal_stats(
