@@ -250,7 +250,7 @@ def make_band_labels(n_bands: int) -> list:
         labels: list of column names.
     """
     n_zeros = n_digits(n_bands)
-    labels = ["band_{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]
+    labels = ["b{band_number:0{n_zeros}d}".format(band_number=i + 1, n_zeros=n_zeros) for i in range(n_bands)]
 
     return labels
 
