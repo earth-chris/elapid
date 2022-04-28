@@ -721,7 +721,7 @@ def zonal_stats(
     raster_dfs = []
 
     # run zonal stats raster-by-raster (instead of iterating first over geometries)
-    for r, raster in enumerate(raster_paths):
+    for r, raster in tqdm(enumerate(raster_paths), total=len(raster_paths), desc="Raster", **tqdm_opts):
 
         # format the band labels
         band_labels = labels[band_idx[r] : band_idx[r + 1]]
@@ -733,17 +733,17 @@ def zonal_stats(
         with rio.open(raster, "r") as src:
 
             # reproject the polygon data as necessary
-            if not crs_match(polygons.crs, src.crs):
-                polygons.to_crs(src.crs, inplace=True)
+            if not crs_match(polys.crs, src.crs):
+                polys.to_crs(src.crs, inplace=True)
 
             # create output arrays to store each stat's output
             stats_arrays = []
             for method in stats_methods:
                 dtype = method.dtype or src.dtypes[0]
-                stats_arrays.append(np.zeros((len(polygons), nbands), dtype=dtype))
+                stats_arrays.append(np.zeros((len(polys), nbands), dtype=dtype))
 
             # iterate over each geometry to read data and compute stats
-            for p, poly in enumerate(polys):
+            for p, poly in tqdm(enumerate(polys), total=len(polys), desc="Polygon", leave=False, **tqdm_opts):
                 data = read_raster_from_polygon(src, poly)
                 for method, array in zip(stats_methods, stats_arrays):
                     array[p, :] = method.reduce(data)
