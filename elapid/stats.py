@@ -87,12 +87,12 @@ def raster_kurtosis(x):
 
 
 def raster_mode(x):
-    mode_stats = scistats.mode(x, axis=1, nan_policy="omit")
-    return mode_stats[0]
+    summary = scistats.mode(x, axis=1, nan_policy="omit")
+    return summary.mode.flatten()
 
 
 def raster_percentile(x, pctile):
-    return np.nanpercentile(x, pctile)
+    return np.nanpercentile(x, pctile, axis=1)
 
 
 def get_raster_stats_methods(
