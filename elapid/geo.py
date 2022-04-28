@@ -9,9 +9,11 @@ import numpy as np
 import pandas as pd
 import pyproj
 import rasterio as rio
-from shapely.geometry import MultiPoint, Point
+from rasterio.features import geometry_mask
+from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon
 from sklearn.base import BaseEstimator
 
+from elapid.stats import get_raster_stats_methods
 from elapid.types import CRSType, to_iterable
 from elapid.utils import (
     NoDataException,
@@ -582,3 +584,157 @@ def apply_model_to_rasters(
 
             except NoDataException:
                 continue
+
+
+def validate_gpd(geo: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> None:
+    """Validates whether an input is a GeoDataFrame or a GeoSeries.
+
+    Args:
+        geo: an input variable that should be in GeoPandas format
+
+    Raises:
+        TypeError if geo is not in GeoPandas format
+    """
+    if not (isinstance(geo, gpd.GeoDataFrame) or isinstance(geo, gpd.GeoSeries)):
+        raise TypeError("Input must be a GeoDataFrame or GeoSeries")
+
+
+def validate_polygons(geometry: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> pd.Index:
+    """Iterate over a geoseries to find rows with invalid geometry types.
+
+    Args:
+        geometry: a GeoSeries or GeoDataFrame with polygon geometries
+
+    Returns:
+        an index of rows with valid polygon types
+    """
+    if isinstance(geometry, gpd.GeoDataFrame):
+        geometry = geometry.geometry
+
+    index = []
+    for idx, geom in enumerate(geometry):
+        if not isinstance(geom, Polygon) or isinstance(geom, MultiPolygon):
+            index.append(idx)
+
+    if len(index) > 0:
+        warnings.warn(
+            f"Input geometry had {len(index)} invalid geometries. "
+            "These will be dropped, but with the original index preserved."
+        )
+        geometry.drop(index=index, inplace=True)
+
+    return geometry.index
+
+
+def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiPolygon]):
+    """"""
+    # get the read parameters
+    window = rio.windows.from_bounds(*poly.bounds, src.transform)
+    transform = rio.windows.transform(window, src.transform)
+
+    # get the data
+    data = src.read(window=window, masked=True, boundless=True)
+    bands, rows, cols = data.shape
+    poly_mask = geometry_mask([poly], transform=transform, out_shape=(rows, cols))
+
+    # update the mask
+    data[:, poly_mask] = np.ma.masked
+
+    # and return the valid data as shape (bands, n_valid_pixels)
+    return data[:, ~data.mask[0]]
+
+
+def zonal_stats(
+    polygons: Union[gpd.GeoSeries, gpd.GeoDataFrame],
+    raster_paths: list,
+    labels: list = None,
+    all_touched: bool = True,
+    mean: bool = True,
+    min: bool = False,
+    max: bool = False,
+    count: bool = False,
+    sum: bool = False,
+    stdv: bool = False,
+    skew: bool = False,
+    kurtosis: bool = False,
+    mode: bool = False,
+    percentiles: list = [],
+) -> gpd.GeoDataFrame:
+    """Compute raster summary stats for each polygon in a GeoSeries or GeoDataFrame.
+
+    Args:
+        blah blah
+
+    Returns:
+
+    """
+    # format the input geometries
+    validate_gpd(polygons)
+    valid_idx = validate_polygons(polygons)
+    polygons = polygons.iloc[valid_idx]
+    is_df = isinstance(polygons, gpd.GeoDataFrame)
+    polys = polygons.geometry if is_df else polygons
+
+    # format the input labels
+    raster_paths = to_iterable(raster_paths)
+    labels = format_band_labels(raster_paths, labels)
+
+    # get the bands and indexes for each covariate raster
+    nbands, band_idx = get_raster_band_indexes(raster_paths)
+
+    # get the stats methods to compute for each feature
+    stats_methods = get_raster_stats_methods(
+        mean=mean,
+        min=min,
+        max=max,
+        count=count,
+        sum=sum,
+        stdv=stdv,
+        skew=skew,
+        kurtosis=kurtosis,
+        mode=mode,
+        percentiles=percentiles,
+    )
+
+    # create dataframes for each raster and concatenate at the end
+    raster_dfs = []
+
+    # run zonal stats raster-by-raster (instead of iterating first over geometries)
+    for r, raster in enumerate(raster_paths):
+
+        # format the band labels
+        band_labels = labels[band_idx[r] : band_idx[r + 1]]
+        stats_labels = []
+        for method in stats_methods:
+            stats_labels.append([f"{band}_{method.name}" for band in band_labels])
+
+        # open the raster for reading
+        with rio.open(raster, "r") as src:
+
+            # reproject the polygon data as necessary
+            if not crs_match(polygons.crs, src.crs):
+                polygons.to_crs(src.crs, inplace=True)
+
+            # create output arrays to store each stat's output
+            stats_arrays = []
+            for method in stats_methods:
+                dtype = method.dtype or src.dtypes[0]
+                stats_arrays.append(np.zeros((len(polygons), nbands), dtype=dtype))
+
+            # iterate over each geometry to read data and compute stats
+            for p, poly in enumerate(polys):
+                data = read_raster_from_polygon(src, poly)
+                for method, array in zip(stats_methods, stats_arrays):
+                    array[p, :] = method.apply(data)
+
+        # convert each stat's array into dataframes and merge them together
+        stats_dfs = [pd.DataFrame(array, columns=labels) for array, labels in zip(stats_arrays, stats_labels)]
+        raster_dfs.append(pd.concat(stats_dfs, axis=1))
+
+    # merge the outputs from each raster
+    if is_df:
+        merged = gpd.GeoDataFrame(pd.concat([polygons] + raster_dfs, axis=1))
+    else:
+        merged = gpd.GeoDataFrame(pd.concat(raster_dfs, axis=1), geometry=polys)
+
+    return merged
