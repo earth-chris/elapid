@@ -724,6 +724,7 @@ def zonal_stats(
 
         # format the band labels
         band_labels = labels[band_idx[r] : band_idx[r + 1]]
+        n_raster_bands = band_idx[r + 1] - band_idx[r]
         stats_labels = []
         for method in stats_methods:
             stats_labels.append([f"{band}_{method.name}" for band in band_labels])
@@ -739,7 +740,7 @@ def zonal_stats(
             stats_arrays = []
             for method in stats_methods:
                 dtype = method.dtype or src.dtypes[0]
-                stats_arrays.append(np.zeros((len(polys), nbands), dtype=dtype))
+                stats_arrays.append(np.zeros((len(polys), n_raster_bands), dtype=dtype))
 
             # iterate over each geometry to read data and compute stats
             for p, poly in tqdm(enumerate(polys), total=len(polys), desc="Polygon", leave=False, **tqdm_opts):

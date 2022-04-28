@@ -177,3 +177,7 @@ def test_zonal_stats():
     # test percentiles
     pc = geo.zonal_stats(poly_df, raster_2b, percentiles=[10, 90])
     assert len(pc) == len(poly_df)
+
+    # test multi-raster read
+    mr = geo.zonal_stats(poly_df, [raster_1b_offset, raster_2b])
+    assert len(mr) == len(poly_df)
