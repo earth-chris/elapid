@@ -4,6 +4,7 @@ from copy import copy
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
+from shapely.geometry import box
 
 from elapid import geo
 
@@ -156,3 +157,23 @@ def test_annotate():
     assert (from_path.geometry == from_gs.geometry).all()
     assert (from_path.band_1 == from_df.band_1).all()
     assert (from_path.band_3 == from_gs.band_3).all()
+
+
+# TODO: more thorough evaluation: just test that these run for now
+def test_zonal_stats():
+    # test all stats
+    poly_df = gpd.read_file(poly)
+    zs = geo.zonal_stats(poly_df, raster_2b, all=True)
+    assert len(zs) == len(poly_df)
+
+    # test geoseries read
+    zs = geo.zonal_stats(poly_df.geometry, raster_2b, labels=["r1", "r2"])
+    assert len(zs) == len(poly_df)
+
+    # test reprojection works
+    rp = geo.zonal_stats(poly_df.to_crs("EPSG:4326"), raster_2b)
+    assert len(rp) == len(poly_df)
+
+    # test percentiles
+    pc = geo.zonal_stats(poly_df, raster_2b, percentiles=[10, 90])
+    assert len(pc) == len(poly_df)
