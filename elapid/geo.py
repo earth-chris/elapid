@@ -734,7 +734,7 @@ def zonal_stats(
 
             # reproject the polygon data as necessary
             if not crs_match(polys.crs, src.crs):
-                polys.to_crs(src.crs, inplace=True)
+                polys = polys.to_crs(src.crs)
 
             # create output arrays to store each stat's output
             stats_arrays = []
