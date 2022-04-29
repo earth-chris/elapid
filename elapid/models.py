@@ -425,7 +425,7 @@ class NicheEnvelopeModel(BaseEstimator):
         if cat is not None:
             ohe = self.categorical_estimator.transform(cat)
             should_be_here = ohe[:, self.in_categorical_].any(axis=1).reshape((nrows, 1))
-            shouldnt_be_here = ohe[:, ~self.in_categorical_].any(axis=1).reshape((nrows, 1))
+            shouldnt_be_here = (~ohe[:, ~self.in_categorical_].any(axis=1)).reshape((nrows, 1))
             in_range = np.concatenate((in_range, should_be_here, shouldnt_be_here), axis=1)
 
         # comput envelope based on the overlay method
