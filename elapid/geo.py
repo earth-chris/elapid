@@ -26,7 +26,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"bar_format": "{l_bar}{bar:10}{r_bar}{bar:-10b}"}
+tqdm_opts = {"bar_format": "{l_bar}{bar:20}{r_bar}{bar:-20b}"}
 
 # sampling tools
 
@@ -754,8 +754,8 @@ def zonal_stats(
 
     # merge the outputs from each raster
     if is_df:
-        merged = gpd.GeoDataFrame(pd.concat([polygons] + raster_dfs, axis=1))
+        merged = gpd.GeoDataFrame(pd.concat([polygons] + raster_dfs, axis=1), crs=polygons.crs)
     else:
-        merged = gpd.GeoDataFrame(pd.concat(raster_dfs, axis=1), geometry=polys)
+        merged = gpd.GeoDataFrame(pd.concat(raster_dfs, axis=1), geometry=polygons, crs=polygons.crs)
 
     return merged
