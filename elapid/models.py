@@ -118,6 +118,7 @@ class MaxentModel(BaseEstimator):
             is_features: specify that x data has been transformed from covariates to features
             feature_labels: list of length n_features, with labels identifying each column's feature type
                 with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
+                must be set if `is_features=True`
 
         Returns:
             None: Updates the model object
@@ -228,6 +229,7 @@ class MaxentModel(BaseEstimator):
         labels: list = None,
         transform: str = "logistic",
         is_features: bool = False,
+        feature_labels: list = None,
     ) -> ArrayLike:
         """Trains and applies a model to x/y data.
 
@@ -239,11 +241,14 @@ class MaxentModel(BaseEstimator):
             transform: maxent model transformation type. select from
                 ["raw", "exponential", "logistic", "cloglog"].
             is_features: specify that x data has already been transformed from covariates to features
+            feature_labels: list of length n_features, with labels identifying each column's feature type
+                with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
+                must be set if `is_features=True`
 
         Returns:
             predictions: Array-like of shape (n_samples,) with model predictions
         """
-        self.fit(x, y, categorical=categorical, labels=labels)
+        self.fit(x, y, categorical=categorical, labels=labels, is_features=is_features, feature_labels=feature_labels)
         predictions = self.predict(x, transform=transform, is_features=is_features)
 
         return predictions
