@@ -1,5 +1,5 @@
 """SDM model configuration parameters."""
-from typing import Union
+from typing import Tuple, Union
 
 
 class MaxentConfig:
@@ -49,3 +49,7 @@ class RegularizationConfig:
     hinge: list = [[0, 1], [0.5, 0.5]]
     threshold: list = [[0, 100], [2, 1]]
     categorical: list = [[0, 10, 17], [0.65, 0.5, 0.25]]
+
+
+class NicheEnvelopeConfig:
+    percentile_range: Tuple[float, float] = [2.5, 97.5]

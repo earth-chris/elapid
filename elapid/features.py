@@ -346,6 +346,8 @@ class MaxentFeatureTransformer(BaseEstimator):
     n_threshold_features_: int = None
     categorical_: list = None
     continuous_: list = None
+    categorical_pd_: list = None
+    continuous_pd_: list = None
     labels_: list = None
     estimators_: dict = {
         "linear": None,
