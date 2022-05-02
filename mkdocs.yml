@@ -24,22 +24,19 @@ extra:
 # site navigation
 nav:
     - Home: 'index.md'
-    - User Guide:
-        - Installation: 'install.md'
-        - Working with elapid: 'introduction.md'
-        - Code documentation:
-            - elapid.geo: 'module/geo.md'
-            - elapid.features: 'module/features.md'
-            - elapid.models: 'module/models.md'
-            - elapid.utils: 'module/utils.md'
+    - API Documentation:
+        - elapid.features: 'module/features.md'
+        - elapid.geo: 'module/geo.md'
+        - elapid.models: 'module/models.md'
+        - elapid.stats: 'module/stats.md'
+        - elapid.types: 'module/types.md'
+        - elapid.utils: 'module/utils.md'
     - Species Distribution Models:
         - Maxent: 'sdm/maxent.md'
-    - Geospatial Tools:
-        - Example workflow: 'geo/workflow.md'
-        - Working with x-y data: 'geo/working-xy.md'
-        - Generating pseudoabsences: 'geo/pseudoabsence.md'
-        - Raster annotation: 'geo/annotation.md'
-        - Model predictions: 'geo/prediction.md'
+        - NicheEnvelope: 'sdm/nicheenvelope.md'
+    - Examples:
+        - Working with Geospatial Data: 'examples/geo.md'
+        - A Simple Maxent Model: 'examples/maxent-simple.md'
 
 # theme
 theme:
