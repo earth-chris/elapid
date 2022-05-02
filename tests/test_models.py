@@ -1,3 +1,4 @@
+import numpy as np
 from sklearn import metrics
 
 from elapid import models
@@ -11,8 +12,6 @@ def test_MaxentModel_flow():
     model.fit(x, y)
     ypred = model.predict(x)
     assert len(ypred) == len(y)
-    print(ypred)
-    print(ypred.max())
     assert ypred.max() <= 1.0
     assert ypred.min() >= 0.0
 
@@ -76,3 +75,24 @@ def test_MaxentModel_feature_types():
         ypred = model.predict(x)
         auc_score = metrics.roc_auc_score(y, ypred)
         assert 0.5 <= auc_score <= 1.0
+
+
+def test_NicheEnvelopeModel():
+    # test the full range of values, ensuring all y=1 points are included
+    ne = models.NicheEnvelopeModel(percentile_range=[0, 100])
+    ne.fit(x, y)
+    union = ne.predict(x, overlay="union")
+    intersection = ne.predict(x, overlay="intersection")
+    average = ne.predict(x, overlay="average")
+
+    assert np.min([union, intersection, average]) <= 1
+    assert np.max([union, intersection, average]) >= 0
+
+    assert y.sum() == union[y == 1].sum()
+    assert intersection[y == 1].mean() <= average[y == 1].mean() <= union[y == 1].mean()
+
+    narrow = models.NicheEnvelopeModel(percentile_range=[20, 80])
+    narrow.fit(x, y)
+
+    average_narrow = narrow.predict(x, overlay="average")
+    assert average_narrow[y == 1].sum() < average[y == 1].sum()
