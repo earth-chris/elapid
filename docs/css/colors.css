@@ -7,6 +7,10 @@
   --white:  #FFFFFF;
 }
 
+.md-typeset a {
+  font-weight: 600;
+}
+
 [data-md-color-scheme="forestobs-light"] {
   --md-primary-fg-color: var(--green);
   --md-primary-fg-color--dark: var(--black);
