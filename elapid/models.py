@@ -5,8 +5,6 @@ import numpy as np
 import pandas as pd
 from glmnet.logistic import LogitNet
 from sklearn.base import BaseEstimator
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MinMaxScaler, RobustScaler
 
 from elapid import features as _features
 from elapid.config import MaxentConfig, NicheEnvelopeConfig
@@ -287,7 +285,8 @@ class NicheEnvelopeModel(BaseEstimator):
     """Model estimator for niche envelope-style models."""
 
     percentile_range_: Tuple[float, float] = None
-    range_estimator: BaseEstimator = None
+    feature_mins_: np.ndarray = None
+    feature_maxs_: np.ndarray = None
     categorical_estimator: BaseEstimator = None
     categorical_: list = None
     continuous_: list = None
@@ -305,12 +304,6 @@ class NicheEnvelopeModel(BaseEstimator):
                 covariates at all y==1 locations.
         """
         self.percentile_range_ = percentile_range
-        robust = (
-            "normalize",
-            RobustScaler(with_centering=False, with_scaling=True, quantile_range=self.percentile_range_),
-        )
-        minmax = ("rescaled", MinMaxScaler(feature_range=(0, 1)))
-        self.range_estimator = Pipeline([robust, minmax])
         self.categorical_estimator = _features.CategoricalTransformer()
 
     def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
@@ -391,7 +384,8 @@ class NicheEnvelopeModel(BaseEstimator):
         con, cat = self._format_covariate_data(x)
 
         # estimate the feature range of the continuous data
-        self.range_estimator.fit(con[y == 1])
+        self.feature_mins_ = np.percentile(con[y == 1], self.percentile_range_[0], axis=0)
+        self.feature_maxs_ = np.percentile(con[y == 1], self.percentile_range_[1], axis=0)
 
         # one-hot encode the categorical data and label the classes with
         if cat is not None:
@@ -407,7 +401,7 @@ class NicheEnvelopeModel(BaseEstimator):
                 select from ["average", "intersection", "union"]
 
         Returns:
-            predictions: array-like of shape (n_samples,) with model predictions
+            array-like of shape (n_samples,) with model predictions
         """
         overlay = overlay.lower()
         overlay_options = ["average", "intersection", "union"]
@@ -418,8 +412,7 @@ class NicheEnvelopeModel(BaseEstimator):
         nrows, ncols = x.shape
 
         # any value within the transformed range is considered within the envelope
-        xt = self.range_estimator.transform(con)
-        in_range = (xt >= 0) * (xt <= 1)
+        in_range = (con >= self.feature_mins_) * (con <= self.feature_maxs_)
 
         # map the class locations where the species has been observed
         if cat is not None:
@@ -454,7 +447,7 @@ class NicheEnvelopeModel(BaseEstimator):
                 select from ["average", "intersection", "union"]
 
         Returns:
-            predictions: array-like of shape (n_samples,) with model predictions
+            array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
         return self.predict(x, overlay=overlay)
