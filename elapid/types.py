@@ -7,7 +7,7 @@ import pyproj
 
 # typing
 Number = Union[int, float]
-ArrayLike = Union[np.array, pd.DataFrame]
+ArrayLike = Union[np.ndarray, pd.DataFrame]
 CRSType = Union[pyproj.CRS, str]
 
 
