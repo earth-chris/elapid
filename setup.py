@@ -1,13 +1,16 @@
+import os
+
 from setuptools import setup
 
-version = open("elapid/__version__.py").read().strip('"\n')
-long_description = open("README.md", "r", encoding="utf-8").read()
-requirements = open("requirements.txt", "r", encoding="utf-8").read().strip().split()
+this_dir, this_path = os.path.split(os.path.abspath(__file__))
+version = open(os.path.join(this_dir, "elapid", "__version__.py")).read().strip('"\n')
+long_description = open(os.path.join(this_dir, "README.md"), "r", encoding="utf-8").read()
+requirements = open(os.path.join(this_dir, "requirements.txt"), "r", encoding="utf-8").read().strip().split()
 
 setup_args = {
     "name": "elapid",
     "version": version,
-    "url": "https://github.com/earth-chris/elapid",
+    "url": "https://elapid.org",
     "license": "MIT",
     "author": "Christopher Anderson",
     "author_email": "cbanders@stanford.edu",
@@ -25,7 +28,7 @@ setup_args = {
     "packages": ["elapid"],
     "include_package_data": True,
     "install_requires": requirements,
-    "python_requires": "<3.9.0",
+    "python_requires": ">=3.7.0,<3.9.0",
     "platforms": "any",
     "classifiers": [
         "Programming Language :: Python :: 3",
