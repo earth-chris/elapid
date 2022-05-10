@@ -371,7 +371,7 @@ class NicheEnvelopeModel(BaseEstimator):
                 self.categorical_ = None
 
     def fit(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> None:
-        """Trains a maxent model using a set of covariates and presence/background points.
+        """Fits a niche envelope model using a set of covariates and presence/background points.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
