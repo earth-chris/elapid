@@ -34,21 +34,20 @@ requirements:
     # compilers as separate entries here. Compilers are named 'c', 'cxx' and 'fortran'.
     - {{ compiler('fortran') }}
   host:
-    - python
+    - python >=3.7,<3.9
     - pip
   run:
-    - python<=3.9
-    - descartes
-    - gdal
-    - geopandas
-    - glmnet
-    - matplotlib
-    - pandas
-    - rasterio>=1.0
+    - python >=3.7,<3.9
+    - descartes >=1.1.0
+    - geopandas >=0.7.0
+    - glmnet >=2.2.0
+    - pandas >=1.0.3
+    - rasterio >=1.2.1
     - rtree
-    - scikit-learn
-    - shapely
-    - tqdm
+    - scikit-learn >=0.22.2
+    - shapely >=1.7.0
+    - tqdm >=4.60.0
+
 
 test:
   # Some packages might need a `test/commands` key to check CLI.
@@ -61,12 +60,13 @@ test:
   # declare any test-only requirements here
   requires:
     - pytest
+    - pytest-cov
   # copy over any needed test files here
   source_files:
     - tests/
 
 about:
-  home: https://github.com/forestobservatory/elapid
+  home: https://elapid.org
   license: MIT
   license_family: BSD
   license_file: LICENSE
