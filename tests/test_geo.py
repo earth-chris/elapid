@@ -142,6 +142,14 @@ def test_annotate_geoseries():
     assert b2 == 0
     assert b3 == 65280
 
+    # ensure on-the-fly reprojection works
+    geoseries_ll = geoseries.to_crs("EPSG:4326")
+    df = geo.annotate_geoseries(geoseries_ll, [raster_2b], labels=["band_1", "band_2"])
+    b1 = df["band_1"].iloc[0]
+    b2 = df["band_2"].iloc[0]
+    assert b1 == 0
+    assert b2 == 65280
+
 
 def test_annotate():
     raster_paths = [raster_1b, raster_2b]

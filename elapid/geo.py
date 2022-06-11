@@ -374,7 +374,7 @@ def annotate_geoseries(
 
             # reproject points to match raster and convert to a dataframe
             if not crs_match(points.crs, src.crs):
-                points.to_crs(src.crs, inplace=True)
+                points = points.to_crs(src.crs)
 
             # use the first rasters dtype for the output array if not set
             if raster_idx == 0 and dtype is None:
