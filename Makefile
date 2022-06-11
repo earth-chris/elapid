@@ -30,7 +30,7 @@ init:
 	${CONDA} mamba install pre-commit -c conda-forge && ${CONDA} pre-commit install
 
 test:
-	${CONDA} pytest --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
+	${CONDA} pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
 
 test-data:
 	${CONDA} python tests/create_test_data.py
