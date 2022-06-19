@@ -21,7 +21,7 @@
 
 ---
 
-## Introduction
+## :snake: Introduction
 
 `elapid` provides python support for species distribution modeling. This includes a custom implementation of [Maxent][home-maxent] and a suite of tools to simplify working with biogeography data.
 
@@ -29,7 +29,7 @@ The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* 
 
 ---
 
-## Installation
+## :seedling: Installation
 
 ```bash
 pip install elapid
@@ -43,7 +43,7 @@ You can review Windows install instructions with slightly more detail, or contri
 
 ---
 
-## Package design
+## :deciduous_tree: Package design
 
 The amount and quality of bioegeographic data has increased dramatically over the past decade, as have cloud-based tools for working with it. `elapid` was designed to provide a set of modern, python-based tools for working with species occurrence records and environmental covariates to map different dimensions of a species' niche.
 
@@ -51,37 +51,37 @@ The amount and quality of bioegeographic data has increased dramatically over th
 
 It does the following things reasonably well:
 
-**Point sampling**
+:globe_with_meridians: **Point sampling**
 
-Drawing random geographic point samples (or `background` points) within polygons or rasters, handling `nodata` locations, as well as sampling from bias maps (using `elapid.sample_geoseries()`, `elapid.sample_raster()`, or `elapid.sample_bias_file()`).
+Select random geographic point samples (aka background or pseudoabsence points) within polygons or rasters, handling `nodata` locations, as well as sampling from bias maps (using `elapid.sample_geoseries()`, `elapid.sample_raster()`, or `elapid.sample_bias_file()`).
 
-**Vector annotation**
+:chart_with_upwards_trend: **Vector annotation**
 
-Annotating point data with coincident raster data, creating `GeoDataFrames` with sample locations and co-aligned covariate values (using `elapid.annotate()`).
+Annotate point data with coincident raster data, creating `GeoDataFrames` with sample locations and co-aligned covariate values (using `elapid.annotate()`).
 
-**Zonal statistics**
+:bar_chart: **Zonal statistics**
 
-Calculating zonal statistics from multi-band, multi-raster data into a single `GeoDataFrame` from one command (using `elapid.zonal_stats()`).
+Calculate zonal statistics from multi-band, multi-raster data into a single `GeoDataFrame` from one command (using `elapid.zonal_stats()`).
 
-**Feature transformations**
+:bug: **Feature transformations**
 
-Transforming covariate data into derivative `features` to expand data dimensionality (primarily the `elapid.MaxentFeatureTransformer()`, but see others under `elapid.features`)
+Transform covariate data into derivative `features` to expand data dimensionality (primarily the `elapid.MaxentFeatureTransformer()`, but see others under `elapid.features`)
 
-**Species distribution modeling**
+:bird: **Species distribution modeling**
 
-Training and applying generic species distribution models (like `elapid.MaxentModel()` and `elapid.NicheEnvelopeModel()`).
+Train and apply generic species distribution models (like `elapid.MaxentModel()` and `elapid.NicheEnvelopeModel()`).
 
-**Applying models to rasters**
+:earth_asia: **Applying models to rasters**
 
-Applying pixel-based models with a `.predict()` method to rasters (like training a `RandomForestClassifier()` and applying with `elapid.apply_model_to_rasters()`).
+Apply pixel-based models with a `.predict()` method to rasters (like training a `RandomForestClassifier()` and applying with `elapid.apply_model_to_rasters()`).
 
-**Cloud-native geo support**
+:cloud: **Cloud-native geo support**
 
-Working with cloud- or web-hosted raster and vector data (data hosted on `s3://`, `gs://`, or `https://`).
+Work with cloud- or web-hosted raster/vector data (on `https://`, `gs://`, `s3://`, etc.).
 
 ---
 
-`elapid` requires some effort on the user's part to draw samples and extract covariate data. This is by design. Selecting background samples, splitting train/test data, and specifying model parameters are all critical modeling choices that have profound effects on model prediction and interpretation. This extra flexibility provides more control over the seemingly black-box approach of Maxent's java implementation, and enabling users to better tune and evaluate their models.
+:snake: `elapid` requires some effort on the user's part to draw samples and extract covariate data. This is by design. Selecting background samples, splitting train/test data, and specifying model parameters are all critical modeling choices that have profound effects on model prediction and interpretation. This extra flexibility provides more control over the seemingly black-box approach of Maxent's java implementation, and enabling users to better tune and evaluate their models.
 
 ---
 
