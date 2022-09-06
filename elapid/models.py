@@ -120,7 +120,10 @@ class MaxentModel(BaseEstimator):
                 with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
                 must be set if `is_features=True`
         """
-        # fir the feature transformer
+        # format the input data
+        y = format_occurrence_data(y)
+
+        # fit the feature transformer
         if is_features:
             features = x
             assert feature_labels is not None, "feature_labels must be set if is_features=True"
@@ -379,9 +382,10 @@ class NicheEnvelopeModel(BaseEstimator):
             categorical: indices for which columns are categorical
             labels: covariate labels. ignored if x is a pandas DataFrame
         """
-        # format the input x data
+        # format the input x/y data
         self._format_labels_and_dtypes(x, categorical=categorical, labels=labels)
         con, cat = self._format_covariate_data(x)
+        y = format_occurrence_data(y)
 
         # estimate the feature range of the continuous data
         self.feature_mins_ = np.percentile(con[y == 1], self.percentile_range_[0], axis=0)
@@ -476,3 +480,26 @@ def maxent_entropy(raw: np.ndarray) -> float:
     """
     scaled = raw / np.sum(raw)
     return -np.sum(scaled * np.log(scaled))
+
+
+def format_occurrence_data(y: ArrayLike) -> ArrayLike:
+    """Reads input y data and formats it to consistent 1d array dtypes.
+
+    Args:
+        y: array-like of shape (n_samples,) or (n_samples, 1)
+
+    Returns:
+        formatted uin8 ndarray of shape (n_samples,)
+
+    Raises:
+        np.AxisError if an array with 2 or more columns is passed
+    """
+    if not isinstance(y, np.ndarray):
+        y = np.array(y)
+
+    if y.ndim > 1:
+        if y.shape[1] > 1:
+            raise np.AxisError(f"Multi-column y data passed of shape {y.shape}. Must be 1d or 1 column.")
+        y = y.flatten()
+
+    return y.astype("uint8")
