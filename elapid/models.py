@@ -281,6 +281,8 @@ class MaxentModel(BaseEstimator):
             tol=self.convergence_tolerance_,
         )
 
+        self.alpha_ = 0.0
+        self.entropy_ = 0.0
         self.initialized_ = True
 
 
