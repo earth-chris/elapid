@@ -11,7 +11,7 @@ class MaxentConfig:
     # increase this number to drop more coefficients, decrease to keep more
     # coefficients. `beta_multiplier` scales regularization for all features,
     # but regularization can be tuned by feature type
-    beta_multiplier: float = 1.0
+    beta_multiplier: float = 1.5
     beta_hinge: float = 1.0
     beta_lqp: float = 1.0
     beta_threshold: float = 1.0
