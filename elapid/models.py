@@ -494,7 +494,7 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
         formatted uin8 ndarray of shape (n_samples,)
 
     Raises:
-        np.AxisError if an array with 2 or more columns is passed
+        np.AxisError: an array with 2 or more columns is passed
     """
     if not isinstance(y, np.ndarray):
         y = np.array(y)

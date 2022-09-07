@@ -110,7 +110,7 @@ class ProductTransformer(BaseEstimator):
         self.feature_range = feature_range
         self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
 
-    def fit(self, x: ArrayLike):
+    def fit(self, x: ArrayLike) -> None:
         """Compute the minimum and maximum for scaling.
 
         Args:
@@ -160,7 +160,7 @@ class ThresholdTransformer(BaseEstimator):
     def __init__(self, n_thresholds: int = MaxentConfig.n_threshold_features):
         self.n_thresholds_ = n_thresholds
 
-    def fit(self, x: ArrayLike):
+    def fit(self, x: ArrayLike) -> None:
         """Compute the minimum and maximum for scaling.
 
         Args:
@@ -216,7 +216,7 @@ class HingeTransformer(BaseEstimator):
     def __init__(self, n_hinges: int = MaxentConfig.n_hinge_features):
         self.n_hinges_ = n_hinges
 
-    def fit(self, x: ArrayLike):
+    def fit(self, x: ArrayLike) -> None:
         """Compute the minimum and maximum for scaling.
 
         Args:
@@ -271,7 +271,7 @@ class CategoricalTransformer(BaseEstimator):
     def __init__(self):
         pass
 
-    def fit(self, x: ArrayLike):
+    def fit(self, x: ArrayLike) -> None:
         """Compute the minimum and maximum for scaling.
 
         Args:

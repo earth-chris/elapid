@@ -198,7 +198,6 @@ def string_to_crs(string: str) -> rio.crs.CRS:
 
     Args:
         string: a crs/projection string.
-        crs_type: the type of crs/projection string, in ["wkt", "proj4", "epsg", "string"].
 
     Returns:
         crs: the coordinate reference system
@@ -593,7 +592,7 @@ def validate_gpd(geo: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> None:
         geo: an input variable that should be in GeoPandas format
 
     Raises:
-        TypeError if geo is not in GeoPandas format
+        TypeError: geo is not a GeoPandas dataframe or series
     """
     if not (isinstance(geo, gpd.GeoDataFrame) or isinstance(geo, gpd.GeoSeries)):
         raise TypeError("Input must be a GeoDataFrame or GeoSeries")
