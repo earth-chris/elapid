@@ -232,20 +232,13 @@ class MaxentModel(BaseEstimator):
 
         # scale based on the transform type
         if transform == "raw":
-            return np.exp(engma)
+            return maxent_raw_transform(engma)
 
         elif transform == "logistic":
-            # below is R's maxnet (tau-free) logistic formulation
-            # return 1 / (1 + np.exp(-self.entropy_ - engma))
-            # use the java formulation instead
-            logratio = np.exp(engma) * np.exp(self.entropy_)
-            return (self.tau * logratio) / ((1 - self.tau) + (self.tau * logratio))
+            return maxent_logistic_transform(engma, self.entropy_, self.tau)
 
         elif transform == "cloglog":
-            # below is R's maxent cloglog formula
-            # return 1 - np.exp(0 - np.exp(self.entropy_ + engma))
-            # use java again
-            return 1 - np.exp(-np.exp(engma) * np.exp(self.entropy_))
+            return maxent_cloglog_transform(engma, self.entropy_)
 
     def fit_predict(
         self,
@@ -506,6 +499,49 @@ def maxent_entropy(raw: np.ndarray) -> float:
     """
     scaled = raw / np.sum(raw)
     return -np.sum(scaled * np.log(scaled))
+
+
+def maxent_raw_transform(engma: np.ndarray) -> np.ndarray:
+    """Compute maxent's raw suitability score
+
+    Args:
+        engma: calibrated maxent linear model output
+
+    Returns:
+        the log-linear raw scores for each sample
+    """
+    return np.exp(engma)
+
+
+def maxent_logistic_transform(engma: np.ndarray, entropy: float, tau: float = MaxentConfig.tau) -> np.ndarray:
+    """Compute maxent's logistic suitability score
+
+    Args:
+        engma: calibrated maxent linear model output
+        entropy: the calibrated model entropy score
+        tau: the prevalence scaler. lower values indicate rarer species.
+
+    Returns:
+        the tau-scaled logistic scores for each sample
+    """
+    # maxnet's (tau-free) logistic formulation:
+    # return 1 / (1 + np.exp(-entropy - engma))
+    # use java's formulation instead
+    logratio = np.exp(engma) * np.exp(entropy)
+    return (tau * logratio) / ((1 - tau) + (tau * logratio))
+
+
+def maxent_cloglog_transform(engma: np.ndarray, entropy: float) -> np.ndarray:
+    """Compute maxent's cumulative log-log suitability score
+
+    Args:
+        engma: calibrated maxent linear model output
+        entropy: the calibrated model entropy score
+
+    Returns:
+        the cloglog scores for each sample
+    """
+    return 1 - np.exp(-np.exp(engma) * np.exp(entropy))
 
 
 def format_occurrence_data(y: ArrayLike) -> ArrayLike:
