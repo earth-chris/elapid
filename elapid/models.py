@@ -1,45 +1,61 @@
 """Classes for training species distribution models."""
 from typing import List, Tuple, Union
+from warnings import warn
 
 import numpy as np
 import pandas as pd
-from glmnet.logistic import LogitNet
 from sklearn.base import BaseEstimator
+from sklearn.exceptions import NotFittedError
 
 from elapid import features as _features
 from elapid.config import MaxentConfig, NicheEnvelopeConfig
 from elapid.types import ArrayLike, Number, validate_feature_types
-from elapid.utils import make_band_labels, n_cpus
+from elapid.utils import NCPUS, make_band_labels
+
+try:
+    from glmnet.logistic import LogitNet
+
+    FORCE_SKLEARN = False
+except ModuleNotFoundError:
+    from sklearn.linear_model import LogisticRegression
+
+    warn("Failed to import glmnet: using sklearn for Maxent. Interpret results with caution.", category=RuntimeWarning)
+    FORCE_SKLEARN = True
 
 
 class MaxentModel(BaseEstimator):
     """Model estimator for Maxent-style species distribution models."""
 
-    feature_types_: list = MaxentConfig.feature_types
-    tau_: float = MaxentConfig.tau
-    clamp_: bool = MaxentConfig.clamp
-    convergence_tolerance_: float = MaxentConfig.tolerance
-    beta_multiplier_: float = MaxentConfig.beta_multiplier
-    beta_hinge_: float = MaxentConfig.beta_hinge
-    beta_lqp_: float = MaxentConfig.beta_lqp
-    beta_threshold_: float = MaxentConfig.beta_threshold
-    beta_categorical_: float = MaxentConfig.beta_categorical
-    n_hinge_features_: int = MaxentConfig.n_hinge_features
-    n_threshold_features_: int = MaxentConfig.n_threshold_features
-    scorer_: str = MaxentConfig.scorer
-    use_lambdas_: str = MaxentConfig.use_lambdas
-    n_lambdas_: str = MaxentConfig.n_lambdas
+    # passed to __init__
+    feature_types: list = MaxentConfig.feature_types
+    tau: float = MaxentConfig.tau
+    clamp: bool = MaxentConfig.clamp
+    scorer: str = MaxentConfig.scorer
+    beta_multiplier: float = MaxentConfig.beta_multiplier
+    beta_hinge: float = MaxentConfig.beta_hinge
+    beta_lqp: float = MaxentConfig.beta_lqp
+    beta_threshold: float = MaxentConfig.beta_threshold
+    beta_categorical: float = MaxentConfig.beta_categorical
+    n_hinge_features: int = MaxentConfig.n_hinge_features
+    n_threshold_features: int = MaxentConfig.n_threshold_features
+    convergence_tolerance: float = MaxentConfig.tolerance
+    use_lambdas: str = MaxentConfig.use_lambdas
+    n_lambdas: str = MaxentConfig.n_lambdas
+    class_weights: Union[str, float] = None
+    n_cpus: int = NCPUS
+    force_sklearn: bool = False
+
+    # computed during model fitting
     initialized_: bool = False
+    estimator: BaseEstimator = None
+    preprocessor: BaseEstimator = None
+    transformer: BaseEstimator = None
+    regularization_: np.ndarray = None
+    sample_weights_: np.ndarray = None
+    lambdas_: np.ndarray = None
     beta_scores_: np.array = None
     entropy_: float = 0.0
     alpha_: float = 0.0
-    estimator: BaseEstimator = None
-    transformer: _features.MaxentFeatureTransformer = None
-    weights_: np.ndarray = None
-    regularization_: np.ndarray = None
-    lambdas_: np.ndarray = None
-    weight_strategy_: Union[str, float] = None
-    n_cpus_ = n_cpus
 
     def __init__(
         self,
@@ -57,8 +73,9 @@ class MaxentModel(BaseEstimator):
         convergence_tolerance: float = MaxentConfig.tolerance,
         use_lambdas: str = MaxentConfig.use_lambdas,
         n_lambdas: int = MaxentConfig.n_lambdas,
-        weights: Union[str, float] = MaxentConfig.weights,
-        n_cpus: int = n_cpus,
+        class_weights: Union[str, float] = MaxentConfig.class_weights,
+        n_cpus: int = NCPUS,
+        force_sklearn: bool = FORCE_SKLEARN,
     ):
         """Create a maxent model object.
 
@@ -74,30 +91,38 @@ class MaxentModel(BaseEstimator):
             beta_hinge: hinge feature regularization scaler
             beta_threshold: threshold feature regularization scaler
             beta_categorical: categorical feature regularization scaler
+            n_hinge_features: the number of hinge features to fit in feature transformation
+            n_threshold_features: the number of thresholds to fit in feature transformation
             convergence_tolerance: model convergence tolerance level
             use_lambdas: guide for which model lambdas to select (either "best" or "last")
             n_lambdas: number of lamba values to fit models with
-            weights: strategy for weighting presence samples.
+            class_weights: strategy for weighting presence samples.
                 pass "balance" to compute the ratio based on sample frequency
                 or pass a float for the presence:background weight ratio
+                the R `maxnet` package uses a value of 100 as default
             n_cpus: threads to use during model training
+            force_sklearn: force using `sklearn` for fitting logistic regression.
+                turned off by default to use `glmnet` for fitting.
+                this feature was turned on to support Windows users
+                who install the package without a fortran compiler.
         """
-        self.feature_types_ = validate_feature_types(feature_types)
-        self.tau_ = tau
-        self.clamp_ = clamp
-        self.convergence_tolerance_ = convergence_tolerance
-        self.beta_multiplier_ = beta_multiplier
-        self.beta_hinge_ = beta_hinge
-        self.beta_lqp_ = beta_lqp
-        self.beta_threshold_ = beta_threshold
-        self.beta_categorical_ = beta_categorical
-        self.n_hinge_features_ = n_hinge_features
-        self.n_threshold_features_ = n_threshold_features
-        self.n_cpus_ = n_cpus
-        self.scorer_ = scorer
-        self.use_lambdas_ = use_lambdas
-        self.n_lambdas_ = n_lambdas
-        self.weight_strategy_ = weights
+        self.feature_types = validate_feature_types(feature_types)
+        self.tau = tau
+        self.clamp = clamp
+        self.scorer = scorer
+        self.beta_multiplier = beta_multiplier
+        self.beta_hinge = beta_hinge
+        self.beta_lqp = beta_lqp
+        self.beta_threshold = beta_threshold
+        self.beta_categorical = beta_categorical
+        self.n_hinge_features = n_hinge_features
+        self.n_threshold_features = n_threshold_features
+        self.convergence_tolerance = convergence_tolerance
+        self.n_cpus = n_cpus
+        self.use_lambdas = use_lambdas
+        self.n_lambdas = n_lambdas
+        self.class_weights = class_weights
+        self.force_sklearn = force_sklearn
 
     def fit(
         self,
@@ -105,8 +130,7 @@ class MaxentModel(BaseEstimator):
         y: ArrayLike,
         categorical: List[int] = None,
         labels: list = None,
-        is_features: bool = False,
-        feature_labels: list = None,
+        preprocessor: BaseEstimator = None,
     ) -> None:
         """Trains a maxent model using a set of covariates and presence/background points.
 
@@ -115,68 +139,69 @@ class MaxentModel(BaseEstimator):
             y: array-like of shape (n_samples,) with binary presence/background (1/0) values
             categorical: indices for which columns are categorical
             labels: covariate labels. ignored if x is a pandas DataFrame
-            is_features: specify that x data has been transformed from covariates to features
-            feature_labels: list of length n_features, with labels identifying each column's feature type
-                with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
-                must be set if `is_features=True`
+            preprocessor: an `sklearn` transformer with a .transform() and/or
+                a .fit_transform() method. Some examples include a PCA() object or a
+                RobustScaler().
         """
         # format the input data
         y = format_occurrence_data(y)
 
-        # fit the feature transformer
-        if is_features:
-            features = x
-            assert feature_labels is not None, "feature_labels must be set if is_features=True"
+        # apply preprocessing
+        if preprocessor is not None:
+            self.preprocessor = preprocessor
+            try:
+                x = self.preprocessor.transform(x)
+            except NotFittedError:
+                x = self.preprocessor.fit_transform(x)
 
-        else:
-            self.transformer = _features.MaxentFeatureTransformer(
-                feature_types=self.feature_types_,
-                clamp=self.clamp_,
-                n_hinge_features=self.n_hinge_features_,
-                n_threshold_features=self.n_threshold_features_,
-            )
-            features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
-            feature_labels = self.transformer.feature_names_
+        # fit the feature transformer
+        self.transformer = _features.MaxentFeatureTransformer(
+            feature_types=self.feature_types,
+            clamp=self.clamp,
+            n_hinge_features=self.n_hinge_features,
+            n_threshold_features=self.n_threshold_features,
+        )
+        features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
+        feature_labels = self.transformer.feature_names_
 
         # compute sample weights
-        if self.weight_strategy_ == "balance":
-            pbr = len(y) / y.sum()
-        else:
-            pbr = self.weight_strategy_
-
-        self.weights_ = _features.compute_weights(y, pbr=pbr)
+        pbr = len(y) / y.sum() if self.class_weights == "balanced" else self.class_weights
+        self.sample_weights_ = _features.compute_weights(y, pbr=pbr)
 
         # set feature regularization parameters
         self.regularization_ = _features.compute_regularization(
             y,
             features,
             feature_labels=feature_labels,
-            beta_multiplier=self.beta_multiplier_,
-            beta_threshold=self.beta_threshold_,
-            beta_hinge=self.beta_hinge_,
-            beta_categorical=self.beta_categorical_,
+            beta_multiplier=self.beta_multiplier,
+            beta_lqp=self.beta_lqp,
+            beta_threshold=self.beta_threshold,
+            beta_hinge=self.beta_hinge,
+            beta_categorical=self.beta_categorical,
         )
 
         # get model lambda scores to initialize the glm
-        self.lambdas_ = _features.compute_lambdas(y, self.weights_, self.regularization_, n_lambdas=self.n_lambdas_)
+        self.lambdas_ = _features.compute_lambdas(
+            y, self.sample_weights_, self.regularization_, n_lambdas=self.n_lambdas
+        )
 
         # model fitting
         self.initialize_model(lambdas=self.lambdas_)
         self.estimator.fit(
             features,
             y,
-            sample_weight=self.weights_,
+            sample_weight=self.sample_weights_,
             relative_penalties=self.regularization_,
         )
 
-        # get the beta values based on which lamba selection method to use
-        if self.use_lambdas_ == "last":
+        # get the beta values based on which lambda selection method to use
+        if self.use_lambdas == "last":
             self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
-        elif self.use_lambdas_ == "best":
+        elif self.use_lambdas == "best":
             self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_max_inx_]
 
         # apply maxent-specific transformations
-        raw = self.predict(features[y == 0], transform="raw", is_features=True)
+        raw = self.predict(x[y == 0], transform="raw")
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
         self.alpha_ = maxent_alpha(raw)
@@ -184,22 +209,23 @@ class MaxentModel(BaseEstimator):
         # the distance from f(z) is the relative entropy of f1(z) WRT f(z)
         self.entropy_ = maxent_entropy(raw)
 
-    def predict(self, x: ArrayLike, transform: str = "cloglog", is_features: bool = False) -> ArrayLike:
+    def predict(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
             transform: maxent model transformation type. select from
                 ["raw", "logistic", "cloglog"].
-            is_features: flag that x data has already been transformed from covariates to features
 
         Returns:
             predictions: array-like of shape (n_samples,) with model predictions
         """
-        assert self.initialized_, "Model must be fit first"
+        if not self.initialized_:
+            raise NotFittedError("Model must be fit first")
 
         # feature transformations
-        features = x if is_features else self.transformer.transform(x)
+        x = x if self.preprocessor is None else self.preprocessor.transform(x)
+        features = x if self.transformer is None else self.transformer.transform(x)
 
         # apply the model
         engma = np.matmul(features, self.beta_scores_) + self.alpha_
@@ -213,7 +239,7 @@ class MaxentModel(BaseEstimator):
             # return 1 / (1 + np.exp(-self.entropy_ - engma))
             # use the java formulation instead
             logratio = np.exp(engma) * np.exp(self.entropy_)
-            return (self.tau_ * logratio) / ((1 - self.tau_) + (self.tau_ * logratio))
+            return (self.tau * logratio) / ((1 - self.tau) + (self.tau * logratio))
 
         elif transform == "cloglog":
             # below is R's maxent cloglog formula
@@ -227,9 +253,8 @@ class MaxentModel(BaseEstimator):
         y: ArrayLike,
         categorical: list = None,
         labels: list = None,
+        preprocessor: BaseEstimator = None,
         transform: str = "cloglog",
-        is_features: bool = False,
-        feature_labels: list = None,
     ) -> ArrayLike:
         """Trains and applies a model to x/y data.
 
@@ -238,18 +263,17 @@ class MaxentModel(BaseEstimator):
             y: array-like of shape (n_samples,) with binary presence/background (1/0) values
             categorical: column indices indicating which columns are categorical
             labels: Covariate labels. Ignored if x is a pandas DataFrame
+            preprocessor: an `sklearn` transformer with a .transform() and/or
+                a .fit_transform() method. Some examples include a PCA() object or a
+                RobustScaler().
             transform: maxent model transformation type. select from
                 ["raw", "logistic", "cloglog"].
-            is_features: specify that x data has already been transformed from covariates to features
-            feature_labels: list of length n_features, with labels identifying each column's feature type
-                with options ["linear", "quadratic", "product", "threshold", "hinge", "categorical"]
-                must be set if `is_features=True`
 
         Returns:
             predictions: Array-like of shape (n_samples,) with model predictions
         """
-        self.fit(x, y, categorical=categorical, labels=labels, is_features=is_features, feature_labels=feature_labels)
-        predictions = self.predict(x, transform=transform, is_features=is_features)
+        self.fit(x, y, categorical=categorical, labels=labels, preprocessor=preprocessor)
+        predictions = self.predict(x, transform=transform)
 
         return predictions
 
@@ -276,9 +300,9 @@ class MaxentModel(BaseEstimator):
             lambda_path=lambdas,
             standardize=standardize,
             fit_intercept=fit_intercept,
-            scoring=self.scorer_,
-            n_jobs=self.n_cpus_,
-            tol=self.convergence_tolerance_,
+            scoring=self.scorer,
+            n_jobs=self.n_cpus,
+            tol=self.convergence_tolerance,
         )
 
         self.alpha_ = 0.0

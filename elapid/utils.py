@@ -13,7 +13,7 @@ import rasterio as rio
 
 from elapid.types import Number
 
-n_cpus = mp.cpu_count()
+NCPUS = mp.cpu_count()
 
 
 class NoDataException(Exception):
