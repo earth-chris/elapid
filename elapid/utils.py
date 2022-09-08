@@ -111,7 +111,7 @@ def create_output_raster_profile(
         windowed: perform a block-by-block data read. slower, but reduces memory use
         nodata: output nodata value
         count: number of bands in the prediction output
-        output_driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
+        driver: output raster file format (from rasterio.drivers.raster_driver_extensions())
         compress: compression type to apply to the output file
         bigtiff: specify the output file as a bigtiff (for rasters > 2GB)
         dtype: rasterio data type string

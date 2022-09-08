@@ -158,7 +158,7 @@ class MaxentModel(BaseEstimator):
         )
 
         # get model lambda scores to initialize the glm
-        self.lambdas_ = _features.compute_lambdas(y, self.weights_, self.regularization_)
+        self.lambdas_ = _features.compute_lambdas(y, self.weights_, self.regularization_, n_lambdas=self.n_lambdas_)
 
         # model fitting
         self.initialize_model(lambdas=self.lambdas_)
@@ -210,14 +210,14 @@ class MaxentModel(BaseEstimator):
 
         elif transform == "logistic":
             # below is R's maxnet (tau-free) logistic formulation
-            # return 1 / (1 + np.exp(-self.entropy_ - raw))
+            # return 1 / (1 + np.exp(-self.entropy_ - engma))
             # use the java formulation instead
             logratio = np.exp(engma) * np.exp(self.entropy_)
             return (self.tau_ * logratio) / ((1 - self.tau_) + (self.tau_ * logratio))
 
         elif transform == "cloglog":
             # below is R's maxent cloglog formula
-            # return 1 - np.exp(0 - np.exp(self.entropy_ - raw))
+            # return 1 - np.exp(0 - np.exp(self.entropy_ + engma))
             # use java again
             return 1 - np.exp(-np.exp(engma) * np.exp(self.entropy_))
 
@@ -258,7 +258,7 @@ class MaxentModel(BaseEstimator):
         lambdas: np.array,
         alpha: float = 1,
         standardize: bool = False,
-        fit_intercept: bool = True,
+        fit_intercept: bool = False,
     ) -> None:
         """Creates the Logistic Regression with elastic net penalty model object.
 
@@ -494,7 +494,7 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
         formatted uin8 ndarray of shape (n_samples,)
 
     Raises:
-        np.AxisError if an array with 2 or more columns is passed
+        np.AxisError: an array with 2 or more columns is passed
     """
     if not isinstance(y, np.ndarray):
         y = np.array(y)

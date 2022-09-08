@@ -104,7 +104,7 @@ The above example prioritizes sampling frequency in the areas around UC Santa Cr
 
 ---
 
-## Point Annotation
+## Point annotation
 
 Annotation refers to reading and storing raster values at the locations of a series of point occurrence records in a single `GeoDataFrame` table.
 
