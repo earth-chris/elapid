@@ -4,8 +4,7 @@ isort
 livereload
 mkdocs-jupyter
 mkdocs-material
-mkdocstrings
+mkdocstrings[python]
 pytest
 pytest-cov
 pytest-xdist
-twine
