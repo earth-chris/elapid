@@ -82,10 +82,9 @@ def test_MaxentModel_feature_types():
 
 def test_sklearn_MaxentModel():
     skl = models.MaxentModel(use_sklearn=True)
-    glm = models.MaxentModel(use_sklearn=False)
-    yp_skl = skl.fit_predict(x, y)
-    yp_glm = glm.fit_predict(x, y)
-    assert_almost_equal(yp_skl.mean(), yp_glm.mean(), decimal=2)
+    ypred = skl.fit_predict(x, y)
+    assert ypred.max() <= 1.0
+    assert ypred.min() >= 0.0
 
 
 def test_format_occurrence_data():
