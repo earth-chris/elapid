@@ -6,20 +6,23 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
+from sklearn.linear_model import LogisticRegression
 
 from elapid import features as _features
 from elapid.config import MaxentConfig, NicheEnvelopeConfig
 from elapid.types import ArrayLike, Number, validate_feature_types
 from elapid.utils import NCPUS, make_band_labels
 
+# handle windows systems without functioning gfortran compilers
+FORCE_SKLEARN = False
 try:
     from glmnet.logistic import LogitNet
 
-    FORCE_SKLEARN = False
 except ModuleNotFoundError:
-    from sklearn.linear_model import LogisticRegression
-
-    warn("Failed to import glmnet: using sklearn for Maxent. Interpret results with caution.", category=RuntimeWarning)
+    warn(
+        "Failed to import glmnet: using sklearn for Maxent. Interpret results with caution.",
+        category=RuntimeWarning,
+    )
     FORCE_SKLEARN = True
 
 
@@ -43,7 +46,7 @@ class MaxentModel(BaseEstimator):
     n_lambdas: str = MaxentConfig.n_lambdas
     class_weights: Union[str, float] = None
     n_cpus: int = NCPUS
-    force_sklearn: bool = False
+    use_sklearn: bool = False
 
     # computed during model fitting
     initialized_: bool = False
@@ -75,7 +78,7 @@ class MaxentModel(BaseEstimator):
         n_lambdas: int = MaxentConfig.n_lambdas,
         class_weights: Union[str, float] = MaxentConfig.class_weights,
         n_cpus: int = NCPUS,
-        force_sklearn: bool = FORCE_SKLEARN,
+        use_sklearn: bool = FORCE_SKLEARN,
     ):
         """Create a maxent model object.
 
@@ -101,7 +104,7 @@ class MaxentModel(BaseEstimator):
                 or pass a float for the presence:background weight ratio
                 the R `maxnet` package uses a value of 100 as default
             n_cpus: threads to use during model training
-            force_sklearn: force using `sklearn` for fitting logistic regression.
+            use_sklearn: force using `sklearn` for fitting logistic regression.
                 turned off by default to use `glmnet` for fitting.
                 this feature was turned on to support Windows users
                 who install the package without a fortran compiler.
@@ -122,7 +125,7 @@ class MaxentModel(BaseEstimator):
         self.use_lambdas = use_lambdas
         self.n_lambdas = n_lambdas
         self.class_weights = class_weights
-        self.force_sklearn = force_sklearn
+        self.use_sklearn = use_sklearn
 
     def fit(
         self,
@@ -143,6 +146,10 @@ class MaxentModel(BaseEstimator):
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
         """
+        # clear state variables
+        self.alpha_ = 0.0
+        self.entropy_ = 0.0
+
         # format the input data
         y = format_occurrence_data(y)
 
@@ -168,37 +175,49 @@ class MaxentModel(BaseEstimator):
         pbr = len(y) / y.sum() if self.class_weights == "balanced" else self.class_weights
         self.sample_weights_ = _features.compute_weights(y, pbr=pbr)
 
-        # set feature regularization parameters
-        self.regularization_ = _features.compute_regularization(
-            y,
-            features,
-            feature_labels=feature_labels,
-            beta_multiplier=self.beta_multiplier,
-            beta_lqp=self.beta_lqp,
-            beta_threshold=self.beta_threshold,
-            beta_hinge=self.beta_hinge,
-            beta_categorical=self.beta_categorical,
-        )
+        # model fitting with sklearn
+        if self.use_sklearn:
+            C = estimate_C_from_betas(self.beta_multiplier)
+            self.initialize_sklearn_model(C)
+            self.estimator.fit(features, y, sample_weight=self.sample_weights_)
+            self.beta_scores_ = self.estimator.coef_[0]
 
-        # get model lambda scores to initialize the glm
-        self.lambdas_ = _features.compute_lambdas(
-            y, self.sample_weights_, self.regularization_, n_lambdas=self.n_lambdas
-        )
+        # model fitting with glmnet
+        else:
+            # set feature regularization parameters
+            self.regularization_ = _features.compute_regularization(
+                y,
+                features,
+                feature_labels=feature_labels,
+                beta_multiplier=self.beta_multiplier,
+                beta_lqp=self.beta_lqp,
+                beta_threshold=self.beta_threshold,
+                beta_hinge=self.beta_hinge,
+                beta_categorical=self.beta_categorical,
+            )
 
-        # model fitting
-        self.initialize_model(lambdas=self.lambdas_)
-        self.estimator.fit(
-            features,
-            y,
-            sample_weight=self.sample_weights_,
-            relative_penalties=self.regularization_,
-        )
+            # get model lambda scores to initialize the glm
+            self.lambdas_ = _features.compute_lambdas(
+                y, self.sample_weights_, self.regularization_, n_lambdas=self.n_lambdas
+            )
 
-        # get the beta values based on which lambda selection method to use
-        if self.use_lambdas == "last":
-            self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
-        elif self.use_lambdas == "best":
-            self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_max_inx_]
+            # model fitting
+            self.initialize_glmnet_model(lambdas=self.lambdas_)
+            self.estimator.fit(
+                features,
+                y,
+                sample_weight=self.sample_weights_,
+                relative_penalties=self.regularization_,
+            )
+
+            # get the beta values based on which lambda selection method to use
+            if self.use_lambdas == "last":
+                self.beta_scores_ = self.estimator.coef_path_[0, :, -1]
+            elif self.use_lambdas == "best":
+                self.beta_scores_ = self.estimator.coef_path_[0, :, self.estimator.lambda_max_inx_]
+
+        # store initialization state
+        self.initialized_ = True
 
         # apply maxent-specific transformations
         raw = self.predict(x[y == 0], transform="raw")
@@ -270,12 +289,12 @@ class MaxentModel(BaseEstimator):
 
         return predictions
 
-    def initialize_model(
+    def initialize_glmnet_model(
         self,
         lambdas: np.array,
         alpha: float = 1,
         standardize: bool = False,
-        fit_intercept: bool = False,
+        fit_intercept: bool = True,
     ) -> None:
         """Creates the Logistic Regression with elastic net penalty model object.
 
@@ -284,9 +303,6 @@ class MaxentModel(BaseEstimator):
             alpha: elasticnet mixing parameter. alpha=1 for lasso, alpha=0 for ridge
             standardize: specify coefficient normalization
             fit_intercept: include an intercept parameter
-
-        Returns:
-            None. updates the self.estimator with an sklearn-style model estimator
         """
         self.estimator = LogitNet(
             alpha=alpha,
@@ -298,9 +314,21 @@ class MaxentModel(BaseEstimator):
             tol=self.convergence_tolerance,
         )
 
-        self.alpha_ = 0.0
-        self.entropy_ = 0.0
-        self.initialized_ = True
+    def initialize_sklearn_model(self, C: float, fit_intercept: bool = True) -> None:
+        """Creates an sklearn Logisticregression estimator with L1 penalties.
+
+        Args:
+            C: the regularization parameter
+            fit_intercept: include an intercept parameter
+        """
+        self.estimator = LogisticRegression(
+            C=C,
+            fit_intercept=fit_intercept,
+            penalty="l1",
+            solver="liblinear",
+            tol=self.convergence_tolerance,
+            max_iter=self.n_lambdas,
+        )
 
 
 class NicheEnvelopeModel(BaseEstimator):
@@ -551,7 +579,7 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
         y: array-like of shape (n_samples,) or (n_samples, 1)
 
     Returns:
-        formatted uin8 ndarray of shape (n_samples,)
+        formatted uint8 ndarray of shape (n_samples,)
 
     Raises:
         np.AxisError: an array with 2 or more columns is passed
@@ -560,8 +588,20 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
         y = np.array(y)
 
     if y.ndim > 1:
-        if y.shape[1] > 1:
+        if y.shape[1] > 1 or y.ndim > 2:
             raise np.AxisError(f"Multi-column y data passed of shape {y.shape}. Must be 1d or 1 column.")
         y = y.flatten()
 
     return y.astype("uint8")
+
+
+def estimate_C_from_betas(beta_multiplier: float) -> float:
+    """Convert the maxent-format beta_multiplier to an sklearn-format C regularization parameter.
+
+    Args:
+        beta_multiplier: the maxent beta regularization scaler
+
+    Returns:
+        a C factor approximating the level of regularization passed to glmnet
+    """
+    return 2 / (1 - np.exp(-beta_multiplier))
