@@ -28,11 +28,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pytest-xdist
 
-    - name: Install fiona on windows
+    - name: Install geo dependencies on windows
       if: matrix.os == 'windows-latest'
       run: |
-        pip install pipwin
+        pip install wheel pipwin
+        pipwin install numpy
+        pipwin install pandas
+        pipwin install shapely
+        pipwin install gdal
         pipwin install fiona
+        pipwin install pyproj
+        pipwin install six
+        pipwin install rtree
+        pipwin install geopandas
 
     - name: Install package
       run: |
