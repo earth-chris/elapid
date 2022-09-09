@@ -16,11 +16,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python ${{ env.python-version }}
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.python-version }}
         cache: 'pip'
+
+    - name: Install gfortran on mac
+      run: brew install gcc
+      if: matrix.os == 'macos-latest'
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
