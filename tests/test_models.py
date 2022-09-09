@@ -1,5 +1,8 @@
 import numpy as np
+import pytest
+from numpy.testing import assert_almost_equal
 from sklearn import metrics
+from sklearn.decomposition import PCA
 
 from elapid import models
 from elapid.utils import load_sample_data
@@ -77,6 +80,42 @@ def test_MaxentModel_feature_types():
         assert 0.5 <= auc_score <= 1.0
 
 
+def test_sklearn_MaxentModel():
+    skl = models.MaxentModel(use_sklearn=True)
+    glm = models.MaxentModel(use_sklearn=False)
+    yp_skl = skl.fit_predict(x, y)
+    yp_glm = glm.fit_predict(x, y)
+    assert_almost_equal(yp_skl.mean(), yp_glm.mean(), decimal=1)
+
+
+def test_format_occurrence_data():
+    # add a trailing dimension
+    yt = np.expand_dims(y.to_numpy(), axis=1)
+    model = models.MaxentModel()
+    model.fit(x, yt)
+
+    # fail on >2 dims
+    with pytest.raises(np.AxisError):
+        ytt = np.concatenate((yt, yt), axis=1)
+        model.fit(x, ytt)
+
+
+def test_preprocessor():
+    xt = x.drop(columns=["ecoreg"])
+    # remove the categorical variable
+
+    # not-fitted transformer
+    pca = PCA()
+    model = models.MaxentModel(feature_types="l")
+    model.fit(xt, y, preprocessor=pca)
+
+    # pre-fitted
+    pca = PCA()
+    pca.fit(xt)
+    model = models.MaxentModel(feature_types="l")
+    model.fit(xt, y, preprocessor=pca)
+
+
 def test_NicheEnvelopeModel():
     # test the full range of values, ensuring all y=1 points are included
     ne = models.NicheEnvelopeModel(percentile_range=[0, 100])
@@ -96,3 +135,8 @@ def test_NicheEnvelopeModel():
 
     average_narrow = narrow.predict(x, overlay="average")
     assert average_narrow[y == 1].sum() < average[y == 1].sum()
+
+    # test passing numpy arrays
+    xt = x.drop(columns=["ecoreg"]).to_numpy()
+    ne = models.NicheEnvelopeModel()
+    ne.fit_predict(xt, y)
