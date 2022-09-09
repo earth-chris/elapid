@@ -3,6 +3,7 @@ import pytest
 from numpy.testing import assert_almost_equal
 from sklearn import metrics
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
 
 from elapid import models
 from elapid.utils import load_sample_data
@@ -29,7 +30,8 @@ def test_MaxentModel_performance():
     assert 0.5 <= auc_score <= 1.0
 
     # check that full model close to cross-val performance (+- stderr)
-    assert abs(auc_score - model.estimator.cv_mean_score_[-1]) < 0.1 + model.estimator.cv_standard_error_[-1]
+    if not isinstance(model.estimator, LogisticRegression):
+        assert abs(auc_score - model.estimator.cv_mean_score_[-1]) < 0.1 + model.estimator.cv_standard_error_[-1]
 
 
 def test_MaxentModel_best_lambdas():
@@ -101,7 +103,7 @@ def test_format_occurrence_data():
 
 def test_preprocessor():
     # remove the categorical variable
-    xt = x.drop(columns=["ecoreg"])
+    xt = x.drop(columns=["ecoreg"]).to_numpy()
 
     # not-fitted transformer
     pca = PCA()
