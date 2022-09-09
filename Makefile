@@ -10,11 +10,11 @@ help:
 	@echo "--- [ $(NAME) developer tools ] --- "
 	@echo ""
 	@echo "make init        - initialize conda dev environment"
+	@echo "make utils       - install convenient packages"
 	@echo "make test        -	run package tests"
 	@echo "make test-data   - generates new data for tests/data/"
 	@echo "make conda-clean - removes conda tempfiles"
 	@echo "make destroy     - deletes the $(NAME) conda env"
-	@echo "make ci          - regenerates CI recipe"
 
 ####################
 # utils
@@ -24,6 +24,9 @@ init:
 	${CONDA} pip install pre-commit pytest pytest-xdist pytest-cov
 	${CONDA} pre-commit install
 	${CONDA} pip install -e .
+
+utils:
+	${CONDA} pip install ipython jupyter matplotlib
 
 test:
 	${CONDA} pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
@@ -36,6 +39,3 @@ conda-clean:
 
 destroy:
 	conda env remove -n ${NAME}
-
-ci:
-	conda smithy rerender -c auto

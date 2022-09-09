@@ -334,7 +334,7 @@ class MaxentModel(BaseEstimator):
 class NicheEnvelopeModel(BaseEstimator):
     """Model estimator for niche envelope-style models."""
 
-    percentile_range_: Tuple[float, float] = None
+    percentile_range: Tuple[float, float] = None
     feature_mins_: np.ndarray = None
     feature_maxs_: np.ndarray = None
     categorical_estimator: BaseEstimator = None
@@ -353,7 +353,7 @@ class NicheEnvelopeModel(BaseEstimator):
                 while [0, 100] creates an envelope around the full range of observed
                 covariates at all y==1 locations.
         """
-        self.percentile_range_ = percentile_range
+        self.percentile_range = percentile_range
         self.categorical_estimator = _features.CategoricalTransformer()
 
     def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
@@ -435,8 +435,8 @@ class NicheEnvelopeModel(BaseEstimator):
         y = format_occurrence_data(y)
 
         # estimate the feature range of the continuous data
-        self.feature_mins_ = np.percentile(con[y == 1], self.percentile_range_[0], axis=0)
-        self.feature_maxs_ = np.percentile(con[y == 1], self.percentile_range_[1], axis=0)
+        self.feature_mins_ = np.percentile(con[y == 1], self.percentile_range[0], axis=0)
+        self.feature_maxs_ = np.percentile(con[y == 1], self.percentile_range[1], axis=0)
 
         # one-hot encode the categorical data and label the classes with
         if cat is not None:
