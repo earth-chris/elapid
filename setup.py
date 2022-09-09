@@ -9,7 +9,7 @@ long_description = open(os.path.join(this_dir, "README.md"), "r", encoding="utf-
 requirements = open(os.path.join(this_dir, "requirements.txt"), "r", encoding="utf-8").read().strip().split()
 
 # remove glmnet requirement for windows installs
-if platform.system() == "Windows":
+if platform.system() != "Linux":
     [requirements.pop(idx) for idx, pkg in enumerate(requirements) if "glmnet" in pkg]
 
 setup_args = {
