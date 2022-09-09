@@ -85,7 +85,7 @@ def test_sklearn_MaxentModel():
     glm = models.MaxentModel(use_sklearn=False)
     yp_skl = skl.fit_predict(x, y)
     yp_glm = glm.fit_predict(x, y)
-    assert_almost_equal(yp_skl.mean(), yp_glm.mean(), decimal=1)
+    assert_almost_equal(yp_skl.mean(), yp_glm.mean(), decimal=2)
 
 
 def test_format_occurrence_data():
