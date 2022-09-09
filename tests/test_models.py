@@ -101,8 +101,8 @@ def test_format_occurrence_data():
 
 
 def test_preprocessor():
-    xt = x.drop(columns=["ecoreg"])
     # remove the categorical variable
+    xt = x.drop(columns=["ecoreg"])
 
     # not-fitted transformer
     pca = PCA()
