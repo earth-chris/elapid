@@ -1,0 +1,51 @@
+name: os-tests
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    env:
+      python-version: 3.8
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ env.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ env.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-xdist
+
+    - name: Install windows geo dependencies
+      if: matrix.os == 'windows-latest'
+      run: |
+        pip install wheel pipwin
+        pipwin install numpy
+        pipwin install pandas
+        pipwin install shapely
+        pipwin install gdal
+        pipwin install fiona
+        pipwin install pyproj
+        pipwin install six
+        pipwin install rtree
+        pip install geopandas
+
+    - name: Install package
+      run: |
+        pip install .
+
+    - name: Run pytest
+      run: |
+        pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered --cov-report xml:coverage.xml

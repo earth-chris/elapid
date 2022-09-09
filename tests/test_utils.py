@@ -38,10 +38,8 @@ def test_repeat_array():
 
 def test_load_sample_data():
     x, y = utils.load_sample_data(name="bradypus")
-
     assert x.shape == (1116, 14), "Dataframe not verified dimensions"
     assert len(x) == len(y), "Nuber of x/y rows must match"
-
     assert y.min() == 0, "y data should only contain 0/1"
     assert y.max() == 1, "y data should only contain 0/1"
 
@@ -53,19 +51,15 @@ def test_load_sample_data():
 
 def test_save_object():
     obj = np.zeros(10)
-
     try:
         with tempfile.NamedTemporaryFile() as tf:
             temp_name = tf.name
-
             utils.save_object(obj, temp_name, compress=False)
             uncompressed_size = os.path.getsize(temp_name)
             assert uncompressed_size > 0, "Saved file should be greater than zero bytes"
-
             utils.save_object(obj, temp_name, compress=True)
             compressed_size = os.path.getsize(temp_name)
             assert compressed_size < uncompressed_size, "Compressed size should be smaller than uncompressed"
-
     except PermissionError:
         pass
 
@@ -75,14 +69,15 @@ def test_load_object():
     obj = np.zeros(n_elements)
     obj[-1] = n_elements
     compress = False
-
-    with tempfile.NamedTemporaryFile() as tf:
-        temp_name = tf.name
-        utils.save_object(obj, temp_name, compress=compress)
-        loaded_obj = utils.load_object(temp_name, compressed=compress)
-
-    assert len(loaded_obj) == n_elements, "Loaded object doesn't match shape of saved object"
-    assert loaded_obj[-1] == n_elements, "Loaded object doesn't match data content of saved object"
+    try:
+        with tempfile.NamedTemporaryFile() as tf:
+            temp_name = tf.name
+            utils.save_object(obj, temp_name, compress=compress)
+            loaded_obj = utils.load_object(temp_name, compressed=compress)
+        assert len(loaded_obj) == n_elements, "Loaded object doesn't match shape of saved object"
+        assert loaded_obj[-1] == n_elements, "Loaded object doesn't match data content of saved object"
+    except PermissionError:
+        pass
 
 
 def test_create_output_raster_profile():
