@@ -10,11 +10,12 @@ import pandas as pd
 import pyproj
 import rasterio as rio
 from rasterio.features import geometry_mask
+from scipy.spatial import KDTree
 from shapely.geometry import MultiPoint, MultiPolygon, Point, Polygon
 from sklearn.base import BaseEstimator
 
-from elapid.stats import get_raster_stats_methods
-from elapid.types import CRSType, to_iterable
+from elapid.stats import get_raster_stats_methods, normalize_sample_probabilities
+from elapid.types import CRSType, Vector, to_iterable
 from elapid.utils import (
     NoDataException,
     check_raster_alignment,
@@ -105,14 +106,14 @@ def sample_bias_file(raster_path: str, count: int, ignore_mask: bool = False) ->
             data = src.read(1)
             rows, cols = np.where(data)
             values = data.flatten()
-            probabilities = (values - values.min()) / (values - values.min()).sum()
+            probabilities = normalize_sample_probabilities(values)
             samples = np.random.choice(len(rows), size=count, p=probabilities)
 
         else:
             data = src.read(1, masked=True)
             rows, cols = np.where(~data.mask)
             values = data[rows, cols]
-            probabilities = (values - values.min()) / (values - values.min()).sum()
+            probabilities = normalize_sample_probabilities(values)
             samples = np.random.choice(len(rows), size=count, p=probabilities)
 
         xy = np.zeros((count, 2))
@@ -585,7 +586,7 @@ def apply_model_to_rasters(
                 continue
 
 
-def validate_gpd(geo: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> None:
+def validate_gpd(geo: Vector) -> None:
     """Validates whether an input is a GeoDataFrame or a GeoSeries.
 
     Args:
@@ -598,7 +599,7 @@ def validate_gpd(geo: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> None:
         raise TypeError("Input must be a GeoDataFrame or GeoSeries")
 
 
-def validate_polygons(geometry: Union[gpd.GeoSeries, gpd.GeoDataFrame]) -> pd.Index:
+def validate_polygons(geometry: Vector) -> pd.Index:
     """Iterate over a geoseries to find rows with invalid geometry types.
 
     Args:
@@ -652,7 +653,7 @@ def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiP
 
 
 def zonal_stats(
-    polygons: Union[gpd.GeoSeries, gpd.GeoDataFrame],
+    polygons: Vector,
     raster_paths: list,
     labels: list = None,
     all_touched: bool = True,
@@ -758,3 +759,59 @@ def zonal_stats(
         merged = gpd.GeoDataFrame(pd.concat(raster_dfs, axis=1), geometry=polygons, crs=polygons.crs)
 
     return merged
+
+
+# sample weighting methods
+
+
+def nearest_point_distance(points: Vector, cpu_count: int = -1) -> np.ndarray:
+    """Compute the euclidean distance to the nearest point in a series.
+
+    Args:
+        points: point-format GeoSeries or GeoDataFrame
+        cpu_count: number of cpus to use for estimation.
+            -1 uses all cores
+
+    Returns:
+        array of shape (len(points),) with the distance to
+            each point's nearest neighbor
+    """
+    if points.crs.is_geographic:
+        warnings.warn("Computing distances using geographic coordinates is bad")
+
+    pts_array = np.array(list(zip(points.geometry.x, points.geometry.y)))
+    tree = KDTree(pts_array)
+    distance, idx = tree.query(pts_array, k=[2], workers=cpu_count)
+
+    return distance[:, 0]
+
+
+def distance_weights(points: Vector, center: str = "median", cpu_count: int = -1) -> np.ndarray:
+    """Compute sample weights based on the distance between points.
+
+    Assigns higher scores to isolated points, lower scores to clustered points.
+
+    Args:
+        points: point-format GeoSeries or GeoDataFrame
+        center: rescale the weights to center the mean or median of the array on 1
+            accepts either 'mean' or 'median' as input.
+            pass None to ignore.
+        cpu_count: number of cpus to use for estimation.
+            -1 uses all cores
+
+    Returns:
+        array of shape (len(points),) with scaled sample weights. Scaling
+            is performed by dividing by the maximum value, preserving the
+            relative scale of differences between the min and max distance.
+    """
+    distances = nearest_point_distance(points, cpu_count)
+    weights = distances / distances.max()
+
+    if center is not None:
+        if center.lower() == "mean":
+            weights /= weights.mean()
+
+        elif center.lower() == "median":
+            weights /= np.median(weights)
+
+    return weights
