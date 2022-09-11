@@ -1,9 +1,11 @@
-"""Utilities for calculating zonal statistics"""
+"""Utilities for calculating zonal stats and other transformations"""
 
 from typing import Callable, List
 
 import numpy as np
 from scipy import stats as scistats
+
+from elapid.types import ArrayLike
 
 
 class RasterStat:
@@ -143,3 +145,21 @@ def get_raster_stats_methods(
             methods.append(RasterStat(name=f"{percentile}pct", method=raster_percentile, pctile=percentile))
 
     return methods
+
+
+def normalize_sample_probabilities(values: ArrayLike) -> np.ndarray:
+    """Compute scaled probability scores for an array of samples.
+
+    These normalized probabilities sum to 1.0 and are designed to be used
+        as the `p` parameter for determining sample probabilities in
+        np.random.choice
+
+    Args:
+        values: numeric array to be treated as sample probabilities.
+            probabilities will be scaled linearly based on the input range.
+            setting `values = np.array([2, 1, 1])` returns (0.5, 0.25, 0.25)
+
+    Returns:
+        sample probabiility scores
+    """
+    return values / np.linalg.norm(values, ord=1)
