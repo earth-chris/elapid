@@ -23,7 +23,7 @@
 
 ## :snake: Introduction
 
-`elapid` provides python support for species distribution modeling. This includes a custom implementation of [Maxent][home-maxent] and a suite of tools to simplify working with biogeography data.
+`elapid` is a series of species distribution modeling tools for python. This includes a custom implementation of [Maxent][home-maxent] and a suite of methods to simplify working with biogeography data.
 
 The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* (H.A. Nix, 1986), the paper widely credited with defining the essential bioclimatic variables to use in species distribution modeling. It's also a snake pun (a python wrapper for mapping snake biogeography).
 
@@ -85,11 +85,12 @@ Work with cloud- or web-hosted raster/vector data (on `https://`, `gs://`, `s3:/
 
 ---
 
-## Contact
+## Developed by
+
+[Christopher Anderson](https://cbanderson.info)
 
 <a href="https://twitter.com/earth_chris">![Twitter Follow](https://img.shields.io/twitter/follow/earth_chris)</a>
-<a href="https://twitter.com/forestobs">![Twitter Follow](https://img.shields.io/twitter/follow/forestobs)</a>
-
+<a href="https://github.com/earth-chris">![GitHub Stars](https://img.shields.io/github/stars/earth-chris?affiliations=OWNER%2CCOLLABORATOR&style=social)</a>
 
 [home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
