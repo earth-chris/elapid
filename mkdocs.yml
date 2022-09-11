@@ -48,7 +48,7 @@ theme:
     nav_style: dark
     palette:
       - media: "(prefers-color-scheme: light)"
-        scheme: 'forestobs-light'
+        scheme: 'earthchris-light'
         toggle:
           icon: 'material/weather-night'
           name: 'Go dark'
@@ -58,7 +58,7 @@ theme:
           icon: 'material/weather-sunny'
           name: 'Go light'
     font:
-      text: 'Poppins'
+      text: 'Nunito'
       code: 'Source Code Pro'
     favicon: 'img/favicon.png'
     features:
@@ -72,7 +72,8 @@ plugins:
         include_source: True
 
 extra_css:
-    - css/colors.css
+    - https://earth-chris.github.io/shared/mkdocs.css
+    #- css/colors.css
 
 # pandoc (https://pandoc.org/MANUAL.html)
 markdown_extensions:
