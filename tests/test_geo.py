@@ -193,3 +193,26 @@ def test_zonal_stats():
     mr = geo.zonal_stats(poly_df, [raster_1b_offset, raster_2b])
     assert len(mr) == len(poly_df)
     assert geo.crs_match(zs.crs, poly_df.crs)
+
+
+def test_nearest_point_distance():
+    pts = gpd.read_file(points)
+    dist = geo.nearest_point_distance(pts)
+    xmin, ymin, xmax, ymax = pts.total_bounds
+    assert dist.min() > 0
+    assert dist.max() <= xmax - xmin
+    assert dist.max() <= ymax - ymin
+
+
+def test_distance_weights():
+    pts = gpd.read_file(points)
+    weights = geo.distance_weights(pts, center=None)
+    assert weights.max() == 1.0
+    assert weights.min() > 0
+
+    cmed = geo.distance_weights(pts, center="median")
+    assert cmed.max() > 1.0
+
+    cmean = geo.distance_weights(pts, center="mean")
+    print(cmean.mean())
+    np.testing.assert_approx_equal(cmean.mean(), 1.0, 5)
