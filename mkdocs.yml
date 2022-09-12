@@ -24,6 +24,7 @@ extra:
 # site navigation
 nav:
     - Home: 'index.md'
+    - Installation guide: 'install.md'
     - Species Distribution Models:
         - Maxent: 'sdm/maxent.md'
         - NicheEnvelope: 'sdm/nicheenvelope.md'
