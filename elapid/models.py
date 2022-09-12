@@ -54,7 +54,6 @@ class MaxentModel(BaseEstimator):
     preprocessor: BaseEstimator = None
     transformer: BaseEstimator = None
     regularization_: np.ndarray = None
-    sample_weights_: np.ndarray = None
     lambdas_: np.ndarray = None
     beta_scores_: np.array = None
     entropy_: float = 0.0
@@ -100,9 +99,10 @@ class MaxentModel(BaseEstimator):
             use_lambdas: guide for which model lambdas to select (either "best" or "last")
             n_lambdas: number of lamba values to fit models with
             class_weights: strategy for weighting presence samples.
-                pass "balance" to compute the ratio based on sample frequency
+                pass "balanced" to compute the ratio based on sample frequency
                 or pass a float for the presence:background weight ratio
-                the R `maxnet` package uses a value of 100 as default
+                the R `maxnet` package uses a value of 100 as default.
+                set to None to ignore.
             n_cpus: threads to use during model training
             use_sklearn: force using `sklearn` for fitting logistic regression.
                 turned off by default to use `glmnet` for fitting.
@@ -131,6 +131,7 @@ class MaxentModel(BaseEstimator):
         self,
         x: ArrayLike,
         y: ArrayLike,
+        sample_weight: ArrayLike = None,
         categorical: List[int] = None,
         labels: list = None,
         preprocessor: BaseEstimator = None,
@@ -138,8 +139,11 @@ class MaxentModel(BaseEstimator):
         """Trains a maxent model using a set of covariates and presence/background points.
 
         Args:
-            x: array-like of shape (n_samples, n_features) with covariate data
-            y: array-like of shape (n_samples,) with binary presence/background (1/0) values
+            x: array of shape (n_samples, n_features) with covariate data
+            y: array of shape (n_samples,) with binary presence/background (1/0) values
+            sample_weight: array of weights assigned to each sample with shape (n_samples,).
+                this is modified by the `class_weights` model parameter unless
+                you set `class_weights=None`.
             categorical: indices for which columns are categorical
             labels: covariate labels. ignored if x is a pandas DataFrame
             preprocessor: an `sklearn` transformer with a .transform() and/or
@@ -171,15 +175,22 @@ class MaxentModel(BaseEstimator):
         features = self.transformer.fit_transform(x, categorical=categorical, labels=labels)
         feature_labels = self.transformer.feature_names_
 
-        # compute sample weights
-        pbr = len(y) / y.sum() if self.class_weights == "balanced" else self.class_weights
-        self.sample_weights_ = _features.compute_weights(y, pbr=pbr)
+        # compute class weights
+        if self.class_weights is not None:
+            pbr = len(y) / y.sum() if self.class_weights == "balanced" else self.class_weights
+            class_weight = _features.compute_weights(y, pbr=pbr)
+
+            # scale the sample weight
+            if sample_weight is None:
+                sample_weight = class_weight
+            else:
+                sample_weight *= class_weight
 
         # model fitting with sklearn
         if self.use_sklearn:
             C = estimate_C_from_betas(self.beta_multiplier)
             self.initialize_sklearn_model(C)
-            self.estimator.fit(features, y, sample_weight=self.sample_weights_)
+            self.estimator.fit(features, y, sample_weight=sample_weight)
             self.beta_scores_ = self.estimator.coef_[0]
 
         # model fitting with glmnet
@@ -197,16 +208,14 @@ class MaxentModel(BaseEstimator):
             )
 
             # get model lambda scores to initialize the glm
-            self.lambdas_ = _features.compute_lambdas(
-                y, self.sample_weights_, self.regularization_, n_lambdas=self.n_lambdas
-            )
+            self.lambdas_ = _features.compute_lambdas(y, sample_weight, self.regularization_, n_lambdas=self.n_lambdas)
 
             # model fitting
             self.initialize_glmnet_model(lambdas=self.lambdas_)
             self.estimator.fit(
                 features,
                 y,
-                sample_weight=self.sample_weights_,
+                sample_weight=sample_weight,
                 relative_penalties=self.regularization_,
             )
 

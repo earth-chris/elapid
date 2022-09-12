@@ -155,6 +155,24 @@ Setting `drop_na=True` requires that the raster datasets have `nodata` values as
 
 ---
 
+## Geographic sample weighting
+
+Despite ingesting spatial data, many statistically-driven SDMs are not spatial models in a traditional sense: they don't handle geographic information during model selection or in model scoring.
+
+One way to add spatial information to a model is to compute geographically-explicit sample weights.
+
+`elapid` does this by calculating sample weights based on the distance to the nearest neighbor. Points nearby other points receive lower weight scores; far-away points receive higher weight scores.
+
+```python
+sample_weight = ela.distance_weights(pseudoabsence_points)
+```
+
+These weights can be passed to many many model fitting routines, typically via `model.fit(x, y, sample_weight=sample_weight)`. This is supported for `ela.MaxentModel()`, as well as many `sklearn` methods.
+
+This function uses `ela.nearest_point_distance()`, a handy function for computing the distance between each point and it's nearest neighbor.
+
+---
+
 ## Zonal statistics
 
 In addition to the tools for working with Point data, `elapid` contains a routine for calculating zonal statistics from Polygon or MutliPolygon geometry types.
