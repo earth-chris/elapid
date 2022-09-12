@@ -167,6 +167,8 @@ One way to add spatial information to a model is to compute geographically-expli
 sample_weight = ela.distance_weights(pseudoabsence_points)
 ```
 
+These weights can be passed to many many model fitting routines, typically via `model.fit(x, y, sample_weight=sample_weight)`. This is supported for `ela.MaxentModel()`, as well as many `sklearn` methods.
+
 This function uses `ela.nearest_point_distance()`, a handy function for computing the distance between each point and it's nearest neighbor.
 
 ---
