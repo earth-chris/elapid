@@ -43,6 +43,26 @@ def test_MaxentModel_best_lambdas():
     assert 0.48 < ypred[y == 1].mean() < 0.75
 
 
+def test_MaxentModel_sample_weight():
+    # no class weights
+    model = models.MaxentModel(class_weights=None)
+    sample_weight = np.ones_like(y, dtype="float32")
+    sample_weight[y == 1] = 3
+    model.fit(x, y, sample_weight=sample_weight)
+
+    # with class weights
+    model = models.MaxentModel(class_weights="balanced")
+    model.fit(x, y, sample_weight=sample_weight)
+    yw = model.predict(x)
+    ywscore = metrics.roc_auc_score(y, yw)
+
+    # unweighted
+    model.fit(x, y)
+    yu = model.predict(x)
+    yuscore = metrics.roc_auc_score(y, yu)
+    assert yuscore != ywscore
+
+
 def test_tau_scaler():
     model = models.MaxentModel(tau=0.5)
     model.fit(x, y)
