@@ -264,7 +264,7 @@ def annotate(
     raster_paths: Union[str, list],
     labels: list = None,
     drop_na: bool = True,
-):
+) -> gpd.GeoDataFrame:
     """Read raster values for each point in a vector and append as new columns.
 
     Args:
@@ -277,7 +277,7 @@ def annotate(
         drop_na: drop all records with no-data values.
 
     Returns:
-        gdf: GeoDataFrame annotated with the pixel values from each raster
+        GeoDataFrame annotated with the pixel values from each raster
     """
     # format the inputs
     raster_paths = to_iterable(raster_paths)
