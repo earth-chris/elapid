@@ -24,6 +24,13 @@ extra:
 # site navigation
 nav:
     - Home: 'index.md'
+    - Installation guide: 'install.md'
+    - Species Distribution Models:
+        - Maxent: 'sdm/maxent.md'
+        - NicheEnvelope: 'sdm/nicheenvelope.md'
+    - Examples:
+        - Working with Geospatial Data: 'examples/geo.md'
+        - A Simple Maxent Model: 'examples/maxent-simple.md'
     - API Documentation:
         - elapid.features: 'module/features.md'
         - elapid.geo: 'module/geo.md'
@@ -31,12 +38,7 @@ nav:
         - elapid.stats: 'module/stats.md'
         - elapid.types: 'module/types.md'
         - elapid.utils: 'module/utils.md'
-    - Species Distribution Models:
-        - Maxent: 'sdm/maxent.md'
-        - NicheEnvelope: 'sdm/nicheenvelope.md'
-    - Examples:
-        - Working with Geospatial Data: 'examples/geo.md'
-        - A Simple Maxent Model: 'examples/maxent-simple.md'
+    - Contributing to elapid: 'contributing.md'
 
 # theme
 theme:

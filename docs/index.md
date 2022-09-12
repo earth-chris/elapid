@@ -35,29 +35,29 @@ The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* 
 pip install elapid
 ```
 
-This should suffice for most linux/mac users, as there are available unix builds of the underlying python dependencies (`numpy`, `sklearn`, `glmnet`, `rasterio`, etc.).
+This should suffice for most linux/mac users, as there are builds available for most of the dependencies (`numpy`, `sklearn`, `glmnet`, `geopandas`, `rasterio`).
 
-Windows installs are more challenging. [glmnet][glmnet] has to compile some fortran code on install, meaning you need to have a fortran compiler running (like [MinGW-w64][mingw] or [Cygwin](https://www.cygwin.com/)).
-
-You can review Windows install instructions with slightly more detail, or contribute a better solution, at [this issue][fortran-issue].
+While there is a pip distribution for Windows, you may experience some challenges during install. The easiest way to overcome these challenges is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise see [this page](/install) for install support.
 
 ---
 
-## :deciduous_tree: Package design
+## :deciduous_tree: Why use elapid?
 
 The amount and quality of bioegeographic data has increased dramatically over the past decade, as have cloud-based tools for working with it. `elapid` was designed to provide a set of modern, python-based tools for working with species occurrence records and environmental covariates to map different dimensions of a species' niche.
 
 `elapid` supports working with modern geospatial data formats and uses contemporary approaches to training statistical models. It uses `sklearn` conventions to fit and apply models, `rasterio` to handle raster operations, `geopandas` for vector operations, and processes data under the hood with `numpy`.
 
+This makes it easier to do things like fit/apply models to multi-temporal and multi-scale data, fit geographically-weighted models, create ensembles, precisely define background point distributions, and summarize model predictions.
+
 It does the following things reasonably well:
 
 :globe_with_meridians: **Point sampling**
 
-Select random geographic point samples (aka background or pseudoabsence points) within polygons or rasters, handling `nodata` locations, as well as sampling from bias maps (using `elapid.sample_geoseries()`, `elapid.sample_raster()`, or `elapid.sample_bias_file()`).
+Select random geographic point samples (aka background or pseudoabsence points) within polygons or rasters, handling `nodata` locations, as well as sampling from bias maps (using `elapid.sample_raster()`, `elapid.sample_vector()`, or `elapid.sample_bias_file()`).
 
 :chart_with_upwards_trend: **Vector annotation**
 
-Annotate point data with coincident raster data, creating `GeoDataFrames` with sample locations and co-aligned covariate values (using `elapid.annotate()`).
+Extract and annotate point data from rasters, creating `GeoDataFrames` with sample locations and their matching covariate values (using `elapid.annotate()`). On-the-fly reprojection, dropping nodata, multi-band inputs and multi-file inputs are all supported.
 
 :bar_chart: **Zonal statistics**
 
@@ -65,23 +65,29 @@ Calculate zonal statistics from multi-band, multi-raster data into a single `Geo
 
 :bug: **Feature transformations**
 
-Transform covariate data into derivative `features` to expand data dimensionality (primarily the `elapid.MaxentFeatureTransformer()`, but see others under `elapid.features`)
+Transform covariate data into derivative `features` to expand data dimensionality and improve prediction accuracy (like `elapid.features.ProductTransformer()` or the all-in-one `elapid.MaxentFeatureTransformer()`).
 
 :bird: **Species distribution modeling**
 
-Train and apply generic species distribution models (like `elapid.MaxentModel()` and `elapid.NicheEnvelopeModel()`).
+Train and apply species distribution models based on annotated point data, configured with sensible defaults (like `elapid.MaxentModel()` and `elapid.NicheEnvelopeModel()`).
 
 :earth_asia: **Applying models to rasters**
 
-Apply pixel-based models with a `.predict()` method to rasters (like training a `RandomForestClassifier()` and applying with `elapid.apply_model_to_rasters()`).
+Apply any pixel-based model with a `.predict()` method to raster data to easily create prediction probability maps (like training a `RandomForestClassifier()` and applying with `elapid.apply_model_to_rasters()`).
 
 :cloud: **Cloud-native geo support**
 
-Work with cloud- or web-hosted raster/vector data (on `https://`, `gs://`, `s3://`, etc.).
+Work with cloud- or web-hosted raster/vector data (on `https://`, `gs://`, `s3://`, etc.) to keep your disk free of temporary files.
+
+Check out some example code snippets and workflows on the [examples](examples/geo) page.
 
 ---
 
-:snake: `elapid` requires some effort on the user's part to draw samples and extract covariate data. This is by design. Selecting background samples, splitting train/test data, and specifying model parameters are all critical modeling choices that have profound effects on model prediction and interpretation. This extra flexibility provides more control over the seemingly black-box approach of Maxent's java implementation, and enabling users to better tune and evaluate their models.
+:snake: `elapid` requires some effort on the user's part to draw samples and extract covariate data. This is by design.
+
+Selecting background samples, computing sample weights, splitting train/test data, and specifying training parameters are all critical modeling choices that have profound effects on inference and interpretation.
+
+The extra flexibility provided by `elapid` enables more control over the seemingly black-box approach of Maxent, enabling users to better tune and evaluate their models.
 
 ---
 
@@ -94,6 +100,3 @@ Work with cloud- or web-hosted raster/vector data (on `https://`, `gs://`, `s3:/
 
 [home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
-[glmnet]: https://github.com/civisanalytics/python-glmnet/
-[fortran-issue]: https://github.com/earth-chris/elapid/issues/9
-[mingw]: https://www.mingw-w64.org/
