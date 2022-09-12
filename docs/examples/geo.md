@@ -1,10 +1,10 @@
-# Geospatial Data Support
+```python
+import elapid as ela
+```
 
-The following code snippets are guidelines for how to work with spatially-explicit datasets in `elapid`.
+---
 
-## A note on point-format data types
-
-Almost all of the `elapid` point sampling and indexing tools use `geopandas.GeoDataFrame` or `geopandas.GeoSeries` objects. The latter are the format of the `geometry` column for a `GeoDataFrame`.
+Almost all of the `elapid` point sampling and indexing tools use `geopandas.GeoDataFrame` or `geopandas.GeoSeries` objects. The latter are the format of the `geometry` column for a GeoDataFrame.
 
 ```python
 import geopandas as gpd
@@ -15,7 +15,7 @@ print(type(gdf.geometry))
 > <class 'geopandas.geoseries.GeoSeries'>
 ```
 
-Several `elapid` routines return `GeoSeries` objects (like `elapid.sample_raster()`) or `GeoDataFrame` objects (like `elapid.annotate()`). It also includes tools for converting x/y data from list, `numpy.ndarray`, or `pandas.DataFrame` to `GeoSeries`.
+Several `elapid` routines return GeoSeries objects (like `ela.sample_raster()`). Others return GeoDataFrames (like `ela.annotate()` and `ela.zonal_stats()`). Be prepared to work with GeoPandas objects.
 
 ---
 
@@ -23,28 +23,29 @@ Several `elapid` routines return `GeoSeries` objects (like `elapid.sample_raster
 
 **From CSVs**
 
-Sometimes you don't have a vector of point-format location data. The `java` implementation of maxent uses csv files, for example. You can convert those using the `elapid.xy_to_geoseries()` function:
+Sometimes you don't have a vector of point-format location data. You may instead have a series of x/y locations in a CSV file, for example. You can convert those using the `elapid.xy_to_geoseries()` function:
 
 ```python
 import pandas as pd
+import elapid as ela
 
-csv_path = "/home/cba/ariolimax-californicus.csv"
+csv_path = "/home/slug/ariolimax-californicus.csv"
 df = pd.read_csv(csv_path)
-presence = elapid.xy_to_geoseries(df.x, df.y, crs="EPSG:32610")
+presence = ela.xy_to_geoseries(df.x, df.y, crs="EPSG:32610")
 ```
 
 This assumes that the input CSV file has an `x` and a `y` column.
 
-Make sure you specify the projection of your x/y data. The default assumption is lat/lon, which in many cases is not correct.
+Be sure to specify the projection of your x/y data! The default assumption is lat/lon, which in many cases is not correct.
 
 **From arrays or lists**
 
-You can also convert arbitrary arrays of x/y data:
+You can also convert arbitrary arrays of x/y data to GeoSeries:
 
 ```python
 lons = [-122.49, 151.0]
 lats = [37.79, -33.87]
-locations = elapid.xy_to_geoseries(lons, lats)
+locations = ela.xy_to_geoseries(lons, lats)
 print(locations)
 
 > 0    POINT (-122.49000 37.79000)
@@ -56,35 +57,35 @@ print(locations)
 
 ## Drawing point location samples
 
-In addition to species occurrence records (`y = 1`), Maxent requires a set of pseudo-absence/background points (`y = 0`). These are a random geographic sampling of where you might expect to find a species across the target landscape.
+In addition to species occurrence records (where `y = 1`), species distributions models often require a set of random pseudo-absence/background points (`y = 0`). These are a random geographic sampling of where you might expect to find a species across the target landscape.
 
 **From a raster's extent**
 
-You can use `elapid` to create a random geographic sampling of points from unmasked locations within a raster's extent:
+You can use `elapid` to create a uniform random geographic sample from unmasked locations within a raster's extent:
 
 ```python
 count = 10000 # the number of points to generate
-pseudoabsence_points = elapid.sample_raster(raster_path, count)
+pseudoabsence_points = ela.sample_raster(raster_path, count)
 ```
 
 If you have a large raster that doesn't fit in memory, you can also set `ignore_mask=True` to use the rectangular bounds of the raster to draw samples.
 
 ```python
-pseudoabsence_points = elapid.sample_raster(raster_path, count, ignore_mask=True)
+pseudoabsence_points = ela.sample_raster(raster_path, count, ignore_mask=True)
 ```
 
-**From a polygon vector**
+**From a vector polygon**
 
-Species occurrence records are often biased in their collection (collected near roads, in protected areas, etc.), so we typically need to be more precise in where we select pseudo-absence points. You could use a vector with a species range map to select records:
+Species occurrence records are often collected with some bias (near roads, in protected areas, etc.), so we typically need to be more precise in where we select background points. One way to do this would be to draw samples from that species range map, which you can do with the `sample_vector()` function:
 
 ```python
 range_path = "/home/slug/ariolimax-californicus-range.shp"
-pseudoabsence_points = elapid.sample_vector(range_path, count)
+pseudoabsence_points = ela.sample_vector(range_path, count)
 ```
 
-This currently computes the spatial union of all polygons within a vector, compressing the geometry into a single MultiPolygon object to sample from.
+This currently computes the spatial union of all polygons within a vector, compressing the geometry into a single MultiPolygon object to sample.
 
-If you've already computed a polygon using geopandas, you can pass it instead to `elapid.sample_geoseries()`, which is what `sample_vector()` does under the hood.
+If you've already computed a polygon using geopandas, you can pass it instead to `ela.sample_geoseries()`, which is what `sample_vector()` calls under the hood.
 
 **From a bias raster**
 
@@ -92,15 +93,17 @@ You could also pass a raster bias file, where the raster grid cells contain info
 
 ```python
 # assume covariance between vertebrate and invertebrate banana slugs
-bias_path = "/home/slug/proximity-to-ucsc.tif"
-pseudoabsence_points = sample_bias_file(bias_path)
+bias_path = "/home/slug/proximity-to-uc-santa-cruz.tif"
+pseudoabsence_points = ela.sample_bias_file(bias_path)
 ```
 
 The grid cells can be an arbitrary range of values. What's important is that the values encode a linear range of numbers that are higher where you're more likely to draw a sample. The probability of drawing a sample is dependent on two factors: the range of values provided and the frequency of values across the dataset.
 
 So, for a raster with values of `1` and `2`, you're sampling probability for raster locations of `2` is twice that as `1` locations. If these occur in equal frequency (i.e. half the data are `1` valuess, half are `2` values), then you'll likely sample twice as many areas with `2` values. But if the frequency of `1` values is much greater than `2` values, you'll shift the distribution. But you're still more likely, on a per-draw basis, to draw samples from `2` locations.
 
-The above example prioritizes sampling frequency in the areas around UC Santa Cruz, home to all types of slug, based on the distance to the campus.
+**A tip for background sampling**
+
+[This paper](https://besjournals.onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2011.00172.x) by Morgane Barbet-Massin et al. is an excellent resource to consult when it comes to thinking about how background point samples should be selected.
 
 ---
 
@@ -111,14 +114,14 @@ Annotation refers to reading and storing raster values at the locations of a ser
 Once you have your species presence and pseudo-absence records, you can annotate these records with the covariate data from each location.
 
 ```python
-pseudoabsence_covariates = elapid.annotate(
+pseudoabsence_covariates = ela.annotate(
     pseudoabsence_points,
     list_of_raster_paths,
     drop_na = True,
 )
 ```
 
-This function, since it's geographically indexed, doesn't require the point data and the raster data to be in the same projection. `elapid` handles reprojection and sampling on the fly.
+This function, since it's geographically indexed, doesn't require the point data and the raster data to be in the same projection. `elapid` handles reprojection and resampling on the fly.
 
 It also allows you to pass multiple raster files, which can be in different projections, extents, or grid sizes. This means you don't have to explicitly re-sample your raster data prior to analysis, which is always a chore.
 
@@ -138,7 +141,7 @@ labels = [
     "TMP-mean",
 ]
 
-pseudoabsence_covariates = elapid.annotate(
+pseudoabsence_covariates = ela.annotate(
     pseudoabsence_points,
     raster_paths,
     labels = labels
@@ -160,7 +163,7 @@ This routine reads an array of raster data covering the extent of a polygon, mas
 
 ```python
 ecoregions = gpd.read_file('/path/to/california-ecoregions.shp')
-zs = elapid.zonal_stats(
+zs = ela.zonal_stats(
     ecoregions,
     raster_paths,
     labels = labels,
@@ -170,10 +173,10 @@ zs = elapid.zonal_stats(
 )
 ```
 
-Which stats are reported is managed by a set of keywords (`count=True`, `sum=True`, `skew=True`). The `all=True` keyword is a shortcut to compute all of the stats. You'll still have to explicitly pass a list of `percentiles`, however, like this:
+The stats reported are managed by a set of keywords (`count=True`, `sum=True`, `skew=True`). The `all=True` keyword is a shortcut to compute all of the stats. You'll still have to explicitly pass a list of `percentiles`, however, like this:
 
 ```python
-zs = elapid.zonal_stats(
+zs = ela.zonal_stats(
     ecoregions,
     raster_paths,
     labels = labels,
@@ -186,7 +189,7 @@ What sets the `elapid` zonal stats method apart from other zonal stats packages 
 
 - handles reprojection on the fly, meaning the input vector/raster data don't need to be reprojected a priori
 - handles mutli-band input, computing summary stats on all bands (instead of having to specify which band)
-- handles multi-raster input, reading inputs in serial but creating a single output `GeoDataFrame`.
+- handles multi-raster input, reading inputs in serial but creating a single output GeoDataFrame.
 
 ---
 
@@ -195,7 +198,7 @@ What sets the `elapid` zonal stats method apart from other zonal stats packages 
 Once you've fit a model (we're skipping a step here, but see the [Maxent overview](../sdm/maxent.md) for an example), you can apply it to a set of raster covariates to produce gridded habitat suitability maps.
 
 ```python
-elapid.apply_model_to_rasters(
+ela.apply_model_to_rasters(
     model,
     raster_paths,
     output_path,
@@ -221,14 +224,14 @@ If you wanted to train and apply a Random Forest model, you'd use a pattern like
 import elapid
 from sklearn.ensemble import RandomForestClassifier
 
-x, y = elapid.load_sample_data()
+x, y = ela.load_sample_data()
 
 model = RandomForestClassifier()
 model.fit(x, y)
 
 input_rasters = ['/path/to/raster1.tif', '/path/to/raster2.tif']
 output_raster = 'rf-model-prediction-categorical.tif'
-elapid.apply_model_to_rasters(
+ela.apply_model_to_rasters(
   model,
   input_rasters,
   output_raster,
@@ -239,7 +242,7 @@ These models contain an additional method for estimating the continuous predicti
 
 ```python
 output_raster = 'rf-model-prediction-probabilities.tif'
-elapid.apply_model_to_rasters(
+ela.apply_model_to_rasters(
   model,
   input_rasters,
   output_raster,
