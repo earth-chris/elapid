@@ -361,7 +361,6 @@ def annotate_geoseries(
 
     # get the dataset dimensions
     n_rasters = len(raster_paths)
-    n_points = len(points)
 
     # create arrays and flags for updating
     raster_values = []
@@ -384,19 +383,14 @@ def annotate_geoseries(
             xys = [(point.x, point.y) for point in points]
 
             # read each pixel value
-            samples = src.sample(xys, masked=False)
-
-            # assign to an output array
-            outarr = np.zeros((n_points, src.count), dtype=dtype)
-            for idx, sample in enumerate(samples):
-                outarr[idx] = sample
+            samples = np.array(list(src.sample(xys, masked=False)), dtype=dtype)
 
             # identify nodata points to remove later
             if drop_na and src.nodata is not None:
                 nodata_flag = True
-                valid_idxs.append(outarr[:, 0] != src.nodata)
+                valid_idxs.append(samples[:, 0] != src.nodata)
 
-            raster_values.append(outarr)
+            raster_values.append(samples)
 
     # merge the arrays from each raster
     values = np.concatenate(raster_values, axis=1, dtype=dtype)
