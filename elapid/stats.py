@@ -89,8 +89,16 @@ def raster_kurtosis(x):
 
 
 def raster_mode(x):
-    summary = scistats.mode(x, axis=1, nan_policy="omit", keepdims=False)
-    return summary.mode
+    try:
+        summary = scistats.mode(x, axis=1, nan_policy="omit", keepdims=False)
+        mode = summary.mode
+
+    # support py37 syntax
+    except TypeError:
+        summary = scistats.mode(x, axis=1, nan_policy="omit")
+        mode = summary.mode.flatten()
+
+    return mode
 
 
 def raster_percentile(x, pctile):
