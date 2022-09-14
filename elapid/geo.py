@@ -402,7 +402,7 @@ def annotate_geoseries(
     values = np.concatenate(raster_values, axis=1, dtype=dtype)
 
     if nodata_flag:
-        valid = np.max(valid_idxs, axis=0)
+        valid = np.all(valid_idxs, axis=0)
         values = values[valid, :]
         points = points.iloc[valid]
         points.index = range(valid.sum())
