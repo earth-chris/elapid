@@ -92,8 +92,6 @@ def raster_mode(x):
     try:
         summary = scistats.mode(x, axis=1, nan_policy="omit", keepdims=False)
         mode = summary.mode
-
-    # support py37 syntax
     except TypeError:
         summary = scistats.mode(x, axis=1, nan_policy="omit")
         mode = summary.mode.flatten()
@@ -102,6 +100,11 @@ def raster_mode(x):
 
 
 def raster_percentile(x, pctile):
+    if isinstance(x, np.ma.masked_array):
+        valid = ~x.mask[
+            0,
+        ]
+        x = np.array(x[:, valid])
     return np.nanpercentile(x, pctile, axis=1)
 
 
