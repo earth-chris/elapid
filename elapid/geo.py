@@ -758,11 +758,17 @@ def zonal_stats(
 # sample weighting methods
 
 
-def nearest_point_distance(points: Vector, cpu_count: int = -1) -> np.ndarray:
-    """Compute the euclidean distance to the nearest point in a series.
+def nearest_point_distance(
+    points1: Vector, points2: Vector = None, n_neighbors: int = 1, cpu_count: int = -1
+) -> np.ndarray:
+    """Compute the average euclidean distance to the nearest point in a series.
 
     Args:
-        points: point-format GeoSeries or GeoDataFrame
+        points1: return the closest distance *from* these points
+        points2: return the closest distance *to* these points
+            if None, compute the distance to the nearest points
+            in the points1 series
+        n_neighbors: compute the average distance to the nearest n_neighbors
         cpu_count: number of cpus to use for estimation.
             -1 uses all cores
 
@@ -770,23 +776,36 @@ def nearest_point_distance(points: Vector, cpu_count: int = -1) -> np.ndarray:
         array of shape (len(points),) with the distance to
             each point's nearest neighbor
     """
-    if points.crs.is_geographic:
+    if points1.crs.is_geographic:
         warnings.warn("Computing distances using geographic coordinates is bad")
 
-    pts_array = np.array(list(zip(points.geometry.x, points.geometry.y)))
-    tree = KDTree(pts_array)
-    distance, idx = tree.query(pts_array, k=[2], workers=cpu_count)
+    pta1 = np.array(list(zip(points1.geometry.x, points1.geometry.y)))
+    k_offset = 1
 
-    return distance[:, 0]
+    if points2 is None:
+        pta2 = pta1
+        k_offset += 1
+
+    else:
+        pta2 = np.array(list(zip(points2.geometry.x, points2.geometry.y)))
+        if not crs_match(points1.crs, points2.crs):
+            warnings.warn("CRS mismatch between points")
+
+    tree = KDTree(pta1)
+    k = np.arange(n_neighbors) + k_offset
+    distance, idx = tree.query(pta2, k=k, workers=cpu_count)
+
+    return distance.mean(axis=1)
 
 
-def distance_weights(points: Vector, center: str = "median", cpu_count: int = -1) -> np.ndarray:
+def distance_weights(points: Vector, n_neighbors: int = 1, center: str = "median", cpu_count: int = -1) -> np.ndarray:
     """Compute sample weights based on the distance between points.
 
     Assigns higher scores to isolated points, lower scores to clustered points.
 
     Args:
         points: point-format GeoSeries or GeoDataFrame
+        n_neighbors: compute the average distance to the nearest n_neighbors
         center: rescale the weights to center the mean or median of the array on 1
             accepts either 'mean' or 'median' as input.
             pass None to ignore.
@@ -798,7 +817,7 @@ def distance_weights(points: Vector, center: str = "median", cpu_count: int = -1
             is performed by dividing by the maximum value, preserving the
             relative scale of differences between the min and max distance.
     """
-    distances = nearest_point_distance(points, cpu_count)
+    distances = nearest_point_distance(points, n_neighbors=n_neighbors, cpu_count=cpu_count)
     weights = distances / distances.max()
 
     if center is not None:

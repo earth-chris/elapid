@@ -203,6 +203,16 @@ def test_nearest_point_distance():
     assert dist.max() <= xmax - xmin
     assert dist.max() <= ymax - ymin
 
+    # test distance to different points
+    subset = 10
+    dist_sub = geo.nearest_point_distance(pts, pts[:subset])
+    assert len(dist_sub) == subset
+
+    # test different results for different number of neighbors
+    dist1 = geo.nearest_point_distance(pts, n_neighbors=3)
+    dist2 = geo.nearest_point_distance(pts, n_neighbors=5)
+    assert (dist1 != dist2).all()
+
 
 def test_distance_weights():
     pts = gpd.read_file(points)
