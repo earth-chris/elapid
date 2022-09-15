@@ -101,9 +101,7 @@ def raster_mode(x):
 
 def raster_percentile(x, pctile):
     if isinstance(x, np.ma.masked_array):
-        valid = ~x.mask[
-            0,
-        ]
+        valid = ~x.mask[0, ::]
         x = np.array(x[:, valid])
     return np.nanpercentile(x, pctile, axis=1)
 
