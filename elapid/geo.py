@@ -56,6 +56,48 @@ def xy_to_geoseries(
     return gs
 
 
+def stack_geometries(
+    presence: Vector, background: Vector, add_class_label: bool = False, target_crs: str = "presence"
+) -> gpd.GeoDataFrame:
+    """Concatenate geometries from two GeoSeries/GeoDataFrames.
+
+    Args:
+        presence: presence geometry (y=1) locations
+        background: background geometry (y=0) locations
+        add_class_label: add a column labeling the y value for each point
+        target_crs: if reprojection is necessary, use this variable's crs.
+            valid options are "presence" and "background"
+
+    Returns:
+        merged GeoDataFrame with all geometries projected to the same crs.
+    """
+    pgeo = presence.geometry
+    bgeo = background.geometry
+
+    crs = presence.crs
+    if not crs_match(presence.crs, background.crs):
+        if target_crs.lower() == "presence":
+            bgeo = bgeo.to_crs(crs)
+        elif target_crs.lower() == "background":
+            crs = background.crs
+            pgeo = pgeo.to_crs(crs)
+        else:
+            raise NameError(f"Unrecognized target_crs option: {target_crs}")
+
+    attributes = {}
+    if add_class_label:
+        npresence = len(pgeo)
+        nbackground = len(bgeo)
+        classes = np.zeros(npresence + nbackground, dtype="uint8")
+        classes[:npresence] = 1
+        attributes["class"] = classes
+
+    geometry = pd.concat((pgeo, bgeo), axis=0, ignore_index=True)
+    gdf = gpd.GeoDataFrame(attributes, geometry=geometry, crs=crs)
+
+    return gdf
+
+
 def sample_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
     """Creates a random geographic sampling of points based on a raster's extent.
 

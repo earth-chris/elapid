@@ -32,6 +32,23 @@ def test_xy_to_geoseries():
     assert geoseries.y[0] == lat
 
 
+def test_stack_geometries():
+    pts = gpd.read_file(points)
+    n_pts = len(pts)
+    stack = geo.stack_geometries(pts, pts)
+    assert len(stack) == 2 * n_pts
+
+    stack = geo.stack_geometries(pts, pts, add_class_label=True)
+    assert stack["class"].sum() == n_pts
+
+    new_crs = "EPSG:7844"
+    stack = geo.stack_geometries(pts, pts.to_crs(new_crs))
+    assert geo.crs_match(stack.crs, pts.crs)
+
+    stack = geo.stack_geometries(pts, pts.to_crs(new_crs), target_crs="background")
+    assert geo.crs_match(stack.crs, new_crs)
+
+
 def test_sample_raster():
     count = 20
     input_raster = raster_1b

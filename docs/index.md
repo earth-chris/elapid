@@ -65,7 +65,7 @@ Calculate zonal statistics from multi-band, multi-raster data into a single `Geo
 
 :bug: **Feature transformations**
 
-Transform covariate data into derivative `features` to expand data dimensionality and improve prediction accuracy (like `elapid.features.ProductTransformer()` or the all-in-one `elapid.MaxentFeatureTransformer()`).
+Transform covariate data into derivative `features` to expand data dimensionality and improve prediction accuracy (like `elapid.ProductTransformer()`, `elapid.HingeTransformer()`, or the all-in-one `elapid.MaxentFeatureTransformer()`).
 
 :bird: **Species distribution modeling**
 
