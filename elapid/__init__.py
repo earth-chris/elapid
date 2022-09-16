@@ -1,6 +1,14 @@
 """User entrypoint to elapid"""
 
-from elapid.features import MaxentFeatureTransformer
+from elapid.features import (
+    CategoricalTransformer,
+    HingeTransformer,
+    LinearTransformer,
+    MaxentFeatureTransformer,
+    ProductTransformer,
+    QuadraticTransformer,
+    ThresholdTransformer,
+)
 from elapid.geo import (
     annotate,
     apply_model_to_rasters,
@@ -10,6 +18,7 @@ from elapid.geo import (
     sample_geoseries,
     sample_raster,
     sample_vector,
+    stack_geometries,
     xy_to_geoseries,
     zonal_stats,
 )
