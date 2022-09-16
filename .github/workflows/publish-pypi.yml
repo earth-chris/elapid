@@ -8,7 +8,23 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+      - name: Python setup
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+          cache: 'pip'
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+      - name: Build package
+        run: |
+          python3 setup.py sdist bdist_wheel
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: ./dist
+          verbose: true
