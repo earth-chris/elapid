@@ -107,6 +107,28 @@ So, for a raster with values of `1` and `2`, you're sampling probability for ras
 
 ---
 
+## Stacking dataframes
+
+`elapid` provides a convenience function for merging the geometries of two GeoSeries/GeoDataFrames. It's designed for stacking presence/background data.
+
+It will reproject geometries on the fly if needed, and you can optionally add a 'class' column to the output GeoDataFrame.
+
+```python
+presence_points = gpd.read_file('/path/to/occurrence-records.gpkg')
+
+# return a 1-column geodataframe with pseudoabsences concatenated to presence records
+ela.stack_geometries(presence_points, pseudoabsence_points)
+
+# return 2 columns, with class labels assigned (1 for presences, 0 for pseudoabsences)
+ela.stack_geometries(presence_points, pseudoabsence_points, add_class_label=True)
+
+# if the geometries are in different crs, default is to reproject to the presence crs
+# override this with target_crs="background"
+ela.stack_geometries(presence_points, pseudoabsence_points, target_crs="background")
+```
+
+---
+
 ## Point annotation
 
 Annotation refers to reading and storing raster values at the locations of a series of point occurrence records in a single `GeoDataFrame` table.
