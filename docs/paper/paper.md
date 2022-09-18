@@ -38,6 +38,6 @@ Even fewer support working with modern, cloud-native geospatial data, making it 
 
 # Acknowledgments
 
-Many thanks to Jeffrey R. Smith for many long and thought-provoking discussions on species distribution modeling. Many thanks to David C. Marvin for helping me think creatively about counter-intuitive applications for Maxent. Many thanks to Gretchen C. Daily for promoting and supporting open source software in biodiversity and ecosystem services modeling.
+Many thanks to Jeffrey R. Smith for many long and thought-provoking discussions on species distribution modeling. Thanks also to David C. Marvin for helping me think creatively about counter-intuitive applications for Maxent. And many thanks to Gretchen C. Daily for promoting and supporting open source software in biodiversity and ecosystem services modeling.
 
 # References
