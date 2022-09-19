@@ -36,6 +36,7 @@ nav:
         - elapid.geo: 'module/geo.md'
         - elapid.models: 'module/models.md'
         - elapid.stats: 'module/stats.md'
+        - elapid.train_test_split: 'module/train_test_split.md'
         - elapid.types: 'module/types.md'
         - elapid.utils: 'module/utils.md'
     - Contributing to elapid: 'contributing.md'
