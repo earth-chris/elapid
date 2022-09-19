@@ -24,4 +24,5 @@ from elapid.geo import (
 )
 from elapid.models import MaxentModel, NicheEnvelopeModel
 from elapid.stats import normalize_sample_probabilities
+from elapid.train_test_split import GeographicKFold, checkerboard_split
 from elapid.utils import load_object, load_sample_data, save_object
