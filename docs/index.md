@@ -97,10 +97,12 @@ The extra flexibility provided by `elapid` enables more control over the seeming
 
 ## Developed by
 
-[Christopher Anderson](https://cbanderson.info)
+[Christopher Anderson](https://cbanderson.info)[^1]^,^[^2]
 
 <a href="https://twitter.com/earth_chris">![Twitter Follow](https://img.shields.io/twitter/follow/earth_chris)</a>
 <a href="https://github.com/earth-chris">![GitHub Stars](https://img.shields.io/github/stars/earth-chris?affiliations=OWNER%2CCOLLABORATOR&style=social)</a>
 
 [home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
+[^1]: [Salo Sciences, San Francisco](https://salo.ai)
+[^2]: [Center for Conservation Biology, Stanford University](https://ccb.stanford.edu)
