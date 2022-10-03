@@ -4,7 +4,7 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, QuantileTransformer
 
 from elapid.config import MaxentConfig, RegularizationConfig
@@ -96,7 +96,7 @@ class LinearTransformer(MinMaxScaler):
         super().__init__(clip=clamp, feature_range=feature_range)
 
 
-class QuadraticTransformer(BaseEstimator):
+class QuadraticTransformer(BaseEstimator, TransformerMixin):
     """Applies quadtratic feature transformations and rescales features from 0-1."""
 
     clamp: bool = None
@@ -110,19 +110,22 @@ class QuadraticTransformer(BaseEstimator):
     ):
         self.clamp = clamp
         self.feature_range = feature_range
-        self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
 
-    def fit(self, x: ArrayLike) -> None:
+    def fit(self, x: ArrayLike, y: None = None) -> "QuadraticTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
             x: array-like of shape (n_samples, n_features)
                 The data used to compute the per-feature minimum and maximum
                 used for later scaling along the features axis.
+
         Returns:
-            None. Updates the transformer with feature fitting parameters.
+            self. Returns the transformer with fitted parameters.
         """
+        self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
         self.estimator.fit(np.array(x) ** 2)
+
+        return self
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         """Scale covariates according to the feature range.
@@ -162,7 +165,7 @@ class QuadraticTransformer(BaseEstimator):
         return self.estimator.inverse_transform(np.array(x)) ** 0.5
 
 
-class ProductTransformer(BaseEstimator):
+class ProductTransformer(BaseEstimator, TransformerMixin):
     """Computes the column-wise product of an array of input features, rescaling from 0-1."""
 
     clamp: bool = None
@@ -176,19 +179,22 @@ class ProductTransformer(BaseEstimator):
     ):
         self.clamp = clamp
         self.feature_range = feature_range
-        self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
 
-    def fit(self, x: ArrayLike) -> None:
+    def fit(self, x: ArrayLike) -> "ProductTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
             x: array-like of shape (n_samples, n_features)
                 The data used to compute the per-feature minimum and maximum
                 used for later scaling along the features axis.
+
         Returns:
-            None. Updates the transformer with feature fitting parameters.
+            self. Returns the transformer with fitted parameters.
         """
+        self.estimator = MinMaxScaler(clip=self.clamp, feature_range=self.feature_range)
         self.estimator.fit(column_product(np.array(x)))
+
+        return self
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         """Scale covariates according to the feature range.
@@ -216,7 +222,7 @@ class ProductTransformer(BaseEstimator):
         return self.transform(x)
 
 
-class ThresholdTransformer(BaseEstimator):
+class ThresholdTransformer(BaseEstimator, TransformerMixin):
     """Applies binary thresholds to each covariate based on n evenly-spaced
     thresholds across it's min/max range."""
 
@@ -228,20 +234,23 @@ class ThresholdTransformer(BaseEstimator):
     def __init__(self, n_thresholds: int = MaxentConfig.n_threshold_features):
         self.n_thresholds_ = n_thresholds
 
-    def fit(self, x: ArrayLike) -> None:
+    def fit(self, x: ArrayLike) -> "ThresholdTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
             x: array-like of shape (n_samples, n_features)
                 The data used to compute the per-feature minimum and maximum
                 used for later scaling along the features axis.
+
         Returns:
-            None. Updates the transformer with feature fitting parameters.
+            self. Returns the transformer with fitted parameters.
         """
         x = np.array(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
         self.threshold_indices_ = np.linspace(self.mins_, self.maxs_, self.n_thresholds_)
+
+        return self
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         """Scale covariates according to the feature range.
@@ -273,7 +282,7 @@ class ThresholdTransformer(BaseEstimator):
         return self.transform(x)
 
 
-class HingeTransformer(BaseEstimator):
+class HingeTransformer(BaseEstimator, TransformerMixin):
     """Fits hinge transformations to an array of covariates."""
 
     n_hinges_: int = None
@@ -284,20 +293,23 @@ class HingeTransformer(BaseEstimator):
     def __init__(self, n_hinges: int = MaxentConfig.n_hinge_features):
         self.n_hinges_ = n_hinges
 
-    def fit(self, x: ArrayLike) -> None:
+    def fit(self, x: ArrayLike) -> "HingeTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
             x: array-like of shape (n_samples, n_features)
                 The data used to compute the per-feature minimum and maximum
                 used for later scaling along the features axis.
+
         Returns:
-            None. Updates the transformer with feature fitting parameters.
+            self. Updatesd transformer with fitted parameters.
         """
         x = np.array(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
         self.hinge_indices_ = np.linspace(self.mins_, self.maxs_, self.n_hinges_)
+
+        return self
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         """Scale covariates according to the feature range.
@@ -331,7 +343,7 @@ class HingeTransformer(BaseEstimator):
         return self.transform(x)
 
 
-class CategoricalTransformer(BaseEstimator):
+class CategoricalTransformer(BaseEstimator, TransformerMixin):
     """Applies one-hot encoding to categorical covariate datasets."""
 
     estimators_: list = None
@@ -339,15 +351,16 @@ class CategoricalTransformer(BaseEstimator):
     def __init__(self):
         pass
 
-    def fit(self, x: ArrayLike) -> None:
+    def fit(self, x: ArrayLike) -> "CategoricalTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
             x: array-like of shape (n_samples, n_features)
                 The data used to compute the per-feature minimum and maximum
                 used for later scaling along the features axis.
+
         Returns:
-            None. Updates the transformer with feature fitting parameters.
+            self. Returns the transformer with fitted parameters.
         """
         self.estimators_ = []
         x = np.array(x)
@@ -360,6 +373,8 @@ class CategoricalTransformer(BaseEstimator):
                 xsub = x[:, col].reshape(-1, 1)
                 estimator = OneHotEncoder(dtype=np.uint8, sparse=False)
                 self.estimators_.append(estimator.fit(xsub))
+
+        return self
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         """Scale covariates according to the feature range.
@@ -405,13 +420,13 @@ class CumulativeTransformer(QuantileTransformer):
         super().__init__(n_quantiles=100, output_distribution="uniform")
 
 
-class MaxentFeatureTransformer(BaseEstimator, FeaturesMixin):
+class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
     """Transforms covariate data into maxent-format feature data."""
 
-    feature_types_: list = None
-    clamp_: bool = None
-    n_hinge_features_: int = None
-    n_threshold_features_: int = None
+    feature_types: list = None
+    clamp: bool = None
+    n_hinge_features: int = None
+    n_threshold_features: int = None
     categorical_: list = None
     continuous_: list = None
     categorical_pd_: list = None
@@ -436,20 +451,18 @@ class MaxentFeatureTransformer(BaseEstimator, FeaturesMixin):
     ):
         """Computes features based on the maxent feature types specified (like linear, quadratic, hinge).
 
-        Implemented using sklearn conventions (with `.fit()` and `.transform()` functions.
-
         Args:
             feature_types: list of maxent features to generate.
             clamp: set feature values to global mins/maxs during prediction
             n_hinge_features: number of hinge knots to generate
             n_threshold_features: nuber of threshold features to generate
         """
-        self.feature_types_ = validate_feature_types(feature_types)
-        self.clamp_ = validate_boolean(clamp)
-        self.n_hinge_features_ = validate_numeric_scalar(n_hinge_features)
-        self.n_threshold_features_ = validate_numeric_scalar(n_threshold_features)
+        self.feature_types = feature_types
+        self.clamp = clamp
+        self.n_hinge_features = n_hinge_features
+        self.n_threshold_features = n_threshold_features
 
-    def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
+    def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> "MaxentFeatureTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
@@ -460,39 +473,44 @@ class MaxentFeatureTransformer(BaseEstimator, FeaturesMixin):
             labels: covariate column labels. ignored if x is a pandas DataFrame
 
         Returns:
-            None. Updates the transformer with feature fitting parameters.
+            self. Returns the transformer with fitted parameters.
         """
+        self.feature_types = validate_feature_types(self.feature_types)
+        self.clamp = validate_boolean(self.clamp)
+        self.n_hinge_features = validate_numeric_scalar(self.n_hinge_features)
+        self.n_threshold_features = validate_numeric_scalar(self.n_threshold_features)
+
         self._format_labels_and_dtypes(x, categorical=categorical, labels=labels)
         con, cat = self._format_covariate_data(x)
         nrows, ncols = con.shape
 
         feature_names = []
-        if "linear" in self.feature_types_:
-            estimator = LinearTransformer(clamp=self.clamp_)
+        if "linear" in self.feature_types:
+            estimator = LinearTransformer(clamp=self.clamp)
             estimator.fit(con)
             self.estimators_["linear"] = estimator
             feature_names += ["linear"] * estimator.n_features_in_
 
-        if "quadratic" in self.feature_types_:
-            estimator = QuadraticTransformer(clamp=self.clamp_)
+        if "quadratic" in self.feature_types:
+            estimator = QuadraticTransformer(clamp=self.clamp)
             estimator.fit(con)
             self.estimators_["quadratic"] = estimator
             feature_names += ["quadratic"] * estimator.estimator.n_features_in_
 
-        if "product" in self.feature_types_:
-            estimator = ProductTransformer(clamp=self.clamp_)
+        if "product" in self.feature_types:
+            estimator = ProductTransformer(clamp=self.clamp)
             estimator.fit(con)
             self.estimators_["product"] = estimator
             feature_names += ["product"] * estimator.estimator.n_features_in_
 
-        if "threshold" in self.feature_types_:
-            estimator = ThresholdTransformer(n_thresholds=self.n_threshold_features_)
+        if "threshold" in self.feature_types:
+            estimator = ThresholdTransformer(n_thresholds=self.n_threshold_features)
             estimator.fit(con)
             self.estimators_["threshold"] = estimator
             feature_names += ["threshold"] * (estimator.n_thresholds_ * ncols)
 
-        if "hinge" in self.feature_types_:
-            estimator = HingeTransformer(n_hinges=self.n_hinge_features_)
+        if "hinge" in self.feature_types:
+            estimator = HingeTransformer(n_hinges=self.n_hinge_features)
             estimator.fit(con)
             self.estimators_["hinge"] = estimator
             feature_names += ["hinge"] * ((estimator.n_hinges_ - 1) * 2 * ncols)
@@ -505,6 +523,8 @@ class MaxentFeatureTransformer(BaseEstimator, FeaturesMixin):
                 feature_names += ["categorical"] * len(est.categories_[0])
 
         self.feature_names_ = feature_names
+
+        return self
 
     def transform(self, x: ArrayLike) -> np.ndarray:
         """Scale covariates according to the feature range.
@@ -519,19 +539,19 @@ class MaxentFeatureTransformer(BaseEstimator, FeaturesMixin):
         con, cat = self._format_covariate_data(x)
         features = []
 
-        if "linear" in self.feature_types_:
+        if "linear" in self.feature_types:
             features.append(self.estimators_["linear"].transform(con))
 
-        if "quadratic" in self.feature_types_:
+        if "quadratic" in self.feature_types:
             features.append(self.estimators_["quadratic"].transform(con))
 
-        if "product" in self.feature_types_:
+        if "product" in self.feature_types:
             features.append(self.estimators_["product"].transform(con))
 
-        if "threshold" in self.feature_types_:
+        if "threshold" in self.feature_types:
             features.append(self.estimators_["threshold"].transform(con))
 
-        if "hinge" in self.feature_types_:
+        if "hinge" in self.feature_types:
             features.append(self.estimators_["hinge"].transform(con))
 
         if cat is not None:
