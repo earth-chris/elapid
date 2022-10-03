@@ -8,10 +8,11 @@
 
 ![GitHub](https://img.shields.io/github/license/earth-chris/elapid)
 ![PyPI](https://img.shields.io/pypi/v/elapid)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/earth-chris/elapid/docs)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/elapid)
+![GitHub workflow wtatus](https://img.shields.io/github/workflow/status/earth-chris/elapid/docs)
+![PyPI downloads](https://img.shields.io/pypi/dm/elapid)
 ![GitHub last commit](https://img.shields.io/github/last-commit/earth-chris/elapid)
 ![Lines of code](https://img.shields.io/tokei/lines/github/earth-chris/elapid)
+[![JOSS manuscript status](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6/status.svg)](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6)
 
 ---
 
