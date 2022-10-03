@@ -12,6 +12,74 @@ from elapid.types import ArrayLike, validate_boolean, validate_feature_types, va
 from elapid.utils import make_band_labels, repeat_array
 
 
+class FeaturesMixin:
+    """Methods for formatting x data and labels"""
+
+    def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
+        """Reads input x data and formats it to consistent array dtypes.
+
+        Args:
+            x: array-like of shape (n_samples, n_features)
+
+        Returns:
+            (continuous, categorical) tuple of ndarrays with continuous and
+                categorical covariate data.
+        """
+        if isinstance(x, np.ndarray):
+            if self.categorical_ is None:
+                con = x
+                cat = None
+            else:
+                con = x[:, self.continuous_]
+                cat = x[:, self.categorical_]
+
+        elif isinstance(x, pd.DataFrame):
+            con = x[self.continuous_pd_].to_numpy()
+            if len(self.categorical_pd_) > 0:
+                cat = x[self.categorical_pd_].to_numpy()
+            else:
+                cat = None
+
+        else:
+            raise TypeError(f"Unsupported x dtype: {type(x)}. Must be pd.DataFrame or np.array")
+
+        return con, cat
+
+    def _format_labels_and_dtypes(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
+        """Read input x data and lists of categorical data indices and band
+            labels to format and store this info for later indexing.
+
+        Args:
+            s: array-like of shape (n_samples, n_features)
+            categorical: indices indicating which x columns are categorical
+            labels: covariate column labels. ignored if x is a pandas DataFrame
+        """
+        if isinstance(x, np.ndarray):
+            nrows, ncols = x.shape
+            if categorical is None:
+                continuous = list(range(ncols))
+            else:
+                continuous = list(set(range(ncols)).difference(set(categorical)))
+            self.labels_ = labels or make_band_labels(ncols)
+            self.categorical_ = categorical
+            self.continuous_ = continuous
+
+        elif isinstance(x, pd.DataFrame):
+            x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
+            self.labels_ = labels or list(x.columns)
+
+            # store both pandas and numpy indexing of these values
+            self.continuous_pd_ = list(x.select_dtypes(exclude="category").columns)
+            self.categorical_pd_ = list(x.select_dtypes(include="category").columns)
+
+            all_columns = list(x.columns)
+            self.continuous_ = [all_columns.index(item) for item in self.continuous_pd_ if item in all_columns]
+            if len(self.categorical_pd_) != 0:
+                self.categorical_ = [all_columns.index(item) for item in self.categorical_pd_ if item in all_columns]
+            else:
+                self.categorical_ = None
+
+
 class LinearTransformer(MinMaxScaler):
     """Applies linear feature transformations to rescale features from 0-1."""
 
@@ -337,7 +405,7 @@ class CumulativeTransformer(QuantileTransformer):
         super().__init__(n_quantiles=100, output_distribution="uniform")
 
 
-class MaxentFeatureTransformer(BaseEstimator):
+class MaxentFeatureTransformer(BaseEstimator, FeaturesMixin):
     """Transforms covariate data into maxent-format feature data."""
 
     feature_types_: list = None
@@ -380,70 +448,6 @@ class MaxentFeatureTransformer(BaseEstimator):
         self.clamp_ = validate_boolean(clamp)
         self.n_hinge_features_ = validate_numeric_scalar(n_hinge_features)
         self.n_threshold_features_ = validate_numeric_scalar(n_threshold_features)
-
-    def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
-        """Reads input x data and formats it to consistent array dtypes.
-
-        Args:
-            x: array-like of shape (n_samples, n_features)
-
-        Returns:
-            (continuous, categorical) tuple of ndarrays with continuous and
-                categorical covariate data.
-        """
-        if isinstance(x, np.ndarray):
-            if self.categorical_ is None:
-                con = x
-                cat = None
-            else:
-                con = x[:, self.continuous_]
-                cat = x[:, self.categorical_]
-
-        elif isinstance(x, pd.DataFrame):
-            con = x[self.continuous_pd_].to_numpy()
-            if len(self.categorical_pd_) > 0:
-                cat = x[self.categorical_pd_].to_numpy()
-            else:
-                cat = None
-
-        else:
-            raise TypeError(f"Unsupported x dtype: {type(x)}. Must be pd.DataFrame or np.array")
-
-        return con, cat
-
-    def _format_labels_and_dtypes(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
-        """Read input x data and lists of categorical data indices and band
-            labels to format and store this info for later indexing.
-
-        Args:
-            s: array-like of shape (n_samples, n_features)
-            categorical: indices indicating which x columns are categorical
-            labels: covariate column labels. ignored if x is a pandas DataFrame
-        """
-        if isinstance(x, np.ndarray):
-            nrows, ncols = x.shape
-            if categorical is None:
-                continuous = list(range(ncols))
-            else:
-                continuous = list(set(range(ncols)).difference(set(categorical)))
-            self.labels_ = labels or make_band_labels(ncols)
-            self.categorical_ = categorical
-            self.continuous_ = continuous
-
-        elif isinstance(x, pd.DataFrame):
-            x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
-            self.labels_ = labels or list(x.columns)
-
-            # store both pandas and numpy indexing of these values
-            self.continuous_pd_ = list(x.select_dtypes(exclude="category").columns)
-            self.categorical_pd_ = list(x.select_dtypes(include="category").columns)
-
-            all_columns = list(x.columns)
-            self.continuous_ = [all_columns.index(item) for item in self.continuous_pd_ if item in all_columns]
-            if len(self.categorical_pd_) != 0:
-                self.categorical_ = [all_columns.index(item) for item in self.categorical_pd_ if item in all_columns]
-            else:
-                self.categorical_ = None
 
     def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Compute the minimum and maximum for scaling.

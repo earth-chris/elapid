@@ -4,12 +4,19 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
 
-from elapid import features as _features
 from elapid.config import MaxentConfig, NicheEnvelopeConfig
+from elapid.features import (
+    CategoricalTransformer,
+    FeaturesMixin,
+    MaxentFeatureTransformer,
+    compute_lambdas,
+    compute_regularization,
+    compute_weights,
+)
 from elapid.types import ArrayLike, Number, validate_feature_types
 from elapid.utils import NCPUS, make_band_labels
 
@@ -26,7 +33,7 @@ except ModuleNotFoundError:
     FORCE_SKLEARN = True
 
 
-class MaxentModel(BaseEstimator):
+class MaxentModel(BaseEstimator, ClassifierMixin):
     """Model estimator for Maxent-style species distribution models."""
 
     # passed to __init__
@@ -166,7 +173,7 @@ class MaxentModel(BaseEstimator):
                 x = self.preprocessor.fit_transform(x)
 
         # fit the feature transformer
-        self.transformer = _features.MaxentFeatureTransformer(
+        self.transformer = MaxentFeatureTransformer(
             feature_types=self.feature_types,
             clamp=self.clamp,
             n_hinge_features=self.n_hinge_features,
@@ -178,7 +185,7 @@ class MaxentModel(BaseEstimator):
         # compute class weights
         if self.class_weights is not None:
             pbr = len(y) / y.sum() if self.class_weights == "balanced" else self.class_weights
-            class_weight = _features.compute_weights(y, pbr=pbr)
+            class_weight = compute_weights(y, pbr=pbr)
 
             # scale the sample weight
             if sample_weight is None:
@@ -196,7 +203,7 @@ class MaxentModel(BaseEstimator):
         # model fitting with glmnet
         else:
             # set feature regularization parameters
-            self.regularization_ = _features.compute_regularization(
+            self.regularization_ = compute_regularization(
                 y,
                 features,
                 feature_labels=feature_labels,
@@ -208,7 +215,7 @@ class MaxentModel(BaseEstimator):
             )
 
             # get model lambda scores to initialize the glm
-            self.lambdas_ = _features.compute_lambdas(y, sample_weight, self.regularization_, n_lambdas=self.n_lambdas)
+            self.lambdas_ = compute_lambdas(y, sample_weight, self.regularization_, n_lambdas=self.n_lambdas)
 
             # model fitting
             self.initialize_glmnet_model(lambdas=self.lambdas_)
@@ -236,6 +243,8 @@ class MaxentModel(BaseEstimator):
 
         # the distance from f(z) is the relative entropy of f1(z) WRT f(z)
         self.entropy_ = maxent_entropy(raw)
+
+        return self
 
     def predict(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
         """Apply a model to a set of covariates or features. Requires that a model has been fit.
@@ -356,7 +365,7 @@ class MaxentModel(BaseEstimator):
         )
 
 
-class NicheEnvelopeModel(BaseEstimator):
+class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
     """Model estimator for niche envelope-style models."""
 
     percentile_range: Tuple[float, float] = None
@@ -379,71 +388,6 @@ class NicheEnvelopeModel(BaseEstimator):
                 covariates at all y==1 locations.
         """
         self.percentile_range = percentile_range
-        self.categorical_estimator = _features.CategoricalTransformer()
-
-    def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
-        """Reads input x data and formats it to consistent array dtypes.
-
-        Args:
-            x: array-like of shape (n_samples, n_features)
-
-        Returns:
-            (continuous, categorical) tuple of ndarrays with continuous and
-                categorical covariate data.
-        """
-        if isinstance(x, np.ndarray):
-            if self.categorical_ is None:
-                con = x
-                cat = None
-            else:
-                con = x[:, self.continuous_]
-                cat = x[:, self.categorical_]
-
-        elif isinstance(x, pd.DataFrame):
-            con = x[self.continuous_pd_].to_numpy()
-            if len(self.categorical_pd_) > 0:
-                cat = x[self.categorical_pd_].to_numpy()
-            else:
-                cat = None
-
-        else:
-            raise TypeError(f"Unsupported x dtype: {type(x)}. Must be pd.DataFrame or np.array")
-
-        return con, cat
-
-    def _format_labels_and_dtypes(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
-        """Read input x data and lists of categorical data indices and band
-            labels to format and store this info for later indexing.
-
-        Args:
-            s: array-like of shape (n_samples, n_features)
-            categorical: indices indicating which x columns are categorical
-            labels: covariate column labels. ignored if x is a pandas DataFrame
-        """
-        if isinstance(x, np.ndarray):
-            nrows, ncols = x.shape
-            if categorical is None:
-                continuous = list(range(ncols))
-            else:
-                continuous = list(set(range(ncols)).difference(set(categorical)))
-            self.labels_ = labels or make_band_labels(ncols)
-            self.categorical_ = categorical
-            self.continuous_ = continuous
-
-        elif isinstance(x, pd.DataFrame):
-            x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
-            self.labels_ = labels or list(x.columns)
-
-            # store both pandas and numpy indexing of these values
-            self.continuous_pd_ = list(x.select_dtypes(exclude="category").columns)
-            self.categorical_pd_ = list(x.select_dtypes(include="category").columns)
-
-            all_columns = list(x.columns)
-            self.continuous_ = [all_columns.index(item) for item in self.continuous_pd_ if item in all_columns]
-            if len(self.categorical_pd_) != 0:
-                self.categorical_ = [all_columns.index(item) for item in self.categorical_pd_ if item in all_columns]
-            else:
-                self.categorical_ = None
 
     def fit(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Fits a niche envelope model using a set of covariates and presence/background points.
@@ -465,8 +409,11 @@ class NicheEnvelopeModel(BaseEstimator):
 
         # one-hot encode the categorical data and label the classes with
         if cat is not None:
+            self.categorical_estimator = CategoricalTransformer()
             ohe = self.categorical_estimator.fit_transform(cat)
             self.in_categorical_ = np.any(ohe[y == 1], axis=0)
+
+        return self
 
     def predict(self, x: ArrayLike, overlay: str = "average") -> np.ndarray:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
