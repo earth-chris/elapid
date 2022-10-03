@@ -116,7 +116,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
                 this feature was turned on to support Windows users
                 who install the package without a fortran compiler.
         """
-        self.feature_types = validate_feature_types(feature_types)
+        self.feature_types = feature_types
         self.tau = tau
         self.clamp = clamp
         self.scorer = scorer
@@ -173,6 +173,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
                 x = self.preprocessor.fit_transform(x)
 
         # fit the feature transformer
+        self.feature_types = validate_feature_types(self.feature_types)
         self.transformer = MaxentFeatureTransformer(
             feature_types=self.feature_types,
             clamp=self.clamp,
