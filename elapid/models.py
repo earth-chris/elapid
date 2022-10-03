@@ -238,7 +238,7 @@ class MaxentModel(BaseEstimator):
         self.entropy_ = maxent_entropy(raw)
 
     def predict(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
-        """Applies a model to a set of covariates or features. Requires that a model has been fit.
+        """Apply a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
@@ -267,6 +267,22 @@ class MaxentModel(BaseEstimator):
 
         elif transform == "cloglog":
             return maxent_cloglog_transform(engma, self.entropy_)
+
+    def predict_proba(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
+        """Compute prediction probability scores for the 0/1 classes.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+            transform: maxent model transformation type. select from
+                ["raw", "logistic", "cloglog"].
+
+        Returns:
+            predictions: array-like of shape (n_samples, 2) with model predictions
+        """
+        ypred = self.predict(x, transform=transform).reshape(-1, 1)
+        predictions = np.hstack(1 - ypred, ypred)
+
+        return predictions
 
     def fit_predict(
         self,
