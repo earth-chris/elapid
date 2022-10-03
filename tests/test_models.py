@@ -19,6 +19,11 @@ def test_MaxentModel_flow():
     assert ypred.max() <= 1.0
     assert ypred.min() >= 0.0
 
+    proba = model.predict_proba(x)
+    assert len(proba) == len(y)
+    assert len(proba.shape) == 2
+    assert proba.sum(axis=1).sum() == len(y)
+
 
 def test_MaxentModel_performance():
     model = models.MaxentModel(use_lambdas="last", scorer="roc_auc")
@@ -144,16 +149,14 @@ def test_NicheEnvelopeModel():
     union = ne.predict(x, overlay="union")
     intersection = ne.predict(x, overlay="intersection")
     average = ne.predict(x, overlay="average")
-
     assert np.min([union, intersection, average]) <= 1
     assert np.max([union, intersection, average]) >= 0
-
     assert y.sum() == union[y == 1].sum()
     assert intersection[y == 1].mean() <= average[y == 1].mean() <= union[y == 1].mean()
 
+    # test a narrower feature data percentile range
     narrow = models.NicheEnvelopeModel(percentile_range=[20, 80])
     narrow.fit(x, y)
-
     average_narrow = narrow.predict(x, overlay="average")
     assert average_narrow[y == 1].sum() < average[y == 1].sum()
 
@@ -161,3 +164,9 @@ def test_NicheEnvelopeModel():
     xt = x.drop(columns=["ecoreg"]).to_numpy()
     ne = models.NicheEnvelopeModel()
     ne.fit_predict(xt, y)
+
+    # test prediction probabilities
+    proba = ne.predict_proba(xt)
+    assert len(proba) == len(y)
+    assert len(proba.shape) == 2
+    assert proba.sum(axis=1).sum() == len(y)

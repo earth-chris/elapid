@@ -290,7 +290,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
             predictions: array-like of shape (n_samples, 2) with model predictions
         """
         ypred = self.predict(x, transform=transform).reshape(-1, 1)
-        predictions = np.hstack(1 - ypred, ypred)
+        predictions = np.hstack((1 - ypred, ypred))
 
         return predictions
 
@@ -456,6 +456,22 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
             ypred = np.any(in_range, axis=1).astype("uint8")
 
         return ypred
+
+    def predict_proba(self, x: ArrayLike, overlay: str = "average") -> ArrayLike:
+        """Compute prediction probability scores for the 0/1 classes.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+            overlay: niche envelope overlap type.
+                select from ["average", "intersection", "union"]
+
+        Returns:
+            predictions: array-like of shape (n_samples, 2) with model predictions
+        """
+        ypred = self.predict(x, overlay=overlay).reshape(-1, 1)
+        predictions = np.hstack((1 - ypred, ypred))
+
+        return predictions
 
     def fit_predict(
         self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None, overlay: str = "average"
