@@ -111,7 +111,7 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
         self.clamp = clamp
         self.feature_range = feature_range
 
-    def fit(self, x: ArrayLike, y: None = None) -> "QuadraticTransformer":
+    def fit(self, x: ArrayLike) -> "QuadraticTransformer":
         """Compute the minimum and maximum for scaling.
 
         Args:
