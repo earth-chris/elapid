@@ -4,11 +4,12 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
+from scipy import stats as scistats
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
 
-from elapid.config import MaxentConfig, NicheEnvelopeConfig
+from elapid.config import EnsembleConfig, MaxentConfig, NicheEnvelopeConfig
 from elapid.features import (
     CategoricalTransformer,
     FeaturesMixin,
@@ -491,6 +492,77 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
         """
         self.fit(x, y, categorical=categorical, labels=labels)
         return self.predict(x)
+
+
+class EnsembleModel(BaseEstimator, ClassifierMixin):
+    """Barebones estimator for ensembling multiple model predictions."""
+
+    models: list = None
+    reducer: str = None
+
+    def __init__(self, models: List[BaseEstimator], reducer: str = EnsembleConfig.reducer):
+        """Create a model ensemble from a set of trained models.
+
+        Args:
+            models: iterable of models with `.predict()` and/or `.predict_proba()` methods
+            reducer: method for reducing/ensembling each model's predictions.
+                select from ['mean', 'median', 'mode']
+        """
+        self.models = models
+        self.reducer = reducer
+
+    def reduce(self, preds: List[np.ndarray]) -> np.ndarray:
+        """Reduce multiple model predictions into ensemble prediction/probability scores.
+
+        Args:
+            preds: list of model predictions from .predict() or .predict_proba()
+
+        Returns:
+            array-like of shape (n_samples, n_classes) with model predictions
+        """
+        reducer = self.reducer.lower()
+
+        if reducer == "mean":
+            reduced = np.nanmean(preds, axis=0)
+
+        elif reducer == "median":
+            reduced = np.nanmedian(preds, axis=0)
+
+        elif reducer == "mode":
+            try:
+                summary = scistats.mode(preds, axis=0, nan_policy="omit", keepdims=False)
+                reduced = summary.mode
+            except TypeError:
+                summary = scistats.mode(preds, axis=0, nan_policy="omit")
+                reduced = np.squeeze(summary.mode)
+
+        return reduced
+
+    def predict(self, x: ArrayLike) -> np.ndarray:
+        """Applies models to a set of covariates or features. Requires each model has been fit.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+
+        Returns:
+            array-like of shape (n_samples,) with model predictions
+        """
+        preds = [model.predict(x) for model in self.models]
+        ensemble = self.reduce(preds)
+        return ensemble
+
+    def predict_proba(self, x: ArrayLike) -> np.ndarray:
+        """Compute prediction probability scores for each class.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+
+        Returns:
+            array-like of shape (n_samples, n_classes) with model predictions
+        """
+        probas = [model.predict_proba(x) for model in self.models]
+        ensemble = self.reduce(probas)
+        return ensemble
 
 
 def maxent_alpha(raw: np.ndarray) -> float:

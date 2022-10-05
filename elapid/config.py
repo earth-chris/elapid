@@ -55,3 +55,7 @@ class RegularizationConfig:
 class NicheEnvelopeConfig:
     percentile_range: Tuple[float, float] = [2.5, 97.5]
     overlay: str = "average"
+
+
+class EnsembleConfig:
+    reducer: str = "mean"

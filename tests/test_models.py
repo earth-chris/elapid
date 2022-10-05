@@ -172,3 +172,27 @@ def test_NicheEnvelopeModel():
     assert len(proba) == len(y)
     assert len(proba.shape) == 2
     assert proba.sum(axis=1).sum() == len(y)
+
+
+def test_EnsembleModel():
+    ne = models.NicheEnvelopeModel()
+    me = models.MaxentModel()
+    ne.fit(x, y)
+    me.fit(x, y)
+
+    ypred = ne.predict(x)
+    yprob = ne.predict_proba(x)
+
+    ensemble = models.EnsembleModel((ne, me), reducer="mean")
+    epred = ensemble.predict(x)
+    eprob = ensemble.predict_proba(x)
+
+    assert not np.all(ypred == epred)
+    assert eprob.shape == yprob.shape
+    assert len(eprob.shape) == 2
+    assert eprob.shape[-1] == 2
+
+    ensemble.set_params(reducer="mode")
+    mpred = ensemble.predict(x)
+    assert not np.all(mpred == epred)
+    assert epred.shape == mpred.shape
