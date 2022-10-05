@@ -4,12 +4,20 @@ from warnings import warn
 
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from scipy import stats as scistats
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
 
-from elapid import features as _features
-from elapid.config import MaxentConfig, NicheEnvelopeConfig
+from elapid.config import EnsembleConfig, MaxentConfig, NicheEnvelopeConfig
+from elapid.features import (
+    CategoricalTransformer,
+    FeaturesMixin,
+    MaxentFeatureTransformer,
+    compute_lambdas,
+    compute_regularization,
+    compute_weights,
+)
 from elapid.types import ArrayLike, Number, validate_feature_types
 from elapid.utils import NCPUS, make_band_labels
 
@@ -26,7 +34,7 @@ except ModuleNotFoundError:
     FORCE_SKLEARN = True
 
 
-class MaxentModel(BaseEstimator):
+class MaxentModel(BaseEstimator, ClassifierMixin):
     """Model estimator for Maxent-style species distribution models."""
 
     # passed to __init__
@@ -63,6 +71,7 @@ class MaxentModel(BaseEstimator):
         self,
         feature_types: Union[list, str] = MaxentConfig.feature_types,
         tau: float = MaxentConfig.tau,
+        transform: float = MaxentConfig.transform,
         clamp: bool = MaxentConfig.clamp,
         scorer: str = MaxentConfig.scorer,
         beta_multiplier: float = MaxentConfig.beta_multiplier,
@@ -85,6 +94,8 @@ class MaxentModel(BaseEstimator):
             feature_types: maxent feature types to fit. must be in string "lqphta" or
                 list ["linear", "quadratic", "product", "hinge", "threshold", "auto"]
             tau: maxent prevalence value for scaling logistic output
+            transform: maxent model transformation type. select from
+                ["raw", "logistic", "cloglog"].
             clamp: set features to min/max range from training during prediction
             scorer: sklearn scoring function for model training
             beta_multiplier: scaler for all regularization parameters.
@@ -109,8 +120,9 @@ class MaxentModel(BaseEstimator):
                 this feature was turned on to support Windows users
                 who install the package without a fortran compiler.
         """
-        self.feature_types = validate_feature_types(feature_types)
+        self.feature_types = feature_types
         self.tau = tau
+        self.transform = transform
         self.clamp = clamp
         self.scorer = scorer
         self.beta_multiplier = beta_multiplier
@@ -166,7 +178,8 @@ class MaxentModel(BaseEstimator):
                 x = self.preprocessor.fit_transform(x)
 
         # fit the feature transformer
-        self.transformer = _features.MaxentFeatureTransformer(
+        self.feature_types = validate_feature_types(self.feature_types)
+        self.transformer = MaxentFeatureTransformer(
             feature_types=self.feature_types,
             clamp=self.clamp,
             n_hinge_features=self.n_hinge_features,
@@ -178,7 +191,7 @@ class MaxentModel(BaseEstimator):
         # compute class weights
         if self.class_weights is not None:
             pbr = len(y) / y.sum() if self.class_weights == "balanced" else self.class_weights
-            class_weight = _features.compute_weights(y, pbr=pbr)
+            class_weight = compute_weights(y, pbr=pbr)
 
             # scale the sample weight
             if sample_weight is None:
@@ -196,7 +209,7 @@ class MaxentModel(BaseEstimator):
         # model fitting with glmnet
         else:
             # set feature regularization parameters
-            self.regularization_ = _features.compute_regularization(
+            self.regularization_ = compute_regularization(
                 y,
                 features,
                 feature_labels=feature_labels,
@@ -208,7 +221,7 @@ class MaxentModel(BaseEstimator):
             )
 
             # get model lambda scores to initialize the glm
-            self.lambdas_ = _features.compute_lambdas(y, sample_weight, self.regularization_, n_lambdas=self.n_lambdas)
+            self.lambdas_ = compute_lambdas(y, sample_weight, self.regularization_, n_lambdas=self.n_lambdas)
 
             # model fitting
             self.initialize_glmnet_model(lambdas=self.lambdas_)
@@ -229,7 +242,10 @@ class MaxentModel(BaseEstimator):
         self.initialized_ = True
 
         # apply maxent-specific transformations
-        raw = self.predict(x[y == 0], transform="raw")
+        class_transform = self.get_params()["transform"]
+        self.set_params(transform="raw")
+        raw = self.predict(x[y == 0])
+        self.set_params(transform=class_transform)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
         self.alpha_ = maxent_alpha(raw)
@@ -237,13 +253,13 @@ class MaxentModel(BaseEstimator):
         # the distance from f(z) is the relative entropy of f1(z) WRT f(z)
         self.entropy_ = maxent_entropy(raw)
 
-    def predict(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
-        """Applies a model to a set of covariates or features. Requires that a model has been fit.
+        return self
+
+    def predict(self, x: ArrayLike) -> ArrayLike:
+        """Apply a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            transform: maxent model transformation type. select from
-                ["raw", "logistic", "cloglog"].
 
         Returns:
             predictions: array-like of shape (n_samples,) with model predictions
@@ -259,14 +275,28 @@ class MaxentModel(BaseEstimator):
         engma = np.matmul(features, self.beta_scores_) + self.alpha_
 
         # scale based on the transform type
-        if transform == "raw":
+        if self.transform == "raw":
             return maxent_raw_transform(engma)
 
-        elif transform == "logistic":
+        elif self.transform == "logistic":
             return maxent_logistic_transform(engma, self.entropy_, self.tau)
 
-        elif transform == "cloglog":
+        elif self.transform == "cloglog":
             return maxent_cloglog_transform(engma, self.entropy_)
+
+    def predict_proba(self, x: ArrayLike) -> ArrayLike:
+        """Compute prediction probability scores for the 0/1 classes.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+
+        Returns:
+            predictions: array-like of shape (n_samples, 2) with model predictions
+        """
+        ypred = self.predict(x).reshape(-1, 1)
+        predictions = np.hstack((1 - ypred, ypred))
+
+        return predictions
 
     def fit_predict(
         self,
@@ -275,7 +305,6 @@ class MaxentModel(BaseEstimator):
         categorical: list = None,
         labels: list = None,
         preprocessor: BaseEstimator = None,
-        transform: str = "cloglog",
     ) -> ArrayLike:
         """Trains and applies a model to x/y data.
 
@@ -287,14 +316,12 @@ class MaxentModel(BaseEstimator):
             preprocessor: an `sklearn` transformer with a .transform() and/or
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
-            transform: maxent model transformation type. select from
-                ["raw", "logistic", "cloglog"].
 
         Returns:
             predictions: Array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels, preprocessor=preprocessor)
-        predictions = self.predict(x, transform=transform)
+        predictions = self.predict(x)
 
         return predictions
 
@@ -340,10 +367,11 @@ class MaxentModel(BaseEstimator):
         )
 
 
-class NicheEnvelopeModel(BaseEstimator):
+class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
     """Model estimator for niche envelope-style models."""
 
     percentile_range: Tuple[float, float] = None
+    overlay: str = None
     feature_mins_: np.ndarray = None
     feature_maxs_: np.ndarray = None
     categorical_estimator: BaseEstimator = None
@@ -353,7 +381,11 @@ class NicheEnvelopeModel(BaseEstimator):
     continuous_pd_: list = None
     in_categorical_: np.ndarray = None
 
-    def __init__(self, percentile_range: Tuple[float, float] = NicheEnvelopeConfig.percentile_range):
+    def __init__(
+        self,
+        percentile_range: Tuple[float, float] = NicheEnvelopeConfig.percentile_range,
+        overlay: str = NicheEnvelopeConfig.overlay,
+    ):
         """Create a niche envelope model estimator.
 
         Args:
@@ -361,73 +393,11 @@ class NicheEnvelopeModel(BaseEstimator):
                 using a narrow range like [10, 90] drops more areas from suitability maps
                 while [0, 100] creates an envelope around the full range of observed
                 covariates at all y==1 locations.
+            overlay: niche envelope overlap type.
+                select from ["average", "intersection", "union"]
         """
         self.percentile_range = percentile_range
-        self.categorical_estimator = _features.CategoricalTransformer()
-
-    def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
-        """Reads input x data and formats it to consistent array dtypes.
-
-        Args:
-            x: array-like of shape (n_samples, n_features)
-
-        Returns:
-            (continuous, categorical) tuple of ndarrays with continuous and
-                categorical covariate data.
-        """
-        if isinstance(x, np.ndarray):
-            if self.categorical_ is None:
-                con = x
-                cat = None
-            else:
-                con = x[:, self.continuous_]
-                cat = x[:, self.categorical_]
-
-        elif isinstance(x, pd.DataFrame):
-            con = x[self.continuous_pd_].to_numpy()
-            if len(self.categorical_pd_) > 0:
-                cat = x[self.categorical_pd_].to_numpy()
-            else:
-                cat = None
-
-        else:
-            raise TypeError(f"Unsupported x dtype: {type(x)}. Must be pd.DataFrame or np.array")
-
-        return con, cat
-
-    def _format_labels_and_dtypes(self, x: ArrayLike, categorical: list = None, labels: list = None) -> None:
-        """Read input x data and lists of categorical data indices and band
-            labels to format and store this info for later indexing.
-
-        Args:
-            s: array-like of shape (n_samples, n_features)
-            categorical: indices indicating which x columns are categorical
-            labels: covariate column labels. ignored if x is a pandas DataFrame
-        """
-        if isinstance(x, np.ndarray):
-            nrows, ncols = x.shape
-            if categorical is None:
-                continuous = list(range(ncols))
-            else:
-                continuous = list(set(range(ncols)).difference(set(categorical)))
-            self.labels_ = labels or make_band_labels(ncols)
-            self.categorical_ = categorical
-            self.continuous_ = continuous
-
-        elif isinstance(x, pd.DataFrame):
-            x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
-            self.labels_ = labels or list(x.columns)
-
-            # store both pandas and numpy indexing of these values
-            self.continuous_pd_ = list(x.select_dtypes(exclude="category").columns)
-            self.categorical_pd_ = list(x.select_dtypes(include="category").columns)
-
-            all_columns = list(x.columns)
-            self.continuous_ = [all_columns.index(item) for item in self.continuous_pd_ if item in all_columns]
-            if len(self.categorical_pd_) != 0:
-                self.categorical_ = [all_columns.index(item) for item in self.categorical_pd_ if item in all_columns]
-            else:
-                self.categorical_ = None
+        self.overlay = overlay
 
     def fit(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Fits a niche envelope model using a set of covariates and presence/background points.
@@ -449,21 +419,22 @@ class NicheEnvelopeModel(BaseEstimator):
 
         # one-hot encode the categorical data and label the classes with
         if cat is not None:
+            self.categorical_estimator = CategoricalTransformer()
             ohe = self.categorical_estimator.fit_transform(cat)
             self.in_categorical_ = np.any(ohe[y == 1], axis=0)
 
-    def predict(self, x: ArrayLike, overlay: str = "average") -> np.ndarray:
+        return self
+
+    def predict(self, x: ArrayLike) -> np.ndarray:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            overlay: niche envelope overlap type.
-                select from ["average", "intersection", "union"]
 
         Returns:
             array-like of shape (n_samples,) with model predictions
         """
-        overlay = overlay.lower()
+        overlay = self.overlay.lower()
         overlay_options = ["average", "intersection", "union"]
         assert overlay in overlay_options, f"overlay must be one of {', '.join(overlay_options)}"
 
@@ -493,9 +464,21 @@ class NicheEnvelopeModel(BaseEstimator):
 
         return ypred
 
-    def fit_predict(
-        self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None, overlay: str = "average"
-    ) -> np.ndarray:
+    def predict_proba(self, x: ArrayLike) -> ArrayLike:
+        """Compute prediction probability scores for the 0/1 classes.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+
+        Returns:
+            predictions: array-like of shape (n_samples, 2) with model predictions
+        """
+        ypred = self.predict(x).reshape(-1, 1)
+        predictions = np.hstack((1 - ypred, ypred))
+
+        return predictions
+
+    def fit_predict(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> np.ndarray:
         """Trains and applies a model to x/y data.
 
         Args:
@@ -503,14 +486,83 @@ class NicheEnvelopeModel(BaseEstimator):
             y: array-like of shape (n_samples,) with binary presence/background (1/0) values
             categorical: column indices indicating which columns are categorical
             labels: Covariate labels. Ignored if x is a pandas DataFrame
-            overlay: maxent model transformation type.
-                select from ["average", "intersection", "union"]
 
         Returns:
             array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
-        return self.predict(x, overlay=overlay)
+        return self.predict(x)
+
+
+class EnsembleModel(BaseEstimator, ClassifierMixin):
+    """Barebones estimator for ensembling multiple model predictions."""
+
+    models: list = None
+    reducer: str = None
+
+    def __init__(self, models: List[BaseEstimator], reducer: str = EnsembleConfig.reducer):
+        """Create a model ensemble from a set of trained models.
+
+        Args:
+            models: iterable of models with `.predict()` and/or `.predict_proba()` methods
+            reducer: method for reducing/ensembling each model's predictions.
+                select from ['mean', 'median', 'mode']
+        """
+        self.models = models
+        self.reducer = reducer
+
+    def reduce(self, preds: List[np.ndarray]) -> np.ndarray:
+        """Reduce multiple model predictions into ensemble prediction/probability scores.
+
+        Args:
+            preds: list of model predictions from .predict() or .predict_proba()
+
+        Returns:
+            array-like of shape (n_samples, n_classes) with model predictions
+        """
+        reducer = self.reducer.lower()
+
+        if reducer == "mean":
+            reduced = np.nanmean(preds, axis=0)
+
+        elif reducer == "median":
+            reduced = np.nanmedian(preds, axis=0)
+
+        elif reducer == "mode":
+            try:
+                summary = scistats.mode(preds, axis=0, nan_policy="omit", keepdims=False)
+                reduced = summary.mode
+            except TypeError:
+                summary = scistats.mode(preds, axis=0, nan_policy="omit")
+                reduced = np.squeeze(summary.mode)
+
+        return reduced
+
+    def predict(self, x: ArrayLike) -> np.ndarray:
+        """Applies models to a set of covariates or features. Requires each model has been fit.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+
+        Returns:
+            array-like of shape (n_samples,) with model predictions
+        """
+        preds = [model.predict(x) for model in self.models]
+        ensemble = self.reduce(preds)
+        return ensemble
+
+    def predict_proba(self, x: ArrayLike) -> np.ndarray:
+        """Compute prediction probability scores for each class.
+
+        Args:
+            x: array-like of shape (n_samples, n_features) with covariate data
+
+        Returns:
+            array-like of shape (n_samples, n_classes) with model predictions
+        """
+        probas = [model.predict_proba(x) for model in self.models]
+        ensemble = self.reduce(probas)
+        return ensemble
 
 
 def maxent_alpha(raw: np.ndarray) -> float:

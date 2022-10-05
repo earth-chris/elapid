@@ -24,11 +24,11 @@ x = annotated.drop(columns=['class'])
 y = annotated['class']
 
 # train the model
-model = ela.MaxentModel()
+model = ela.MaxentModel(transform="cloglog")
 model.fit(x, y)
 
 # apply it to the full extent and save the model for later
-ela.apply_model_to_rasters(model, raster_path, output_raster_path, transform="cloglog")
+ela.apply_model_to_rasters(model, raster_path, output_raster_path)
 ela.save_object(model, output_model_path)
 ```
 
