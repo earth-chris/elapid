@@ -27,7 +27,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"bar_format": "{l_bar}{bar:20}{r_bar}{bar:-20b}"}
+tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 # sampling tools
 
@@ -284,24 +284,6 @@ def crs_match(crs1: CRSType, crs2: CRSType) -> bool:
 # raster reading tools
 
 
-def _read_pixel_value(point: gpd.GeoSeries, source: rio.io.DatasetReader) -> np.ndarray:
-    """Reads raster value from an open rasterio dataset.
-
-    Designed to be run using a `geodataframe.apply()` function.
-
-    Args:
-        point: a row from gdf.apply() or gdf.iterrows()
-        source: an open rasterio data source
-
-    Returns:
-        values: 1-d n-length array with the pixel values of each raster band.
-    """
-    row, col = source.index(point.geometry.x, point.geometry.y)
-    window = rio.windows.Window(col, row, 1, 1)
-    values = source.read(window=window, boundless=True)
-    return np.squeeze(values)
-
-
 def annotate(
     points: Union[str, gpd.GeoSeries, gpd.GeoDataFrame],
     raster_paths: Union[str, list],
@@ -425,7 +407,11 @@ def annotate_geoseries(
             xys = [(point.x, point.y) for point in points]
 
             # read each pixel value
-            samples = np.array(list(src.sample(xys, masked=False)), dtype=dtype)
+            n_points = len(points)
+            samples_iter = list(
+                tqdm(src.sample(xys, masked=False), desc="Sample", total=n_points, leave=False, **tqdm_opts)
+            )
+            samples = np.array(samples_iter, dtype=dtype)
 
             # identify nodata points to remove later
             if drop_na and src.nodata is not None:
