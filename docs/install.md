@@ -1,6 +1,12 @@
 # Installation guide
 
-`elapid` is accessible from [pypi](https://pypi.org/project/elapid/):
+`elapid` is accessible from [conda](https://anaconda.org/conda-forge/elapid):
+
+```bash
+conda install -c conda-forge elapid
+```
+
+It's also accessible from [pypi](https://pypi.org/project/elapid/):
 
 ```bash
 pip install elapid
