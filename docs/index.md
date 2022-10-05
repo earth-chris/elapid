@@ -44,9 +44,9 @@ conda install -c conda-forge elapid
 
 These should suffice for most linux/mac users, as there are builds available for most of the dependencies (`numpy`, `sklearn`, `glmnet`, `geopandas`, `rasterio`).
 
-While there is a pip distribution for Windows, you may experience some challenges during install. The easiest way to overcome these challenges is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise see [this page](./install) for install support.
+While there is a pip distribution for Windows, you may experience some challenges during install. The easiest way to overcome these challenges is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise see [this page](https://elapid.org/install) for install support.
 
-Installing `glmnet` is also recommended. This can be done with `pip install glmnet` or `conda install -c conda-forge glmnet`. For more support, and for information on why this package is recommended, see [this page](./install#installing-glmnet).
+Installing `glmnet` is also recommended. This can be done with `pip install glmnet` or `conda install -c conda-forge glmnet`. For more support, and for information on why this package is recommended, see [this page](https://elapid.org/install#installing-glmnet).
 
 ---
 
