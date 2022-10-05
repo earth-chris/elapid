@@ -40,9 +40,9 @@ def test_MaxentModel_performance():
 
 
 def test_MaxentModel_best_lambdas():
-    model = models.MaxentModel(use_lambdas="best")
+    model = models.MaxentModel(use_lambdas="best", transform="logistic")
     model.fit(x, y)
-    ypred = model.predict(x, transform="logistic")
+    ypred = model.predict(x)
     auc_score = metrics.roc_auc_score(y, ypred)
     assert 0.5 <= auc_score <= 1.0
     assert 0.48 < ypred[y == 1].mean() < 0.75
@@ -69,15 +69,15 @@ def test_MaxentModel_sample_weight():
 
 
 def test_tau_scaler():
-    model = models.MaxentModel(tau=0.5)
+    model = models.MaxentModel(tau=0.5, transform="logistic")
     model.fit(x, y)
-    ypred = model.predict(x, transform="logistic")
+    ypred = model.predict(x)
     fit_mean_pt5 = ypred[y == 1].mean()
     assert 0.48 < ypred[y == 1].mean() < 0.75
 
-    model = models.MaxentModel(tau=0.25)
+    model = models.MaxentModel(tau=0.25, transform="logistic")
     model.fit(x, y)
-    ypred = model.predict(x, transform="logistic")
+    ypred = model.predict(x)
     fit_mean_pt25 = ypred[y == 1].mean()
     assert fit_mean_pt25 < fit_mean_pt5
 
@@ -144,20 +144,22 @@ def test_preprocessor():
 
 def test_NicheEnvelopeModel():
     # test the full range of values, ensuring all y=1 points are included
-    ne = models.NicheEnvelopeModel(percentile_range=[0, 100])
+    ne = models.NicheEnvelopeModel(percentile_range=[0, 100], overlay="union")
     ne.fit(x, y)
-    union = ne.predict(x, overlay="union")
-    intersection = ne.predict(x, overlay="intersection")
-    average = ne.predict(x, overlay="average")
+    union = ne.predict(x)
+    ne.set_params(overlay="intersection")
+    intersection = ne.predict(x)
+    ne.set_params(overlay="average")
+    average = ne.predict(x)
     assert np.min([union, intersection, average]) <= 1
     assert np.max([union, intersection, average]) >= 0
     assert y.sum() == union[y == 1].sum()
     assert intersection[y == 1].mean() <= average[y == 1].mean() <= union[y == 1].mean()
 
     # test a narrower feature data percentile range
-    narrow = models.NicheEnvelopeModel(percentile_range=[20, 80])
+    narrow = models.NicheEnvelopeModel(percentile_range=[20, 80], overlay="average")
     narrow.fit(x, y)
-    average_narrow = narrow.predict(x, overlay="average")
+    average_narrow = narrow.predict(x)
     assert average_narrow[y == 1].sum() < average[y == 1].sum()
 
     # test passing numpy arrays

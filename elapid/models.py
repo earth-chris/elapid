@@ -70,6 +70,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         self,
         feature_types: Union[list, str] = MaxentConfig.feature_types,
         tau: float = MaxentConfig.tau,
+        transform: float = MaxentConfig.transform,
         clamp: bool = MaxentConfig.clamp,
         scorer: str = MaxentConfig.scorer,
         beta_multiplier: float = MaxentConfig.beta_multiplier,
@@ -92,6 +93,8 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
             feature_types: maxent feature types to fit. must be in string "lqphta" or
                 list ["linear", "quadratic", "product", "hinge", "threshold", "auto"]
             tau: maxent prevalence value for scaling logistic output
+            transform: maxent model transformation type. select from
+                ["raw", "logistic", "cloglog"].
             clamp: set features to min/max range from training during prediction
             scorer: sklearn scoring function for model training
             beta_multiplier: scaler for all regularization parameters.
@@ -118,6 +121,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         """
         self.feature_types = feature_types
         self.tau = tau
+        self.transform = transform
         self.clamp = clamp
         self.scorer = scorer
         self.beta_multiplier = beta_multiplier
@@ -237,7 +241,10 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         self.initialized_ = True
 
         # apply maxent-specific transformations
-        raw = self.predict(x[y == 0], transform="raw")
+        class_transform = self.get_params()["transform"]
+        self.set_params(transform="raw")
+        raw = self.predict(x[y == 0])
+        self.set_params(transform=class_transform)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
         self.alpha_ = maxent_alpha(raw)
@@ -247,13 +254,11 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
 
         return self
 
-    def predict(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
+    def predict(self, x: ArrayLike) -> ArrayLike:
         """Apply a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            transform: maxent model transformation type. select from
-                ["raw", "logistic", "cloglog"].
 
         Returns:
             predictions: array-like of shape (n_samples,) with model predictions
@@ -269,27 +274,25 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         engma = np.matmul(features, self.beta_scores_) + self.alpha_
 
         # scale based on the transform type
-        if transform == "raw":
+        if self.transform == "raw":
             return maxent_raw_transform(engma)
 
-        elif transform == "logistic":
+        elif self.transform == "logistic":
             return maxent_logistic_transform(engma, self.entropy_, self.tau)
 
-        elif transform == "cloglog":
+        elif self.transform == "cloglog":
             return maxent_cloglog_transform(engma, self.entropy_)
 
-    def predict_proba(self, x: ArrayLike, transform: str = "cloglog") -> ArrayLike:
+    def predict_proba(self, x: ArrayLike) -> ArrayLike:
         """Compute prediction probability scores for the 0/1 classes.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            transform: maxent model transformation type. select from
-                ["raw", "logistic", "cloglog"].
 
         Returns:
             predictions: array-like of shape (n_samples, 2) with model predictions
         """
-        ypred = self.predict(x, transform=transform).reshape(-1, 1)
+        ypred = self.predict(x).reshape(-1, 1)
         predictions = np.hstack((1 - ypred, ypred))
 
         return predictions
@@ -301,7 +304,6 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         categorical: list = None,
         labels: list = None,
         preprocessor: BaseEstimator = None,
-        transform: str = "cloglog",
     ) -> ArrayLike:
         """Trains and applies a model to x/y data.
 
@@ -313,14 +315,12 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
             preprocessor: an `sklearn` transformer with a .transform() and/or
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
-            transform: maxent model transformation type. select from
-                ["raw", "logistic", "cloglog"].
 
         Returns:
             predictions: Array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels, preprocessor=preprocessor)
-        predictions = self.predict(x, transform=transform)
+        predictions = self.predict(x)
 
         return predictions
 
@@ -370,6 +370,7 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
     """Model estimator for niche envelope-style models."""
 
     percentile_range: Tuple[float, float] = None
+    overlay: str = None
     feature_mins_: np.ndarray = None
     feature_maxs_: np.ndarray = None
     categorical_estimator: BaseEstimator = None
@@ -379,7 +380,11 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
     continuous_pd_: list = None
     in_categorical_: np.ndarray = None
 
-    def __init__(self, percentile_range: Tuple[float, float] = NicheEnvelopeConfig.percentile_range):
+    def __init__(
+        self,
+        percentile_range: Tuple[float, float] = NicheEnvelopeConfig.percentile_range,
+        overlay: str = NicheEnvelopeConfig.overlay,
+    ):
         """Create a niche envelope model estimator.
 
         Args:
@@ -387,8 +392,11 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
                 using a narrow range like [10, 90] drops more areas from suitability maps
                 while [0, 100] creates an envelope around the full range of observed
                 covariates at all y==1 locations.
+            overlay: niche envelope overlap type.
+                select from ["average", "intersection", "union"]
         """
         self.percentile_range = percentile_range
+        self.overlay = overlay
 
     def fit(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Fits a niche envelope model using a set of covariates and presence/background points.
@@ -416,18 +424,16 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
 
         return self
 
-    def predict(self, x: ArrayLike, overlay: str = "average") -> np.ndarray:
+    def predict(self, x: ArrayLike) -> np.ndarray:
         """Applies a model to a set of covariates or features. Requires that a model has been fit.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            overlay: niche envelope overlap type.
-                select from ["average", "intersection", "union"]
 
         Returns:
             array-like of shape (n_samples,) with model predictions
         """
-        overlay = overlay.lower()
+        overlay = self.overlay.lower()
         overlay_options = ["average", "intersection", "union"]
         assert overlay in overlay_options, f"overlay must be one of {', '.join(overlay_options)}"
 
@@ -457,25 +463,21 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
 
         return ypred
 
-    def predict_proba(self, x: ArrayLike, overlay: str = "average") -> ArrayLike:
+    def predict_proba(self, x: ArrayLike) -> ArrayLike:
         """Compute prediction probability scores for the 0/1 classes.
 
         Args:
             x: array-like of shape (n_samples, n_features) with covariate data
-            overlay: niche envelope overlap type.
-                select from ["average", "intersection", "union"]
 
         Returns:
             predictions: array-like of shape (n_samples, 2) with model predictions
         """
-        ypred = self.predict(x, overlay=overlay).reshape(-1, 1)
+        ypred = self.predict(x).reshape(-1, 1)
         predictions = np.hstack((1 - ypred, ypred))
 
         return predictions
 
-    def fit_predict(
-        self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None, overlay: str = "average"
-    ) -> np.ndarray:
+    def fit_predict(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> np.ndarray:
         """Trains and applies a model to x/y data.
 
         Args:
@@ -483,14 +485,12 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
             y: array-like of shape (n_samples,) with binary presence/background (1/0) values
             categorical: column indices indicating which columns are categorical
             labels: Covariate labels. Ignored if x is a pandas DataFrame
-            overlay: maxent model transformation type.
-                select from ["average", "intersection", "union"]
 
         Returns:
             array-like of shape (n_samples,) with model predictions
         """
         self.fit(x, y, categorical=categorical, labels=labels)
-        return self.predict(x, overlay=overlay)
+        return self.predict(x)
 
 
 def maxent_alpha(raw: np.ndarray) -> float:

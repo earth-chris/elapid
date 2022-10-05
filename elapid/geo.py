@@ -474,8 +474,7 @@ def apply_model_to_array(
         count: number of bands in the prediction output
         dtype: prediction array dtype
         predict_proba: use model.predict_proba() instead of model.predict()
-        **kwargs: additonal keywords to pass to model.predict().
-            For MaxentModels, this would include transform="logistic"
+        **kwargs: additonal keywords to pass to model.predict()
 
     Returns:
         ypred_window: Array of shape (nrows, ncols) with model predictions
@@ -539,7 +538,6 @@ def apply_model_to_rasters(
         predict_proba: use model.predict_proba() instead of model.predict()
         ignore_sklearn: silence sklearn warning messages
         **kwargs: additonal keywords to pass to model.predict()
-            For MaxentModels, this would include transform="logistic"
 
     Returns:
         None: saves model predictions to disk.
