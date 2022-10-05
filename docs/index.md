@@ -11,8 +11,7 @@
 ![GitHub workflow wtatus](https://img.shields.io/github/workflow/status/earth-chris/elapid/docs)
 ![PyPI downloads](https://img.shields.io/pypi/dm/elapid)
 ![GitHub last commit](https://img.shields.io/github/last-commit/earth-chris/elapid)
-![Lines of code](https://img.shields.io/tokei/lines/github/earth-chris/elapid)
-[![JOSS manuscript status](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6/status.svg)](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6)
+[![JOSS manuscript status](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6/status.svg)](https://earth-chris.github.io/elapid/paper/draft-paper.pdf)
 
 ---
 
@@ -36,9 +35,17 @@ The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* 
 pip install elapid
 ```
 
-This should suffice for most linux/mac users, as there are builds available for most of the dependencies (`numpy`, `sklearn`, `glmnet`, `geopandas`, `rasterio`).
+or
 
-While there is a pip distribution for Windows, you may experience some challenges during install. The easiest way to overcome these challenges is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise see [this page](/install) for install support.
+```bash
+conda install -c conda-forge elapid
+```
+
+These should suffice for most linux/mac users, as there are builds available for most of the dependencies (`numpy`, `sklearn`, `glmnet`, `geopandas`, `rasterio`).
+
+While there is a pip distribution for Windows, you may experience some challenges during install. The easiest way to overcome these challenges is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise see [this page](./install) for install support.
+
+Installing `glmnet` is also recommended. This can be done with `pip install glmnet` or `conda install -c conda-forge glmnet`. For more support, and for information on why this package is recommended, see [this page](./install#installing-glmnet).
 
 ---
 
