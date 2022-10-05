@@ -87,7 +87,7 @@ class GeographicKFold(BaseCrossValidator):
         for train, test in super().split(points):
             yield train, test
 
-    def _iter_test_indices(self, X, y=None, groups=None):
+    def _iter_test_indices(self, X: Vector, y: None = None, groups: None = None):
         """The method used by the base class to split train/test data"""
         kmeans = KMeans(n_clusters=self.n_splits)
         xy = np.array(list(zip(X.geometry.x, X.geometry.y)))
@@ -98,7 +98,7 @@ class GeographicKFold(BaseCrossValidator):
             test = clusters == cluster
             yield indices[test]
 
-    def get_n_splits(self, X=None, y=None, groups=None) -> int:
+    def get_n_splits(self, X: None = None, y: None = None, groups: None = None) -> int:
         """Returns the number of splitting iterations in the cross-validator
 
         Args:
