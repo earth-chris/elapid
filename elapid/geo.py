@@ -98,14 +98,15 @@ def stack_geometries(
     return gdf
 
 
-def sample_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
-    """Creates a random geographic sampling of points based on a raster's extent.
+def sample_raster(raster_path: str, count: int, nodata: float = None, ignore_mask: bool = False) -> gpd.GeoSeries:
+    """Create a random geographic sample of points based on a raster's extent.
 
     Selects from unmasked locations if the rasters nodata value is set.
 
     Args:
         raster_path: raster file path to sample locations from
         count: number of samples to generate
+        nodata: add pixels with this value to the nodata mask
         ignore_mask: sample from the full extent of the raster instead of unmasked areas only
 
     Returns:
@@ -119,8 +120,14 @@ def sample_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gp
             xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
 
         else:
-            masked = src.read_masks(1)
-            rows, cols = np.where(masked == 255)
+            if nodata is None:
+                masked = src.read_masks(1)
+                rows, cols = np.where(masked == 255)
+            else:
+                data = src.read(1, masked=True)
+                data.mask += data.data == nodata
+                rows, cols = np.where(~data.mask)
+
             samples = np.random.randint(0, len(rows), count)
             xy = np.zeros((count, 2))
             for i, sample in enumerate(samples):
