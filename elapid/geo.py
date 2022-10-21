@@ -116,8 +116,17 @@ def sample_raster(raster_path: str, count: int, nodata: float = None, ignore_mas
     with rio.open(raster_path) as src:
 
         if src.nodata is None or ignore_mask:
-            xmin, ymin, xmax, ymax = src.bounds
-            xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
+            if nodata is None:
+                xmin, ymin, xmax, ymax = src.bounds
+                xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
+            else:
+                data = src.read(1)
+                mask = data != nodata
+                rows, cols = np.where(mask)
+                samples = np.random.randint(0, len(rows), count)
+                xy = np.zeros((count, 2))
+                for i, sample in enumerate(samples):
+                    xy[i] = src.xy(rows[sample], cols[sample])
 
         else:
             if nodata is None:
