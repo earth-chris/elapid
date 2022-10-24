@@ -3,7 +3,7 @@ import os
 import geopandas as gpd
 import numpy as np
 
-from elapid import train_test_split
+from elapid import geo, train_test_split
 
 # set the test raster data paths
 directory_path, script_path = os.path.split(os.path.abspath(__file__))
@@ -32,3 +32,29 @@ def test_GeographicKFold():
         assert len(train) > len(test)
         counted_folds += 1
     assert gfolds.get_n_splits() == n_folds == counted_folds
+
+
+def test_BufferedLeaveOneOut():
+    # straight leave-one-out
+    min_distance = 200
+    bloo = train_test_split.BufferedLeaveOneOut(distance=min_distance)
+    for train_idx, test_idx in bloo.split(points):
+        train = points.iloc[train_idx]
+        test = points.iloc[test_idx]
+        distance = geo.nearest_point_distance(test, train)
+        assert distance.min() >= min_distance
+        assert len(train) > 0
+
+    # grouped leave-one-out
+    points["group"] = 0
+    points.loc[30:40, "group"] = 1
+    points.loc[40:, "group"] = 2
+    train_idxs = []
+    for train_idx, test_idx in bloo.split(points, groups="group"):
+        train = points.iloc[train_idx]
+        test = points.iloc[test_idx]
+        distance = geo.nearest_point_distance(test, train)
+        assert distance.min() >= min_distance
+        assert len(train) > 0
+        train_idxs.append(train_idx)
+    assert len(train_idxs) == 3
