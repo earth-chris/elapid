@@ -8,6 +8,7 @@ from shapely.geometry import box
 from sklearn.cluster import KMeans
 from sklearn.model_selection import BaseCrossValidator
 
+from elapid.geo import nearest_point_distance
 from elapid.types import Vector
 
 
@@ -110,3 +111,87 @@ class GeographicKFold(BaseCrossValidator):
             The number of splitting iterations in the cross-validator.
         """
         return self.n_splits
+
+
+class BufferedLeaveOneOut(BaseCrossValidator):
+    """Leave-one-out CV that excludes nearby training data points."""
+
+    distance: float = None
+
+    def __init__(self, distance: float):
+        """Leave-one-out cross-validation strategy.
+
+        Drops points from the training data based on a buffered distance
+            from the left-out test point.
+
+        Implemented as described in Ploton et al. 2020
+            https://www.nature.com/articles/s41467-020-18321-y
+        """
+        self.distance = distance
+
+    def _group_idxs(self, points, groups, count: bool = False) -> List[int]:
+        """Get the test indices for group train/test splits."""
+        unique = points[groups].unique()
+
+        if count:
+            return len(unique)
+
+        all_idxs = np.arange(len(points))
+        test_idxs = []
+        for group in unique:
+            in_group = points[groups] == group
+            test_idxs.append(all_idxs[in_group])
+
+        return test_idxs
+
+    def _point_idxs(self, points, count: bool = False) -> List[int]:
+        """Get the test indices for single point train/test splits."""
+        if count:
+            return len(points)
+        else:
+            return list(range(len(points)))
+
+    def get_n_splits(self, points: Vector, groups: str = None, y: None = None) -> int:
+        """Returns the number of splitting iterations in the cross-validator
+
+        Args:
+            points: point-format GeoSeries or GeoDataFrame.
+            groups: GeoDataFrame column to group train/test splits by.
+            y: ignored, exists for compatibility.
+
+        Returns:
+            The number of splitting iterations in the cross-validator.
+        """
+        if groups is None:
+            return self._point_idxs(points, count=True)
+        else:
+            return self._group_idxs(points, groups, count=True)
+
+    def _iter_test_indices(self, points: Vector, groups: str = None, y: None = None):
+        """The method used by the base class to split train/test data"""
+        test_idxs = self._point_idxs(points) if groups is None else self._group_idxs(points, groups)
+        for indices in test_idxs:
+            yield indices
+
+    def split(self, points: Vector, groups: str = None) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+        """Split point data into geographically-clustered train/test folds and
+            return their array indices.
+
+        Args:
+            points: point-format GeoSeries or GeoDataFrame.
+            groups: GeoDataFrame column to group train/test splits by.
+
+        Yields:
+            (train_idxs, test_idxs) the train/test splits for each geo fold.
+        """
+        n_samples = len(points)
+        indices = np.arange(n_samples)
+        for test_index in self._iter_test_masks(points, groups):
+            train_idx = indices[np.logical_not(test_index)]
+            test_idx = indices[test_index]
+            train_pts = points.iloc[train_idx]
+            test_pts = points.iloc[test_idx]
+            distances = nearest_point_distance(test_pts, train_pts)
+            in_range = distances > self.distance
+            buffered_train_idx = train_idx[in_range]
+            yield buffered_train_idx, test_idx
