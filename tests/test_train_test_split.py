@@ -58,3 +58,18 @@ def test_BufferedLeaveOneOut():
         assert len(train) > 0
         train_idxs.append(train_idx)
     assert len(train_idxs) == 3
+
+    # only y==1 leave-one-out
+    n_presence = 10
+    points["class"] = 0
+    points.loc[0 : n_presence - 1, "class"] = 1
+    test_idxs = []
+    for train_idx, test_idx in bloo.split(points, class_label="class"):
+        train = points.iloc[train_idx]
+        test = points.iloc[test_idx]
+        distance = geo.nearest_point_distance(test, train)
+        assert distance.min() >= min_distance
+        assert len(train) > 0
+        test_idxs.append(test_idx)
+    print(test_idxs)
+    assert len(test_idxs) == n_presence
