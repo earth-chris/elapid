@@ -32,7 +32,7 @@ class MaxentConfig:
     transform: str = "cloglog"
 
     # model convergence tolerance threshold
-    tolerance: float = 1e-7
+    tolerance: float = 2e-6
 
     # elasticnet lambda type to use ('best' or 'last')
     use_lambdas: str = "best"
