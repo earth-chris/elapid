@@ -11,11 +11,6 @@ from elapid.types import ArrayLike
 class RasterStat:
     """Utility class to iterate over and apply reductions to multiband arrays"""
 
-    name: str = None
-    method: Callable = None
-    dtype: str = None
-    kwargs: dict = None
-
     def __init__(self, name: str, method: Callable, dtype: str = None, **kwargs):
         """Create a RasterStat object
 

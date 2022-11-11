@@ -37,36 +37,6 @@ except ModuleNotFoundError:
 class MaxentModel(BaseEstimator, ClassifierMixin):
     """Model estimator for Maxent-style species distribution models."""
 
-    # passed to __init__
-    feature_types: list = MaxentConfig.feature_types
-    tau: float = MaxentConfig.tau
-    clamp: bool = MaxentConfig.clamp
-    scorer: str = MaxentConfig.scorer
-    beta_multiplier: float = MaxentConfig.beta_multiplier
-    beta_hinge: float = MaxentConfig.beta_hinge
-    beta_lqp: float = MaxentConfig.beta_lqp
-    beta_threshold: float = MaxentConfig.beta_threshold
-    beta_categorical: float = MaxentConfig.beta_categorical
-    n_hinge_features: int = MaxentConfig.n_hinge_features
-    n_threshold_features: int = MaxentConfig.n_threshold_features
-    convergence_tolerance: float = MaxentConfig.tolerance
-    use_lambdas: str = MaxentConfig.use_lambdas
-    n_lambdas: str = MaxentConfig.n_lambdas
-    class_weights: Union[str, float] = None
-    n_cpus: int = NCPUS
-    use_sklearn: bool = False
-
-    # computed during model fitting
-    initialized_: bool = False
-    estimator: BaseEstimator = None
-    preprocessor: BaseEstimator = None
-    transformer: BaseEstimator = None
-    regularization_: np.ndarray = None
-    lambdas_: np.ndarray = None
-    beta_scores_: np.array = None
-    entropy_: float = 0.0
-    alpha_: float = 0.0
-
     def __init__(
         self,
         feature_types: Union[list, str] = MaxentConfig.feature_types,
@@ -138,6 +108,17 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         self.n_lambdas = n_lambdas
         self.class_weights = class_weights
         self.use_sklearn = use_sklearn
+
+        # computed during model fitting
+        self.initialized_ = False
+        self.estimator = None
+        self.preprocessor = None
+        self.transformer = None
+        self.regularization_ = None
+        self.lambdas_ = None
+        self.beta_scores_ = None
+        self.entropy_ = 0.0
+        self.alpha_ = 0.0
 
     def fit(
         self,
@@ -370,17 +351,6 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
 class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
     """Model estimator for niche envelope-style models."""
 
-    percentile_range: Tuple[float, float] = None
-    overlay: str = None
-    feature_mins_: np.ndarray = None
-    feature_maxs_: np.ndarray = None
-    categorical_estimator: BaseEstimator = None
-    categorical_: list = None
-    continuous_: list = None
-    categorical_pd_: list = None
-    continuous_pd_: list = None
-    in_categorical_: np.ndarray = None
-
     def __init__(
         self,
         percentile_range: Tuple[float, float] = NicheEnvelopeConfig.percentile_range,
@@ -398,6 +368,14 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
         """
         self.percentile_range = percentile_range
         self.overlay = overlay
+        self.feature_mins_ = None
+        self.feature_maxs_ = None
+        self.categorical_estimator = None
+        self.categorical_ = None
+        self.continuous_ = None
+        self.categorical_pd_ = None
+        self.continuous_pd_ = None
+        self.in_categorical_ = None
 
     def fit(self, x: ArrayLike, y: ArrayLike, categorical: list = None, labels: list = None) -> None:
         """Fits a niche envelope model using a set of covariates and presence/background points.

@@ -83,9 +83,6 @@ class FeaturesMixin:
 class LinearTransformer(MinMaxScaler):
     """Applies linear feature transformations to rescale features from 0-1."""
 
-    clamp: bool = None
-    feature_range: None
-
     def __init__(
         self,
         clamp: bool = MaxentConfig.clamp,
@@ -99,10 +96,6 @@ class LinearTransformer(MinMaxScaler):
 class QuadraticTransformer(BaseEstimator, TransformerMixin):
     """Applies quadtratic feature transformations and rescales features from 0-1."""
 
-    clamp: bool = None
-    feature_range: Tuple[float, float] = None
-    estimator: BaseEstimator = None
-
     def __init__(
         self,
         clamp: bool = MaxentConfig.clamp,
@@ -110,6 +103,7 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
     ):
         self.clamp = clamp
         self.feature_range = feature_range
+        self.estimator = None
 
     def fit(self, x: ArrayLike) -> "QuadraticTransformer":
         """Compute the minimum and maximum for scaling.
@@ -168,10 +162,6 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
 class ProductTransformer(BaseEstimator, TransformerMixin):
     """Computes the column-wise product of an array of input features, rescaling from 0-1."""
 
-    clamp: bool = None
-    feature_range: Tuple[float, float] = None
-    estimator: BaseEstimator = None
-
     def __init__(
         self,
         clamp: bool = MaxentConfig.clamp,
@@ -179,6 +169,7 @@ class ProductTransformer(BaseEstimator, TransformerMixin):
     ):
         self.clamp = clamp
         self.feature_range = feature_range
+        self.estimator = None
 
     def fit(self, x: ArrayLike) -> "ProductTransformer":
         """Compute the minimum and maximum for scaling.
@@ -223,16 +214,13 @@ class ProductTransformer(BaseEstimator, TransformerMixin):
 
 
 class ThresholdTransformer(BaseEstimator, TransformerMixin):
-    """Applies binary thresholds to each covariate based on n evenly-spaced
-    thresholds across it's min/max range."""
-
-    n_thresholds: int = None
-    mins_: np.ndarray = None
-    maxs_: np.ndarray = None
-    threshold_indices_: np.ndarray = None
+    """Apply binary thresholds across evenly-spaced bins for each covariate."""
 
     def __init__(self, n_thresholds: int = MaxentConfig.n_threshold_features):
         self.n_thresholds = n_thresholds
+        self.mins_ = None
+        self.maxs_ = None
+        self.threshold_indices_ = None
 
     def fit(self, x: ArrayLike) -> "ThresholdTransformer":
         """Compute the minimum and maximum for scaling.
@@ -285,13 +273,11 @@ class ThresholdTransformer(BaseEstimator, TransformerMixin):
 class HingeTransformer(BaseEstimator, TransformerMixin):
     """Fits hinge transformations to an array of covariates."""
 
-    n_hinges: int = None
-    mins_: np.ndarray = None
-    maxs_: np.ndarray = None
-    hinge_indices_: np.ndarray = None
-
     def __init__(self, n_hinges: int = MaxentConfig.n_hinge_features):
         self.n_hinges = n_hinges
+        self.mins_ = None
+        self.maxs_ = None
+        self.hinge_indices_ = None
 
     def fit(self, x: ArrayLike) -> "HingeTransformer":
         """Compute the minimum and maximum for scaling.
@@ -346,10 +332,8 @@ class HingeTransformer(BaseEstimator, TransformerMixin):
 class CategoricalTransformer(BaseEstimator, TransformerMixin):
     """Applies one-hot encoding to categorical covariate datasets."""
 
-    estimators_: list = None
-
     def __init__(self):
-        pass
+        self.estimators_ = None
 
     def fit(self, x: ArrayLike) -> "CategoricalTransformer":
         """Compute the minimum and maximum for scaling.
@@ -423,25 +407,6 @@ class CumulativeTransformer(QuantileTransformer):
 class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
     """Transforms covariate data into maxent-format feature data."""
 
-    feature_types: list = None
-    clamp: bool = None
-    n_hinge_features: int = None
-    n_threshold_features: int = None
-    categorical_: list = None
-    continuous_: list = None
-    categorical_pd_: list = None
-    continuous_pd_: list = None
-    labels_: list = None
-    estimators_: dict = {
-        "linear": None,
-        "quadratic": None,
-        "product": None,
-        "threshold": None,
-        "hinge": None,
-        "categorical": None,
-    }
-    feature_names_: list = None
-
     def __init__(
         self,
         feature_types: Union[str, list] = MaxentConfig.feature_types,
@@ -461,6 +426,20 @@ class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
         self.clamp = clamp
         self.n_hinge_features = n_hinge_features
         self.n_threshold_features = n_threshold_features
+        self.categorical_ = None
+        self.continuous_ = None
+        self.categorical_pd_ = None
+        self.continuous_pd_ = None
+        self.labels_ = None
+        self.feature_names_ = None
+        self.estimators_ = {
+            "linear": None,
+            "quadratic": None,
+            "product": None,
+            "threshold": None,
+            "hinge": None,
+            "categorical": None,
+        }
 
     def fit(self, x: ArrayLike, categorical: list = None, labels: list = None) -> "MaxentFeatureTransformer":
         """Compute the minimum and maximum for scaling.
