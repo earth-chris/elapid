@@ -226,13 +226,13 @@ class ThresholdTransformer(BaseEstimator, TransformerMixin):
     """Applies binary thresholds to each covariate based on n evenly-spaced
     thresholds across it's min/max range."""
 
-    n_thresholds_: int = None
+    n_thresholds: int = None
     mins_: np.ndarray = None
     maxs_: np.ndarray = None
     threshold_indices_: np.ndarray = None
 
     def __init__(self, n_thresholds: int = MaxentConfig.n_threshold_features):
-        self.n_thresholds_ = n_thresholds
+        self.n_thresholds = n_thresholds
 
     def fit(self, x: ArrayLike) -> "ThresholdTransformer":
         """Compute the minimum and maximum for scaling.
@@ -248,7 +248,7 @@ class ThresholdTransformer(BaseEstimator, TransformerMixin):
         x = np.array(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
-        self.threshold_indices_ = np.linspace(self.mins_, self.maxs_, self.n_thresholds_)
+        self.threshold_indices_ = np.linspace(self.mins_, self.maxs_, self.n_thresholds)
 
         return self
 
@@ -285,13 +285,13 @@ class ThresholdTransformer(BaseEstimator, TransformerMixin):
 class HingeTransformer(BaseEstimator, TransformerMixin):
     """Fits hinge transformations to an array of covariates."""
 
-    n_hinges_: int = None
+    n_hinges: int = None
     mins_: np.ndarray = None
     maxs_: np.ndarray = None
     hinge_indices_: np.ndarray = None
 
     def __init__(self, n_hinges: int = MaxentConfig.n_hinge_features):
-        self.n_hinges_ = n_hinges
+        self.n_hinges = n_hinges
 
     def fit(self, x: ArrayLike) -> "HingeTransformer":
         """Compute the minimum and maximum for scaling.
@@ -307,7 +307,7 @@ class HingeTransformer(BaseEstimator, TransformerMixin):
         x = np.array(x)
         self.mins_ = x.min(axis=0)
         self.maxs_ = x.max(axis=0)
-        self.hinge_indices_ = np.linspace(self.mins_, self.maxs_, self.n_hinges_)
+        self.hinge_indices_ = np.linspace(self.mins_, self.maxs_, self.n_hinges)
 
         return self
 
@@ -322,7 +322,7 @@ class HingeTransformer(BaseEstimator, TransformerMixin):
             ndarray with transformed data.
         """
         x = np.array(x)
-        xarr = repeat_array(x, self.n_hinges_ - 1, axis=-1)
+        xarr = repeat_array(x, self.n_hinges - 1, axis=-1)
         lharr = repeat_array(self.hinge_indices_[:-1].transpose(), len(x), axis=0)
         rharr = repeat_array(self.hinge_indices_[1:].transpose(), len(x), axis=0)
         lh = left_hinge(xarr, lharr, self.maxs_)
@@ -507,13 +507,13 @@ class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
             estimator = ThresholdTransformer(n_thresholds=self.n_threshold_features)
             estimator.fit(con)
             self.estimators_["threshold"] = estimator
-            feature_names += ["threshold"] * (estimator.n_thresholds_ * ncols)
+            feature_names += ["threshold"] * (estimator.n_thresholds * ncols)
 
         if "hinge" in self.feature_types:
             estimator = HingeTransformer(n_hinges=self.n_hinge_features)
             estimator.fit(con)
             self.estimators_["hinge"] = estimator
-            feature_names += ["hinge"] * ((estimator.n_hinges_ - 1) * 2 * ncols)
+            feature_names += ["hinge"] * ((estimator.n_hinges - 1) * 2 * ncols)
 
         if cat is not None:
             estimator = CategoricalTransformer()
