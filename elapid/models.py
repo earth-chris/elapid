@@ -27,10 +27,6 @@ try:
     from glmnet.logistic import LogitNet
 
 except ModuleNotFoundError:
-    warn(
-        "Failed to import glmnet: using sklearn for Maxent. Interpret results with caution.",
-        category=RuntimeWarning,
-    )
     FORCE_SKLEARN = True
 
 
