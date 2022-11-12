@@ -154,17 +154,21 @@ class BufferedLeaveOneOut(BaseCrossValidator):
         if class_label is None:
             if count:
                 return len(points)
-            return range(len(points))
+            else:
+                return range(len(points))
+
         else:
             in_class = points[class_label] == 1
             if count:
                 return in_class.sum()
-            return np.where(in_class)[0]
+            else:
+                return np.where(in_class)[0]
 
     def _iter_test_indices(self, points: Vector, class_label: str = None, groups: str = None, y: None = None):
         """Generate indices for test data samples."""
         if groups is None:
             test_idxs = self._point_idxs(points, class_label)
+
         else:
             test_idxs = self._group_idxs(points, class_label, groups)
 

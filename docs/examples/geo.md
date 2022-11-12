@@ -259,6 +259,18 @@ for train_idx, test_idx in bloo.split(point_stack):
     # split x/y data, fit models, evaluate, etc.
 ```
 
+In SDM contexts, however, standard leave-one-out strategies may not be appropriate. Model performance is best evaluated on presence-only data; model performance on background points may not be meaningful.
+
+To only run the leave-one-out analysis on presence-only points, specify the column with the 0/1 class labels during train/test splitting:
+
+```python
+bloo = ela.BufferedLeaveOneOut(distance=1000)
+for train_idx, test_idx in bloo.split(point_stack, class_label="class"):
+    train_points = point_stack.iloc[train_idx]
+    test_point = point_stack.iloc[test_idx]
+    # runs leave-one-out CV only for y=1 samples
+```
+
 This function also modifies the "leave-one-out" approach to support testing on multiple points per-fold. You may want to run your cross-validation to evaluate test performance across multiple ecoregions, for example.
 
 You can do this by passing the `group` keyword during train/test splitting, and the value should correspond to a column name in the GeoDataFrame you pass.
@@ -267,7 +279,7 @@ You can do this by passing the `group` keyword during train/test splitting, and 
 bloo = ela.BufferedLeaveOneOut(distance=1000)
 for train_idx, test_idx in bloo.split(point_stack, group="Ecoregion"):
     train_points = point_stack.iloc[train_idx]
-    test_point = point_stack.iloc[test_idx]
+    test_points = point_stack.iloc[test_idx]
     # assumes `point_stack` has an 'Ecoregion' column
 ```
 
