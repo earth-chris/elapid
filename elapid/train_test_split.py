@@ -117,8 +117,6 @@ class GeographicKFold(BaseCrossValidator):
 class BufferedLeaveOneOut(BaseCrossValidator):
     """Leave-one-out CV that excludes training points within a buffered distance."""
 
-    distance: float = None
-
     def __init__(self, distance: float):
         """Buffered leave-one-out cross-validation strategy.
 

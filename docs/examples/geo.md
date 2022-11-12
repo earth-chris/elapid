@@ -219,7 +219,9 @@ This function uses `ela.nearest_point_distance()`, a handy function for computin
 
 Uniformly random train/test splits are generally discouraged in spatial modeling because of the strong spatial structure inherent in many datasets. The non-independence of these data is referred to as spatial autocorrelation. Using distance- or density-based sample weights is one way to mitigate these effects. Another is to split the data into geographically distinct train/test regions to try and prioritize model generalization.
 
-One method is to use a "checkerbox" system for creating train/test splits. Points are intersected along a regular grid, and every other grid is used to split the data into train/test sets.
+### Checkerboard splits
+
+With a "checkerbox" train/test split, points are intersected along a regular grid, and every other grid is used to split the data into train/test sets.
 
 ```python
 train, test = ela.checkerboard_split(point_stack, grid_size=1000)
@@ -229,7 +231,9 @@ The height and width of the grid used to split the data is controlled by the `gr
 
 The black and white structure of the checkerboard means this method can only generate one train/test split.
 
-Alternatively, you can create `k` geographically-clustered folds using the `GeographicKFold` cross validation strategy:
+### Geographic k-fold splits
+
+Alternatively, you can create `k` geographically-clustered folds using the `GeographicKFold` cross validation strategy. This method is effective for understanding how well models fit in one region will generalize to areas outside the training domain.
 
 ```python
 gfolds = ela.GeographicKFold(n_folds=4)
@@ -240,6 +244,34 @@ for train_idx, test_idx in gfolds.split(point_stack):
 ```
 
 This method uses KMeans clustering, fit with the x/y locations of the point data, to group points into spatially distinct clusters. This cross-validation strategy is a good way to test how well models generalize outside of their training extents into novel geographic regions.
+
+### Buffered leave-one-out cross-validation
+
+Leave-one-out cross-validation refers to training on *n-1* points and testing on a single test point, looping over the full dataset to test on each point separately.
+
+The buffered leave-one-out strategy, as described by [Ploton et al. 2020](https://www.nature.com/articles/s41467-020-18321-y), modifies this approach. While each point is iterated over for testing, the pool of available training points is reduced at each iteration by dropping training points located within a certain distance of the test data. The purpose of this method is to evaluate how a model performs far away from where it was trained.
+
+```python
+bloo = ela.BufferedLeaveOneOut(distance=1000)
+for train_idx, test_idx in bloo.split(point_stack):
+    train_points = point_stack.iloc[train_idx]
+    test_point = point_stack.iloc[test_idx]
+    # split x/y data, fit models, evaluate, etc.
+```
+
+This function also modifies the "leave-one-out" approach to support testing on multiple points per-fold. You may want to run your cross-validation to evaluate test performance across multiple ecoregions, for example.
+
+You can do this by passing the `group` keyword during train/test splitting, and the value should correspond to a column name in the GeoDataFrame you pass.
+
+```python
+bloo = ela.BufferedLeaveOneOut(distance=1000)
+for train_idx, test_idx in bloo.split(point_stack, group="Ecoregion"):
+    train_points = point_stack.iloc[train_idx]
+    test_point = point_stack.iloc[test_idx]
+    # assumes `point_stack` has an 'Ecoregion' column
+```
+
+This will find the unique values in the `Ecoregion` column and iterate over those values, using the points from each ecoregion as test folds and excluding points within 1000m of those locations from the training data.
 
 ---
 
