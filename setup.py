@@ -8,10 +8,6 @@ version = open(os.path.join(this_dir, "elapid", "__version__.py")).read().strip(
 long_description = open(os.path.join(this_dir, "README.md"), "r", encoding="utf-8").read()
 requirements = open(os.path.join(this_dir, "requirements.txt"), "r", encoding="utf-8").read().strip().split()
 
-# remove glmnet requirement for windows installs
-if platform.system() != "Linux":
-    [requirements.pop(idx) for idx, pkg in enumerate(requirements) if "glmnet" in pkg]
-
 setup_args = {
     "name": "elapid",
     "version": version,
@@ -33,6 +29,9 @@ setup_args = {
     "packages": ["elapid"],
     "include_package_data": True,
     "install_requires": requirements,
+    "extras_require": {
+        "glmnet": "glmnet",
+    },
     "python_requires": ">=3.7.0",
     "platforms": "any",
     "classifiers": [
