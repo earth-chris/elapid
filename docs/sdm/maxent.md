@@ -14,9 +14,7 @@ Formally, Maxent estimates habitat suitability (i.e. the fundamental niche) usin
 
 Maxent doesn't directly estimate relationships between presence/background data and environmental covariates (so, not just `y ~ x`). Instead, it fits a series of feature transformatons to the covariate data (`z = f(x)`), like computing quadratic transformations or computing the pairwise products of each covariate. Maxent then estimates the conditional probability of finding a species given a set of environmental conditions as:
 
-```
-Pr(y = 1 | f(z)) = (f_1(z) * Pr(y = 1)) / f(z)
-```
+$$Pr(y = 1 | f(z)) = (f_1(z) * Pr(y = 1)) / f(z)$$
 
 This can be interpreted as: "the relative likelihood of observing a species at any point on the landscape is determined by differences in the distributions of environmental conditions where a species is found relative to the distributions at a random sample across the landscape."
 
