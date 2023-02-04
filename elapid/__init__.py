@@ -22,6 +22,7 @@ from elapid.geo import (
     xy_to_geoseries,
     zonal_stats,
 )
-from elapid.models import MaxentModel, NicheEnvelopeModel
+from elapid.models import EnsembleModel, MaxentModel, NicheEnvelopeModel
 from elapid.stats import normalize_sample_probabilities
+from elapid.train_test_split import BufferedLeaveOneOut, GeographicKFold, checkerboard_split
 from elapid.utils import load_object, load_sample_data, save_object

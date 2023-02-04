@@ -29,9 +29,10 @@ class MaxentConfig:
 
     # species prevalence scalar
     tau: float = 0.5
+    transform: str = "cloglog"
 
     # model convergence tolerance threshold
-    tolerance: float = 1e-7
+    tolerance: float = 2e-6
 
     # elasticnet lambda type to use ('best' or 'last')
     use_lambdas: str = "best"
@@ -53,3 +54,8 @@ class RegularizationConfig:
 
 class NicheEnvelopeConfig:
     percentile_range: Tuple[float, float] = [2.5, 97.5]
+    overlay: str = "average"
+
+
+class EnsembleConfig:
+    reducer: str = "mean"

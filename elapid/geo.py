@@ -27,7 +27,7 @@ from elapid.utils import (
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"bar_format": "{l_bar}{bar:20}{r_bar}{bar:-20b}"}
+tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 # sampling tools
 
@@ -98,14 +98,15 @@ def stack_geometries(
     return gdf
 
 
-def sample_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gpd.GeoSeries:
-    """Creates a random geographic sampling of points based on a raster's extent.
+def sample_raster(raster_path: str, count: int, nodata: float = None, ignore_mask: bool = False) -> gpd.GeoSeries:
+    """Create a random geographic sample of points based on a raster's extent.
 
     Selects from unmasked locations if the rasters nodata value is set.
 
     Args:
         raster_path: raster file path to sample locations from
         count: number of samples to generate
+        nodata: add pixels with this value to the nodata mask
         ignore_mask: sample from the full extent of the raster instead of unmasked areas only
 
     Returns:
@@ -115,12 +116,27 @@ def sample_raster(raster_path: str, count: int, ignore_mask: bool = False) -> gp
     with rio.open(raster_path) as src:
 
         if src.nodata is None or ignore_mask:
-            xmin, ymin, xmax, ymax = src.bounds
-            xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
+            if nodata is None:
+                xmin, ymin, xmax, ymax = src.bounds
+                xy = np.random.uniform((xmin, ymin), (xmax, ymax), (count, 2))
+            else:
+                data = src.read(1)
+                mask = data != nodata
+                rows, cols = np.where(mask)
+                samples = np.random.randint(0, len(rows), count)
+                xy = np.zeros((count, 2))
+                for i, sample in enumerate(samples):
+                    xy[i] = src.xy(rows[sample], cols[sample])
 
         else:
-            masked = src.read_masks(1)
-            rows, cols = np.where(masked == 255)
+            if nodata is None:
+                masked = src.read_masks(1)
+                rows, cols = np.where(masked == 255)
+            else:
+                data = src.read(1, masked=True)
+                data.mask += data.data == nodata
+                rows, cols = np.where(~data.mask)
+
             samples = np.random.randint(0, len(rows), count)
             xy = np.zeros((count, 2))
             for i, sample in enumerate(samples):
@@ -284,24 +300,6 @@ def crs_match(crs1: CRSType, crs2: CRSType) -> bool:
 # raster reading tools
 
 
-def _read_pixel_value(point: gpd.GeoSeries, source: rio.io.DatasetReader) -> np.ndarray:
-    """Reads raster value from an open rasterio dataset.
-
-    Designed to be run using a `geodataframe.apply()` function.
-
-    Args:
-        point: a row from gdf.apply() or gdf.iterrows()
-        source: an open rasterio data source
-
-    Returns:
-        values: 1-d n-length array with the pixel values of each raster band.
-    """
-    row, col = source.index(point.geometry.x, point.geometry.y)
-    window = rio.windows.Window(col, row, 1, 1)
-    values = source.read(window=window, boundless=True)
-    return np.squeeze(values)
-
-
 def annotate(
     points: Union[str, gpd.GeoSeries, gpd.GeoDataFrame],
     raster_paths: Union[str, list],
@@ -425,7 +423,11 @@ def annotate_geoseries(
             xys = [(point.x, point.y) for point in points]
 
             # read each pixel value
-            samples = np.array(list(src.sample(xys, masked=False)), dtype=dtype)
+            n_points = len(points)
+            samples_iter = list(
+                tqdm(src.sample(xys, masked=False), desc="Sample", total=n_points, leave=False, **tqdm_opts)
+            )
+            samples = np.array(samples_iter, dtype=dtype)
 
             # identify nodata points to remove later
             if drop_na and src.nodata is not None:
@@ -474,8 +476,7 @@ def apply_model_to_array(
         count: number of bands in the prediction output
         dtype: prediction array dtype
         predict_proba: use model.predict_proba() instead of model.predict()
-        **kwargs: additonal keywords to pass to model.predict().
-            For MaxentModels, this would include transform="logistic"
+        **kwargs: additonal keywords to pass to model.predict()
 
     Returns:
         ypred_window: Array of shape (nrows, ncols) with model predictions
@@ -539,7 +540,6 @@ def apply_model_to_rasters(
         predict_proba: use model.predict_proba() instead of model.predict()
         ignore_sklearn: silence sklearn warning messages
         **kwargs: additonal keywords to pass to model.predict()
-            For MaxentModels, this would include transform="logistic"
 
     Returns:
         None: saves model predictions to disk.

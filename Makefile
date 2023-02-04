@@ -26,7 +26,7 @@ init:
 	${CONDA} pip install -e .
 
 utils:
-	${CONDA} pip install ipython jupyter matplotlib
+	${CONDA} pip install ipython jupyter matplotlib mkdocs-material mkdocstrings[python] mkdocs-jupyter
 
 test:
 	${CONDA} pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered

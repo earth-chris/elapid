@@ -7,11 +7,12 @@
 </p>
 
 ![GitHub](https://img.shields.io/github/license/earth-chris/elapid)
-![PyPI](https://img.shields.io/pypi/v/elapid)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/earth-chris/elapid/docs)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/elapid)
+![PyPI version](https://img.shields.io/pypi/v/elapid)
+![Anaconda version](https://anaconda.org/conda-forge/elapid/badges/version.svg)
+![GitHub workflow status](https://img.shields.io/github/workflow/status/earth-chris/elapid/docs)
+![PyPI downloads](https://img.shields.io/pypi/dm/elapid)
 ![GitHub last commit](https://img.shields.io/github/last-commit/earth-chris/elapid)
-![Lines of code](https://img.shields.io/tokei/lines/github/earth-chris/elapid)
+[![JOSS manuscript status](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6/status.svg)](https://earth-chris.github.io/elapid/paper/draft-paper.pdf)
 
 ---
 
@@ -31,13 +32,11 @@ The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* 
 
 ## :seedling: Installation
 
-```bash
-pip install elapid
-```
+`pip install elapid` or `conda install -c conda-forge elapid`
 
-This should suffice for most linux/mac users, as there are builds available for most of the dependencies (`numpy`, `sklearn`, `glmnet`, `geopandas`, `rasterio`).
+Installing `glmnet` is optional, but recommended. This can be done with `pip install elapid[glmnet]` or `conda install -c conda-forge elapid glmnet`. For more support, and for information on why this package is recommended, see [this page](https://elapid.org/install#installing-glmnet).
 
-While there is a pip distribution for Windows, you may experience some challenges during install. The easiest way to overcome these challenges is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise see [this page](/install) for install support.
+The `conda` install is recommended for Windows users. While there is a `pip` distribution, you may experience some challenges. The easiest way to overcome them is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise, see [this page](https://elapid.org/install) for support.
 
 ---
 
@@ -71,6 +70,10 @@ Transform covariate data into derivative `features` to expand data dimensionalit
 
 Train and apply species distribution models based on annotated point data, configured with sensible defaults (like `elapid.MaxentModel()` and `elapid.NicheEnvelopeModel()`).
 
+:satellite: **Training spatially-aware models**
+
+Compute spatially-explicit sample weights, checkerboard train/test splits, or geographically-clustered cross-validation splits to reduce spatial autocorellation effects (with `elapid.distance_weights()`, `elapid.checkerboard_split()` and `elapid.GeographicKFold()`).
+
 :earth_asia: **Applying models to rasters**
 
 Apply any pixel-based model with a `.predict()` method to raster data to easily create prediction probability maps (like training a `RandomForestClassifier()` and applying with `elapid.apply_model_to_rasters()`).
@@ -93,10 +96,12 @@ The extra flexibility provided by `elapid` enables more control over the seeming
 
 ## Developed by
 
-[Christopher Anderson](https://cbanderson.info)
+[Christopher Anderson](https://cbanderson.info)[^1]^,^[^2]
 
 <a href="https://twitter.com/earth_chris">![Twitter Follow](https://img.shields.io/twitter/follow/earth_chris)</a>
 <a href="https://github.com/earth-chris">![GitHub Stars](https://img.shields.io/github/stars/earth-chris?affiliations=OWNER%2CCOLLABORATOR&style=social)</a>
 
 [home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
+[^1]: [Salo Sciences, San Francisco](https://salo.ai)
+[^2]: [Center for Conservation Biology, Stanford University](https://ccb.stanford.edu)
