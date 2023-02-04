@@ -5,7 +5,7 @@ import multiprocessing as mp
 import os
 import pickle
 import sys
-from typing import Any, Callable, Dict, Iterable, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,8 @@ def load_sample_data(name: str = "bradypus") -> Tuple[pd.DataFrame, pd.DataFrame
     """Loads example species presence/background and covariate data.
 
     Args:
-        name: the sample dataset to load. options currently include ["bradypus"], from the R 'maxnet' package
+        name: the sample dataset to load.
+            options currently include ["bradypus"] from the R 'maxnet' package
 
     Returns:
         (x, y): a tuple of dataframes containing covariate and response data, respectively
@@ -51,6 +52,7 @@ def load_sample_data(name: str = "bradypus") -> Tuple[pd.DataFrame, pd.DataFrame
     if name.lower() == "bradypus":
 
         file_path = os.path.join(package_dir, "data", "bradypus.csv.gz")
+        assert os.path.exists(file_path), "sample data missing from install path."
         df = pd.read_csv(file_path, compression="gzip").astype("int64")
         y = df["presence"].astype("int8")
         x = df.drop(columns=["presence"]).astype({"ecoreg": "category"})
@@ -255,12 +257,15 @@ def make_band_labels(n_bands: int) -> list:
     return labels
 
 
-def format_band_labels(raster_paths: list, labels: list = None):
-    """Verifies whether a list of band labels matches the band count,
-        or creates labels when none are passed.
+def format_band_labels(raster_paths: list, labels: List[str] = None):
+    """Verify the number of labels matches the band count, create labels if none passed.
 
     Args:
-        raster_paths:
+        raster_paths: count the total number of bands in these rasters.
+        labels: a list of band labels.
+
+    Returns:
+        labels: creates default band labels if none are passed.
     """
     n_bands = count_raster_bands(raster_paths)
 

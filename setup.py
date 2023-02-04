@@ -28,6 +28,7 @@ setup_args = {
     ],
     "packages": ["elapid"],
     "include_package_data": True,
+    "data_files": [("elapid", ["elapid/data/bradypus.csv.gz"])],
     "install_requires": requirements,
     "extras_require": {
         "glmnet": "glmnet",
