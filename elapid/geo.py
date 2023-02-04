@@ -305,6 +305,7 @@ def annotate(
     raster_paths: Union[str, list],
     labels: list = None,
     drop_na: bool = True,
+    quiet: bool = False,
 ) -> gpd.GeoDataFrame:
     """Read raster values for each point in a vector and append as new columns.
 
@@ -316,6 +317,7 @@ def annotate(
         labels: band name labels. number of labels should match the
             total number of bands across all raster_paths.
         drop_na: drop all records with no-data values.
+        quiet: silence progress bar output.
 
     Returns:
         GeoDataFrame annotated with the pixel values from each raster
@@ -331,6 +333,7 @@ def annotate(
             raster_paths,
             labels=labels,
             drop_na=drop_na,
+            quiet=quiet,
         )
 
     elif isinstance(points, gpd.GeoDataFrame) or isinstance(points, pd.DataFrame):
@@ -339,13 +342,14 @@ def annotate(
             raster_paths,
             labels=labels,
             drop_na=drop_na,
+            quiet=quiet,
         )
 
         # append annotations to the input dataframe
         gdf = pd.concat([points, gdf.drop(["geometry"], axis=1, errors="ignore")], axis=1)
 
     elif os.path.isfile(points):
-        gdf = annotate_vector(points, raster_paths, labels=labels, drop_na=drop_na)
+        gdf = annotate_vector(points, raster_paths, labels=labels, drop_na=drop_na, quiet=quiet)
 
     else:
         raise TypeError("points arg must be a valid path, GeoDataFrame, or GeoSeries")
@@ -358,6 +362,7 @@ def annotate_vector(
     raster_paths: list,
     labels: list = None,
     drop_na: bool = True,
+    quiet: bool = False,
 ) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using a point-format vector file.
 
@@ -366,6 +371,7 @@ def annotate_vector(
         raster_paths: raster paths to extract pixel values from
         labels: band name labels. should match the total number of bands across all raster_paths
         drop_na: drop all records with no-data values
+        quiet: silence progress bar output.
 
     Returns:
         gdf: GeoDataFrame annotated with the pixel values from each raster
@@ -381,7 +387,12 @@ def annotate_vector(
 
 
 def annotate_geoseries(
-    points: gpd.GeoSeries, raster_paths: list, labels: list = None, drop_na: bool = True, dtype: str = None
+    points: gpd.GeoSeries,
+    raster_paths: list,
+    labels: list = None,
+    drop_na: bool = True,
+    dtype: str = None,
+    quiet: bool = False,
 ) -> gpd.GeoDataFrame:
     """Reads and stores pixel values from rasters using point locations.
 
@@ -391,6 +402,7 @@ def annotate_geoseries(
         labels: band labels. must match the total number of bands for all raster_paths.
         drop_na: drop records with no-data values.
         dtype: output column data type. uses the first raster's dtype by default.
+        quiet: silence progress bar output.
 
     Returns:
         gdf: GeoDataFrame annotated with the pixel values from each raster
@@ -408,7 +420,9 @@ def annotate_geoseries(
     nodata_flag = False
 
     # annotate each point with the pixel values for each raster
-    for raster_idx, raster_path in tqdm(enumerate(raster_paths), desc="Raster", total=n_rasters, **tqdm_opts):
+    for raster_idx, raster_path in tqdm(
+        enumerate(raster_paths), desc="Raster", total=n_rasters, disable=quiet, **tqdm_opts
+    ):
         with rio.open(raster_path, "r") as src:
 
             # reproject points to match raster and convert to a dataframe
@@ -425,7 +439,14 @@ def annotate_geoseries(
             # read each pixel value
             n_points = len(points)
             samples_iter = list(
-                tqdm(src.sample(xys, masked=False), desc="Sample", total=n_points, leave=False, **tqdm_opts)
+                tqdm(
+                    src.sample(xys, masked=False),
+                    desc="Sample",
+                    total=n_points,
+                    leave=False,
+                    disable=quiet,
+                    **tqdm_opts,
+                )
             )
             samples = np.array(samples_iter, dtype=dtype)
 
@@ -509,6 +530,7 @@ def apply_model_to_rasters(
     windowed: bool = True,
     predict_proba: bool = False,
     ignore_sklearn: bool = True,
+    quiet: bool = False,
     **kwargs,
 ) -> None:
     """Applies a trained model to a list of raster datasets.
@@ -539,6 +561,7 @@ def apply_model_to_rasters(
             slower, but more memory efficient
         predict_proba: use model.predict_proba() instead of model.predict()
         ignore_sklearn: silence sklearn warning messages
+        quiet: silence progress bar output
         **kwargs: additonal keywords to pass to model.predict()
 
     Returns:
@@ -589,7 +612,7 @@ def apply_model_to_rasters(
 
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
-        for window in tqdm(windows, desc="Window", **tqdm_opts):
+        for window in tqdm(windows, desc="Window", disable=quiet, **tqdm_opts):
 
             # create stacked arrays to handle multi-raster, multi-band inputs
             # that may have different nodata locations
@@ -704,6 +727,7 @@ def zonal_stats(
     mode: bool = False,
     all: bool = False,
     percentiles: list = [],
+    quiet: bool = False,
 ) -> gpd.GeoDataFrame:
     """Compute raster summary stats for each polygon in a GeoSeries or GeoDataFrame.
 
@@ -717,6 +741,7 @@ def zonal_stats(
             set to True to compute these stats
         all: compute all of the above stats
         percentiles: list of 0-100 percentile ranges to compute
+        quiet: silence progress bar output
 
     Returns:
         GeoDataFrame with zonal stats for each raster band in new columns.
@@ -756,7 +781,7 @@ def zonal_stats(
     raster_dfs = []
 
     # run zonal stats raster-by-raster (instead of iterating first over geometries)
-    for r, raster in tqdm(enumerate(raster_paths), total=len(raster_paths), desc="Raster", **tqdm_opts):
+    for r, raster in tqdm(enumerate(raster_paths), total=len(raster_paths), desc="Raster", disable=quiet, **tqdm_opts):
 
         # format the band labels
         band_labels = labels[band_idx[r] : band_idx[r + 1]]
@@ -779,7 +804,9 @@ def zonal_stats(
                 stats_arrays.append(np.zeros((len(polys), n_raster_bands), dtype=dtype))
 
             # iterate over each geometry to read data and compute stats
-            for p, poly in tqdm(enumerate(polys), total=len(polys), desc="Polygon", leave=False, **tqdm_opts):
+            for p, poly in tqdm(
+                enumerate(polys), total=len(polys), desc="Polygon", leave=False, disable=quiet, **tqdm_opts
+            ):
                 data = read_raster_from_polygon(src, poly)
                 for method, array in zip(stats_methods, stats_arrays):
                     array[p, :] = method.reduce(data)
