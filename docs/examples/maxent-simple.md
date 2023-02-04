@@ -13,11 +13,11 @@ output_model_path = "/home/slug/ariolimax-claifornicus-model.ela"
 
 # sample the raster values for background point locations
 presence = gpd.read_file(vector_path)
-pseudoabsence = ela.saple_raster(raster_path, count=5000)
+pseudoabsence = ela.sample_raster(raster_path, count=5000)
 
 # read the raster covariates at each point location
 merged = ela.stack_geometries(presence, pseudoabsence, add_class_label=True)
-annotated = ela.anotate(merged, raster_path)
+annotated = ela.annotate(merged, raster_path)
 
 # split the x/y data
 x = annotated.drop(columns=['class'])
