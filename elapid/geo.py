@@ -24,10 +24,10 @@ from elapid.utils import (
     get_raster_band_indexes,
     get_tqdm,
     n_digits,
+    tqdm_opts,
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 # sampling tools
 
