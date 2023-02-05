@@ -8,7 +8,7 @@ from sklearn.linear_model import LogisticRegression
 from elapid import models
 from elapid.utils import load_sample_data
 
-x, y = load_sample_data()
+x, y = load_sample_data(name="ariolimax", drop_geometry=True)
 
 
 def test_MaxentModel_flow():

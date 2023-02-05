@@ -37,7 +37,7 @@ def repeat_array(x: np.array, length: int = 1, axis: int = 0) -> np.ndarray:
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
 
 
-def load_sample_data(name: str = "ariolimax", drop_geometry=True) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_sample_data(name: str = "ariolimax", drop_geometry: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Loads example species presence/background and covariate data.
 
     Args:
