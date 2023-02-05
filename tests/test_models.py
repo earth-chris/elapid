@@ -127,19 +127,16 @@ def test_format_occurrence_data():
 
 
 def test_preprocessor():
-    # remove the categorical variable
-    xt = x.drop(columns=["ecoreg"]).to_numpy()
-
     # not-fitted transformer
     pca = PCA()
     model = models.MaxentModel(feature_types="l")
-    model.fit(xt, y, preprocessor=pca)
+    model.fit(x, y, preprocessor=pca)
 
     # pre-fitted
     pca = PCA()
-    pca.fit(xt)
+    pca.fit(x)
     model = models.MaxentModel(feature_types="l")
-    model.fit(xt, y, preprocessor=pca)
+    model.fit(x, y, preprocessor=pca)
 
 
 def test_NicheEnvelopeModel():
@@ -163,7 +160,7 @@ def test_NicheEnvelopeModel():
     assert average_narrow[y == 1].sum() < average[y == 1].sum()
 
     # test passing numpy arrays
-    xt = x.drop(columns=["ecoreg"]).to_numpy()
+    xt = x.to_numpy()
     ne = models.NicheEnvelopeModel()
     ne.fit_predict(xt, y)
 
