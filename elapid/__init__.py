@@ -25,4 +25,4 @@ from elapid.geo import (
 from elapid.models import EnsembleModel, MaxentModel, NicheEnvelopeModel
 from elapid.stats import normalize_sample_probabilities
 from elapid.train_test_split import BufferedLeaveOneOut, GeographicKFold, checkerboard_split
-from elapid.utils import load_object, load_sample_data, save_object
+from elapid.utils import download_sample_data, load_object, load_sample_data, save_object

@@ -24,16 +24,16 @@ from elapid.utils import (
     get_raster_band_indexes,
     get_tqdm,
     n_digits,
+    tqdm_opts,
 )
 
 tqdm = get_tqdm()
-tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 # sampling tools
 
 
 def xy_to_geoseries(
-    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4236"
+    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4326"
 ) -> gpd.GeoSeries:
     """Converts x/y data into a geopandas geoseries.
 

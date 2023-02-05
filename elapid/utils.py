@@ -6,7 +6,9 @@ import os
 import pickle
 import sys
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+from urllib import request
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
@@ -14,6 +16,7 @@ import rasterio as rio
 from elapid.types import Number
 
 NCPUS = mp.cpu_count()
+tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 
 class NoDataException(Exception):
@@ -34,29 +37,77 @@ def repeat_array(x: np.array, length: int = 1, axis: int = 0) -> np.ndarray:
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
 
 
-def load_sample_data(name: str = "bradypus") -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_sample_data(name: str = "ariolimax", drop_geometry: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Loads example species presence/background and covariate data.
 
     Args:
-        name: the sample dataset to load.
-            options currently include ["bradypus"] from the R 'maxnet' package
+        name: the sample dataset to load. options include:
+            "ariolimax" button's banana slug dataset
+            "bradypus" from the R 'maxnet' package
 
     Returns:
         (x, y): a tuple of dataframes containing covariate and response data, respectively
     """
-    assert name.lower() in ["bradypus"], "Invalid sample data requested"
+    name = str.lower(name)
+    assert name in ["bradypus", "ariolimax"], "Invalid sample data requested"
 
     package_path = os.path.realpath(__file__)
     package_dir = os.path.dirname(package_path)
 
-    if name.lower() == "bradypus":
-
+    if name == "bradypus":
         file_path = os.path.join(package_dir, "data", "bradypus.csv.gz")
         assert os.path.exists(file_path), "sample data missing from install path."
         df = pd.read_csv(file_path, compression="gzip").astype("int64")
         y = df["presence"].astype("int8")
         x = df.drop(columns=["presence"]).astype({"ecoreg": "category"})
         return x, y
+
+    if name == "ariolimax":
+        file_path = os.path.join(package_dir, "data", "ariolimax.gpkg")
+        assert os.path.exists(file_path), "sample data missing from install path."
+        df = gpd.read_file(file_path)
+        columns_to_drop = ["presence"]
+        if drop_geometry:
+            columns_to_drop.append("geometry")
+        x = df.drop(columns=columns_to_drop)
+        y = df["presence"].astype("int8")
+        return x, y
+
+
+def download_sample_data(dir: str, name: str = "ariolimax", quiet: bool = False) -> None:
+    """Downloads sample raster and vector files from a web server.
+
+    Args:
+        dir: the directory to download the data to
+        name: the sample dataset to download. options include:
+            "ariolimax" button's banana slug dataset
+        quiet: disable the progress bar
+
+    Returns:
+        None. Downloads files to `dir`
+    """
+    name = str.lower(name)
+    https = "https://earth-chris.github.io/images/research"
+
+    if name == "ariolimax":
+        fnames = [
+            "ariolimax-ca.gpkg",
+            "ca-cloudcover-mean.tif",
+            "ca-cloudcover-stdv.tif",
+            "ca-leafareaindex-mean.tif",
+            "ca-leafareaindex-stdv.tif",
+            "ca-surfacetemp-mean.tif",
+            "ca-surfacetemp-stdv.tif",
+        ]
+
+    try:
+        os.mkdir(dir)
+    except FileExistsError:
+        pass
+
+    tqdm = get_tqdm()
+    for fname in tqdm(fnames, disable=quiet, **tqdm_opts):
+        request.urlretrieve(f"{https}/{fname}", os.path.join(dir, fname))
 
 
 def save_object(obj: object, path: str, compress: bool = True) -> None:

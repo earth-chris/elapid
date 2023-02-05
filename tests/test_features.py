@@ -1,7 +1,7 @@
 from elapid import features
 from elapid.utils import load_sample_data
 
-x, y = load_sample_data()
+x, y = load_sample_data(name="ariolimax", drop_geometry=True)
 nrows, ncols = x.shape
 
 
@@ -75,12 +75,13 @@ def test_HingeTransformer():
 
 
 def test_CategoricalTransformer():
+    x, y = load_sample_data("bradypus")
     cat = x["ecoreg"]
     n_unique = len(cat.unique())
     ct = features.CategoricalTransformer()
     t = ct.fit_transform(cat)
     trows, tcols = t.shape
-    assert trows == nrows
+    assert trows == len(y)
     assert tcols == n_unique
 
 
