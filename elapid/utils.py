@@ -6,6 +6,7 @@ import os
 import pickle
 import sys
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+from urllib import request
 
 import geopandas as gpd
 import numpy as np
@@ -15,6 +16,7 @@ import rasterio as rio
 from elapid.types import Number
 
 NCPUS = mp.cpu_count()
+tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 
 class NoDataException(Exception):
@@ -70,6 +72,42 @@ def load_sample_data(name: str = "ariolimax", drop_geometry=True) -> Tuple[pd.Da
         x = df.drop(columns=columns_to_drop)
         y = df["presence"].astype("int8")
         return x, y
+
+
+def download_sample_data(dir: str, name: str = "ariolimax", quiet: bool = False) -> None:
+    """Downloads sample raster and vector files from a web server.
+
+    Args:
+        dir: the directory to download the data to
+        name: the sample dataset to download. options include:
+            "ariolimax" button's banana slug dataset
+        quiet: disable the progress bar
+
+    Returns:
+        None. Downloads files to `dir`
+    """
+    name = str.lower(name)
+    https = "https://earth-chris.github.io/images/research"
+
+    if name == "ariolimax":
+        fnames = [
+            "ariolimax-ca.gpkg",
+            "ca-cloudcover-mean.tif",
+            "ca-cloudcover-stdv.tif",
+            "ca-leafareaindex-mean.tif",
+            "ca-leafareaindex-stdv.tif",
+            "ca-surfacetemp-mean.tif",
+            "ca-surfacetemp-stdv.tif",
+        ]
+
+    try:
+        os.mkdir(dir)
+    except FileExistsError:
+        pass
+
+    tqdm = get_tqdm()
+    for fname in tqdm(fnames, disable=quiet, **tqdm_opts):
+        request.urlretrieve(f"{https}/{fname}", os.path.join(dir, fname))
 
 
 def save_object(obj: object, path: str, compress: bool = True) -> None:

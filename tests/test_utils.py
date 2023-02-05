@@ -1,8 +1,10 @@
 """Unit tests for the elapid/utils.py module"""
 
 import os
+import shutil
 import tempfile
 from copy import copy
+from glob import glob
 
 import numpy as np
 import rasterio as rio
@@ -47,6 +49,16 @@ def test_load_sample_data():
     first_record = np.array([76, 104, 10, 2, 121, 46, 84, 41, 54, 3, 192, 266, 337, 279])
     diff = x.iloc[0].to_numpy() - first_record
     assert diff.sum() == 0, "First row of bradypus data incorrectly read"
+
+
+def test_download_sample_data():
+    outdir = "tmp-download"
+    utils.download_sample_data(outdir)
+    assert os.path.exists(outdir)
+    fnames = glob(os.path.join(outdir, "*"))
+    for fname in fnames:
+        assert os.path.getsize(fname) > 0
+    shutil.rmtree(outdir)
 
 
 def test_save_object():
