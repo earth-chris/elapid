@@ -33,7 +33,7 @@ tqdm_opts = {"bar_format": "{l_bar}{bar:30}{r_bar}{bar:-30b}"}
 
 
 def xy_to_geoseries(
-    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4236"
+    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4326"
 ) -> gpd.GeoSeries:
     """Converts x/y data into a geopandas geoseries.
 
