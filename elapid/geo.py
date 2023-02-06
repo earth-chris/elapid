@@ -56,7 +56,7 @@ def xy_to_geoseries(
     return gs
 
 
-def stack_geometries(
+def stack_geodataframes(
     presence: Vector, background: Vector, add_class_label: bool = False, target_crs: str = "presence"
 ) -> gpd.GeoDataFrame:
     """Concatenate geometries from two GeoSeries/GeoDataFrames.
@@ -84,16 +84,18 @@ def stack_geometries(
         else:
             raise NameError(f"Unrecognized target_crs option: {target_crs}")
 
-    attributes = {}
-    if add_class_label:
-        npresence = len(pgeo)
-        nbackground = len(bgeo)
-        classes = np.zeros(npresence + nbackground, dtype="uint8")
-        classes[:npresence] = 1
-        attributes["class"] = classes
+    presence["geometry"] = pgeo
+    background["geometry"] = bgeo
 
-    geometry = pd.concat((pgeo, bgeo), axis=0, ignore_index=True)
-    gdf = gpd.GeoDataFrame(attributes, geometry=geometry, crs=crs)
+    if add_class_label:
+        presence["class"] = 1
+        background["class"] = 0
+
+    matching = [col for col in presence.columns if col in background.columns]
+    assert len(matching) > 0, "no matching columns found between data frames"
+
+    merged = pd.concat((presence[matching], background[matching]), axis=0, ignore_index=True)
+    gdf = gpd.GeoDataFrame(merged, crs=crs)
 
     return gdf
 

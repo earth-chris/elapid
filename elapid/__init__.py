@@ -1,5 +1,6 @@
 """User entrypoint to elapid"""
 
+from elapid.__version__ import __doc__ as __version__
 from elapid.features import (
     CategoricalTransformer,
     HingeTransformer,
@@ -18,7 +19,7 @@ from elapid.geo import (
     sample_geoseries,
     sample_raster,
     sample_vector,
-    stack_geometries,
+    stack_geodataframes,
     xy_to_geoseries,
     zonal_stats,
 )
