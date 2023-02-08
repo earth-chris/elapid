@@ -29,8 +29,8 @@ nav:
         - Maxent: 'sdm/maxent.md'
         - NicheEnvelope: 'sdm/nicheenvelope.md'
     - Examples:
+        - A Simple Maxent Model: 'examples/MaxentSimpleModel.ipynb'
         - Working with Geospatial Data: 'examples/WorkingWithGeospatialData.ipynb'
-        - A Simple Maxent Model: 'examples/maxent-simple.md'
     - API Documentation:
         - elapid.features: 'module/features.md'
         - elapid.geo: 'module/geo.md'
