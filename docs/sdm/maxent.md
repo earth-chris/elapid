@@ -53,12 +53,13 @@ The `elapid.MaxentModel()` object takes these data, fits features from covariate
 
 ### Feature transformations
 
-You can also generate and evaluate features before passing them to the model:
+You can also generate and evaluate features before passing them to the model. Just set the `feature_types` to linear to ensure no additional features are fit.
 
 ```python
+model = ela.MaxentModel(feature_types=["linear"])
 features = elapid.MaxentFeatureTransformer()
 z = features.fit_transform(x)
-model.fit(z, y, is_features=True)
+model.fit(z, y)
 ```
 
 `MaxentFeatureTransformer()` behaves like an sklearn `preprocessing` class. Use `features.fit(x_train)` to fit features, `features.transform(x_test)` to apply to new covariate data, or `features.fit_transform(x)` to fit features and return the transformed data.
