@@ -19,12 +19,11 @@ The `percentile_range` parameter controls how inclusive the envelope is. Setting
 Binary suitability is assessed on a per-covariate basis, so the envelope has as many dimensions as it does covariates. `elapid` includes three methods for estimating the envelope of suitability across these dimensions.
 
 ```python
-envelope.predict(x, overlay='intersection')
-envelope.predict(x, overlay='union')
-envelope.predict(x, overlay='average')
+# overlay options include ['average', 'intersection', 'union']
+envelope = ela.NicheEnvelopeModel(overlay='intersection')
 ```
 
-The intersection only includes areas with suitable conditions for each covariate within the envelope. If any covariate is within the suitable range, it is included in the overlay envelope. The final method simply averages the binary suitability scores across each covariate to produce a 0.0-1.0 score.
+`average` computes the pixel-wise mean of the the binary suitability scores across each covariate to produce a 0.0-1.0 score. `intersection` only includes areas with suitable conditions for all covariates within the envelope. Conversely, `union` includes an area within the envelop if any covariate is within the suitable range.
 
 ---
 
@@ -37,11 +36,11 @@ Since many methods expect that background points represent the landscape of pote
 ```python
 # estimate the envelope of suitability
 x, y = ela.load_sample_data()
-envelope = ela.NicheEnvelopeModel()
+envelope = ela.NicheEnvelopeModel(overlay="average")
 envelope.fit(x, y)
 
 # only select points with >50% envelope suitability
-in_range = envelope.predict(x, overlay='average') > 0.5
+in_range = envelope.predict(x) > 0.5
 xsub, ysub = x[in_range], y[in_range]
 
 # fit a maxent model
