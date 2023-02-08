@@ -9,7 +9,7 @@
 ![GitHub](https://img.shields.io/github/license/earth-chris/elapid)
 ![PyPI version](https://img.shields.io/pypi/v/elapid)
 ![Anaconda version](https://anaconda.org/conda-forge/elapid/badges/version.svg)
-![GitHub workflow status](https://img.shields.io/github/workflow/status/earth-chris/elapid/docs)
+![GitHub workflow status](https://img.shields.io/github/workflow/status/earth-chris/elapid/run-pytest.yml)
 ![PyPI downloads](https://img.shields.io/pypi/dm/elapid)
 ![GitHub last commit](https://img.shields.io/github/last-commit/earth-chris/elapid)
 [![JOSS manuscript status](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6/status.svg)](https://earth-chris.github.io/elapid/paper/draft-paper.pdf)
@@ -96,7 +96,7 @@ The extra flexibility provided by `elapid` enables more control over the seeming
 
 ## Developed by
 
-[Christopher Anderson](https://cbanderson.info)[^1]^,^[^2]
+[Christopher Anderson](https://cbanderson.info)[^1] [^2]
 
 <a href="https://twitter.com/earth_chris">![Twitter Follow](https://img.shields.io/twitter/follow/earth_chris)</a>
 <a href="https://github.com/earth-chris">![GitHub Stars](https://img.shields.io/github/stars/earth-chris?affiliations=OWNER%2CCOLLABORATOR&style=social)</a>
