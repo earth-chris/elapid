@@ -71,21 +71,25 @@ def stack_geodataframes(
     Returns:
         merged GeoDataFrame with all geometries projected to the same crs.
     """
-    pgeo = presence.geometry
-    bgeo = background.geometry
+    validate_gpd(presence)
+    validate_gpd(background)
 
+    # cast to geodataframes
+    if isinstance(presence, gpd.GeoSeries):
+        presence = presence.to_frame("geometry")
+    if isinstance(background, gpd.GeoSeries):
+        background = background.to_frame("geometry")
+
+    # handle projection mismatch
     crs = presence.crs
     if not crs_match(presence.crs, background.crs):
         if target_crs.lower() == "presence":
-            bgeo = bgeo.to_crs(crs)
+            background.to_crs(crs, inplace=True)
         elif target_crs.lower() == "background":
             crs = background.crs
-            pgeo = pgeo.to_crs(crs)
+            presence.to_crs(crs, inplace=True)
         else:
             raise NameError(f"Unrecognized target_crs option: {target_crs}")
-
-    presence["geometry"] = pgeo
-    background["geometry"] = bgeo
 
     if add_class_label:
         presence["class"] = 1
@@ -330,6 +334,7 @@ def annotate(
 
     # read raster values based on the points dtype
     if isinstance(points, gpd.GeoSeries):
+        points = points.reset_index(drop=True)
         gdf = annotate_geoseries(
             points,
             raster_paths,
@@ -339,6 +344,7 @@ def annotate(
         )
 
     elif isinstance(points, gpd.GeoDataFrame) or isinstance(points, pd.DataFrame):
+        points = points.reset_index(drop=True)
         gdf = annotate_geoseries(
             points.geometry,
             raster_paths,
@@ -355,6 +361,13 @@ def annotate(
 
     else:
         raise TypeError("points arg must be a valid path, GeoDataFrame, or GeoSeries")
+
+    if drop_na:
+        try:
+            valid = gdf["valid"] == 1
+            gdf = gdf[valid].drop(columns="valid").dropna().reset_index(drop=True)
+        except KeyError:
+            pass
 
     return gdf
 
@@ -385,6 +398,7 @@ def annotate_vector(
     gdf = gpd.read_file(vector_path)
     raster_df = annotate_geoseries(gdf.geometry, raster_paths, labels, drop_na)
     gdf = pd.concat([gdf, raster_df.drop(["geometry"], axis=1, errors="ignore")], axis=1)
+
     return gdf
 
 
@@ -395,7 +409,7 @@ def annotate_geoseries(
     drop_na: bool = True,
     dtype: str = None,
     quiet: bool = False,
-) -> gpd.GeoDataFrame:
+) -> (gpd.GeoDataFrame, np.ndarray):
     """Reads and stores pixel values from rasters using point locations.
 
     Args:
@@ -451,22 +465,23 @@ def annotate_geoseries(
                 )
             )
             samples = np.array(samples_iter, dtype=dtype)
+            raster_values.append(samples)
 
             # identify nodata points to remove later
             if drop_na and src.nodata is not None:
                 nodata_flag = True
                 valid_idxs.append(samples[:, 0] != src.nodata)
 
-            raster_values.append(samples)
-
     # merge the arrays from each raster
     values = np.concatenate(raster_values, axis=1, dtype=dtype)
 
     if nodata_flag:
-        valid = np.all(valid_idxs, axis=0)
-        values = values[valid, :]
-        points = points.iloc[valid]
-        points.index = range(valid.sum())
+        valid = np.all(valid_idxs, axis=0).reshape(-1, 1)
+        values = np.concatenate([values, valid], axis=1, dtype=dtype)
+        labels.append("valid")
+        # values = values[valid, :]
+        # points = points.iloc[valid]
+        # points.index = range(valid.sum())
 
     # convert to a geodataframe
     gdf = gpd.GeoDataFrame(values, geometry=points.geometry, columns=labels)

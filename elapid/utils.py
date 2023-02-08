@@ -326,4 +326,4 @@ def format_band_labels(raster_paths: list, labels: List[str] = None):
     n_labels = len(labels)
     assert n_labels == n_bands, f"number of band labels ({n_labels}) != n_bands ({n_bands})"
 
-    return labels
+    return labels.copy()
