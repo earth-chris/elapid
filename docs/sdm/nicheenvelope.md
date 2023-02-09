@@ -48,4 +48,4 @@ maxent = ela.MaxentModel()
 maxent.fit(xsub, ysub)
 ```
 
-This approach is useful for reducing overfitting by excluding point locations that don't represent the range of conditions across the landscape where a species won't occur.
+This approach reduces overfitting by excluding point locations that don't represent the range of conditions across the landscape where a species won't occur.

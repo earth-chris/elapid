@@ -24,7 +24,7 @@ A null model would posit that a species is likely to be distributed uniformly ac
 
 Because of this formulation, the definition of both the landscape and the background are directly related to the definition of how habitat suitability is estimated. These should be defined with care.
 
-`elapid` provides python tools for fitting Maxent models, computing features, and applying models to raster data. Below are some instructions for the first two; the latter is reviewed [here](../examples/geo.md#applying-predictions-to-data).
+`elapid` provides python tools for fitting Maxent models, computing features, and applying models to raster data. Below are some instructions for the first two.
 
 ---
 
@@ -63,8 +63,6 @@ model.fit(z, y)
 ```
 
 `MaxentFeatureTransformer()` behaves like an sklearn `preprocessing` class. Use `features.fit(x_train)` to fit features, `features.transform(x_test)` to apply to new covariate data, or `features.fit_transform(x)` to fit features and return the transformed data.
-
-Setting the `is_features=True` flag is important here because, by default, the `MaxentModel()` class will automatically fit and apply feature tranformations
 
 ### Configuration
 
