@@ -854,7 +854,8 @@ def nearest_point_distance(
         points2: return the closest distance *to* these points
             if None, compute the distance to the nearest points
             in the points1 series
-        n_neighbors: compute the average distance to the nearest n_neighbors
+        n_neighbors: compute the average distance to the nearest n_neighbors.
+            set to -1 to compute the distance to all neighbors.
         cpu_count: number of cpus to use for estimation.
             -1 uses all cores
 
@@ -876,6 +877,9 @@ def nearest_point_distance(
         pta2 = np.array(list(zip(points2.geometry.x, points2.geometry.y)))
         if not crs_match(points1.crs, points2.crs):
             warnings.warn("CRS mismatch between points")
+
+    if n_neighbors < 1:
+        n_neighbors = len(pta2) - k_offset
 
     tree = KDTree(pta1)
     k = np.arange(n_neighbors) + k_offset
