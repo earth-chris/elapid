@@ -3,7 +3,7 @@ title: 'elapid: Species distribution modeling tools for Python'
 tags:
   - biogeography
   - species distribution modeling
-  - gespatial analysis
+  - gesopatial analysis
   - machine learning
   - Python
 authors:
@@ -11,11 +11,11 @@ authors:
     orcid: 0000-0001-7392-4368
     affiliation: "1, 2"
 affiliations:
- - name: Salo Sciences, San Francisco, CA, USA
+ - name: Planet Labs PBC, San Francisco, CA, USA
    index: 1
  - name: Center for Conservation Biology, Stanford University, Stanford, CA, USA
    index: 2
-date: 18 September 2022
+date: 27 February 2023
 bibliography: paper.bib
 ---
 
@@ -34,6 +34,10 @@ Species occurrence data—georeferenced point locations where a species has been
 First is to provide simple and flexible methods for working with spatial data. Point data are managed as `GeoSeries` and `GeoDataFrame` objects [@geopandas], which can be easily merged and split using traditional indexing method as well as with geographic methods. They can also be reprojected on-the-fly. `elapid` reads and writes raster data with `rasterio`, which provides a similarly convenient set of methods for indexing and reading point locations from rasters [@rasterio]. These features are wrapped to handle many of the routine tasks and gotchas of working with geospatial data. It doesn't require data to be rigorously pre-processed so that all rasters are perfectly aligned, nor does it require that all datasets are in matching projections. `elapid` can extract pixel-level raster data from datasets at different resolutions, from multi-band files, and harmonize projections on-the-fly, for both model fitting and for inference.
 
 Another advantage of `elapid`'s flexible design is that it can be used to extend traditional species distribution models in ways that are difficult to implement in other software systems. Working with multi-temporal data, for example—fitting SDMs to occurrence records and environmental data from multiple time periods—is also supported. Each time period's occurrence data can be annotated using the coincident environmental data. Random background samples can likewise be generated for each time period, which ensures the background represents a broad distribution of conditions across the full temporal extent. These presence and background samples are then concatenated into a single `GeoDataFrame` for model fitting. Fitted models can be applied to multi-temporal environmental data to map changes in habitat suitability over time, and can also be saved and restored later for future inference.
+
+Compare to other software. maxnet, ENMeval as comparable, which calls maxnet and dismo under the hood. elapid less focused on providing automated tools for model selection (e.g. through aic), more on expanding the range of available spatial xval methods (they use checkerboard, too). Design choices to allow for more flexible feature engineering (sklearn api design), making predictions on non-raster files (i.e. tabular data in pandas), and flexibility for handling resampling based on the relevant scale (like annotate tool from jetz lab).
+
+ENMEval: https://doi.org/10.1111/2041-210X.13628
 
 # Why Maxent still matters
 
