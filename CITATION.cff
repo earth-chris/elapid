@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: elapid
+message: Species distribution modeling tools for Python
+type: software
+authors:
+  - given-names: Christopher
+    family-names: Anderson
+    email: cbanders@stanford.edu
+    affiliation: 'Stanford University, Stanford, CA, USA'
+    orcid: 'https://orcid.org/0000-0001-7392-4368'
+repository-code: 'https://github.com/earth-chris/elapid'
+url: 'https://elapid.org'
+abstract: Species distribution modeling tools for Python
+keywords:
+  - biogeography
+  - species distribution modeling
+  - geospatial statistics
+  - machine learning
+  - python
+license: MIT
