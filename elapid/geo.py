@@ -854,7 +854,8 @@ def nearest_point_distance(
         points2: return the closest distance *to* these points
             if None, compute the distance to the nearest points
             in the points1 series
-        n_neighbors: compute the average distance to the nearest n_neighbors
+        n_neighbors: compute the average distance to the nearest n_neighbors.
+            set to -1 to compute the distance to all neighbors.
         cpu_count: number of cpus to use for estimation.
             -1 uses all cores
 
@@ -877,6 +878,9 @@ def nearest_point_distance(
         if not crs_match(points1.crs, points2.crs):
             warnings.warn("CRS mismatch between points")
 
+    if n_neighbors < 1:
+        n_neighbors = len(pta2) - k_offset
+
     tree = KDTree(pta1)
     k = np.arange(n_neighbors) + k_offset
     distance, idx = tree.query(pta2, k=k, workers=cpu_count)
@@ -884,14 +888,15 @@ def nearest_point_distance(
     return distance.mean(axis=1)
 
 
-def distance_weights(points: Vector, n_neighbors: int = 1, center: str = "median", cpu_count: int = -1) -> np.ndarray:
+def distance_weights(points: Vector, n_neighbors: int = -1, center: str = "median", cpu_count: int = -1) -> np.ndarray:
     """Compute sample weights based on the distance between points.
 
     Assigns higher scores to isolated points, lower scores to clustered points.
 
     Args:
         points: point-format GeoSeries or GeoDataFrame
-        n_neighbors: compute the average distance to the nearest n_neighbors
+        n_neighbors: compute weights based on average distance to the nearest n_neighbors
+            set to -1 to compute the distance to all neighbors.
         center: rescale the weights to center the mean or median of the array on 1
             accepts either 'mean' or 'median' as input.
             pass None to ignore.
