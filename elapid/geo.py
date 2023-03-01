@@ -82,7 +82,11 @@ def stack_geodataframes(
 
     # handle projection mismatch
     crs = presence.crs
-    if not crs_match(presence.crs, background.crs):
+    if crs_match(presence.crs, background.crs):
+        # explicitly set the two to exactly matching crs as geopandas
+        # throws errors if there's any mismatch at all
+        background.crs = presence.crs
+    else:
         if target_crs.lower() == "presence":
             background.to_crs(crs, inplace=True)
         elif target_crs.lower() == "background":
@@ -120,7 +124,6 @@ def sample_raster(raster_path: str, count: int, nodata: float = None, ignore_mas
     """
     # handle masked vs unmasked data differently
     with rio.open(raster_path) as src:
-
         if src.nodata is None or ignore_mask:
             if nodata is None:
                 xmin, ymin, xmax, ymax = src.bounds
@@ -165,7 +168,6 @@ def sample_bias_file(raster_path: str, count: int, ignore_mask: bool = False) ->
         points: Point geometry geoseries
     """
     with rio.open(raster_path) as src:
-
         if src.nodata is None or ignore_mask:
             data = src.read(1)
             rows, cols = np.where(data)
@@ -440,7 +442,6 @@ def annotate_geoseries(
         enumerate(raster_paths), desc="Raster", total=n_rasters, disable=quiet, **tqdm_opts
     ):
         with rio.open(raster_path, "r") as src:
-
             # reproject points to match raster and convert to a dataframe
             if not crs_match(points.crs, src.crs):
                 points = points.to_crs(src.crs)
@@ -630,7 +631,6 @@ def apply_model_to_rasters(
     # read and reproject blocks from each data source and write predictions to disk
     with rio.open(output_path, "w", **dst_profile) as dst:
         for window in tqdm(windows, desc="Window", disable=quiet, **tqdm_opts):
-
             # create stacked arrays to handle multi-raster, multi-band inputs
             # that may have different nodata locations
             covariates = np.zeros((nbands, window.height, window.width), dtype=np.float32)
@@ -799,7 +799,6 @@ def zonal_stats(
 
     # run zonal stats raster-by-raster (instead of iterating first over geometries)
     for r, raster in tqdm(enumerate(raster_paths), total=len(raster_paths), desc="Raster", disable=quiet, **tqdm_opts):
-
         # format the band labels
         band_labels = labels[band_idx[r] : band_idx[r + 1]]
         n_raster_bands = band_idx[r + 1] - band_idx[r]
@@ -809,7 +808,6 @@ def zonal_stats(
 
         # open the raster for reading
         with rio.open(raster, "r") as src:
-
             # reproject the polygon data as necessary
             if not crs_match(polys.crs, src.crs):
                 polys = polys.to_crs(src.crs)
