@@ -1,16 +1,15 @@
 cff-version: 1.2.0
-title: elapid
-message: Species distribution modeling tools for Python
+title: elapid: Species distribution modeling tools for Python
 type: software
 authors:
-  - given-names: Christopher
+  - given-names: Christopher B.
     family-names: Anderson
     email: cbanders@stanford.edu
     affiliation: 'Stanford University, Stanford, CA, USA'
     orcid: 'https://orcid.org/0000-0001-7392-4368'
 repository-code: 'https://github.com/earth-chris/elapid'
 url: 'https://elapid.org'
-abstract: Species distribution modeling tools for Python
+abstract: Species distribution modeling (SDM) is based on the Grinellean niche concept: the environmental conditions that allow individuals of a species to survive and reproduce will constrain the distributions of those species over space and time. The inputs to these models are typically spatially-explicit species occurrence records and a series of environmental covariates, which might include information on climate, topography, land cover or hydrology. While many modeling methods have been developed to quantify and map these species-environment interactions, few software systems include both a) the appropriate statistical modeling routines and b) support for handling the full suite of geospatial analysis required to prepare data to fit, apply, and summarize these models. `elapid` is both a geospatial analysis and a species distribution modeling package. It provides an interface between vector and raster data for selecting random point samples, annotating point locations with coincident raster data, and summarizing raster values inside a polygon with zonal statistics. It provides a series of covariate transformation routines for increasing feature dimensionality, quantifying interaction terms and normalizing unit scales. It provides a Python implementation of the popular Maxent SDM using infinitely weighted logistic regression. It also includes a standard Niche Envelope Model, both of which were written to match the software design patterns of modern machine learning packages like `sklearn`. It also allows users to add spatial context to any model by providing methods for spatially splitting train/test data and computing geographically-explicit sample weights. `elapid` was designed as a contemporary SDM package, built on best practices from the past and aspiring to support the next generation of biodiversity modeling workflows.
 keywords:
   - biogeography
   - species distribution modeling
