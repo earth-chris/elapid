@@ -81,7 +81,7 @@ Apply any pixel-based model with a `.predict()` method to raster data to easily 
 
 Work with cloud- or web-hosted raster/vector data (on `https://`, `gs://`, `s3://`, etc.) to keep your disk free of temporary files.
 
-Check out some example code snippets and workflows on the [examples](examples/geo) page.
+Check out some example code snippets and workflows on the [Working with Geospatial Data](https://elapid.org/examples/WorkingWithGeospatialData/) page.
 
 ---
 
@@ -102,5 +102,5 @@ The extra flexibility provided by `elapid` enables more control over the seeming
 
 [home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
-[^1]: [Salo Sciences, San Francisco](https://salo.ai)
+[^1]: [EO Lab, Planet Labs PBC](https://www.planet.com)
 [^2]: [Center for Conservation Biology, Stanford University](https://ccb.stanford.edu)
