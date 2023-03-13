@@ -11,11 +11,11 @@ authors:
     orcid: 0000-0001-7392-4368
     affiliation: "1, 2"
 affiliations:
- - name: Planet Labs PBC, San Francisco, CA, USA
+ - name: EO Lab, Planet Labs PBC, San Francisco, CA, USA
    index: 1
  - name: Center for Conservation Biology, Stanford University, Stanford, CA, USA
    index: 2
-date: 27 February 2023
+date: 12 March 2023
 bibliography: paper.bib
 ---
 
@@ -41,7 +41,7 @@ Another advantage of `elapid`'s flexible design is that it can be used to extend
 
 The main scientific contribution of `elapid` is extending and modifying the Maxent SDM, a model and software system as popular as it is maligned [@Phillips:2008; @Fourcade:2018]. First published in 2006, Maxent remains relevant because it's a presence-only model designed to work with the kinds of species occurrence data data that have proliferated lately.
 
-Presence-only models formulate binary classification models as presence/background (1/0) instead of presence/absence, which changes how models are fit and interpreted [@Fithian:2013; @Merow:2013]. Background points are a spatially-random sample of the landscapes where a species might be found, which should be sampled with the same level of effort and bias as the species occurrence data. Presence/background models posit the null expectation that a species is equally likely to be found anywhere within it's range. Differences in environmental conditions between where a species occurs and across the full landscape should indicate niche preferences. Relative habitat suitability is then determined based on differences in the relative frequency distributions of conditions in these regions. Presence-only models reduce the burden of finding absence data, which are problematic to boot, but they increase the burden of precisely selecting background points. These define what relative habitat suitability is relative *to* [@Elith:2011; @Barbet:2012].
+Presence-only models formulate binary classification models as presence/background (1/0) instead of presence/absence, which changes how models are fit and interpreted [@Fithian:2013; @Merow:2013]. Background points are a spatially-random sample of the landscapes where a species might be found, which should be sampled with the same level of effort and bias as the species occurrence data. Presence/background models posit the null expectation that a species is equally likely to be found anywhere within it's range. Differences in environmental conditions between where a species occurs and across the full landscape should indicate niche preferences. Relative habitat suitability is then determined based on differences in the relative frequency distributions of conditions in these regions. Presence-only models reduce the burden of finding absence data, which are problematic to begin with, but they increase the burden of precisely selecting background points. These define what relative habitat suitability is relative *to* [@Elith:2011; @Barbet:2012].
 
 `elapid` includes several methods for sampling the background. Points can be sampled uniformly within a polygon, like a range map or an ecoregion extent. Sampling points from rasters can be done uniformly across the full extent or only from pixels with valid, unmasked data. Working with bias rasters is also supported. Any raster with monotonically increasing values can be used as a sample probability map, increasing the probability that a sample is drawn in locations with higher pixel values. One important role for the niche envelope model is to create bias maps to ensure background points are only sampled within the broad climatic envelope where a species occurs. The target-group bias sampling method has also been shown to effectively correct for sample bias [@Barber:2022].
 
