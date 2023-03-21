@@ -11,7 +11,7 @@ help:
 	@echo ""
 	@echo "make init        - initialize conda dev environment"
 	@echo "make utils       - install convenient packages"
-	@echo "make test        -	run package tests"
+	@echo "make test        - run package tests"
 	@echo "make test-data   - generates new data for tests/data/"
 	@echo "make conda-clean - removes conda tempfiles"
 	@echo "make destroy     - deletes the $(NAME) conda env"
@@ -20,7 +20,8 @@ help:
 # utils
 
 init:
-	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.8 -y
+	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.8 mamba -y
+	${CONDA} mamba install gdal -c conda-forge -c nodefaults
 	${CONDA} pip install pre-commit pytest pytest-xdist pytest-cov
 	${CONDA} pre-commit install
 	${CONDA} pip install -e .
