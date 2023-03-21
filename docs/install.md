@@ -1,15 +1,15 @@
 # Installation guide
 
-`elapid` is accessible from [conda](https://anaconda.org/conda-forge/elapid):
-
-```bash
-conda install -c conda-forge elapid
-```
-
-It's also accessible from [pypi](https://pypi.org/project/elapid/):
+`elapid` is accessible from [pypi](https://pypi.org/project/elapid/):
 
 ```bash
 pip install elapid
+```
+
+It's also accessible from [conda](https://anaconda.org/conda-forge/elapid):
+
+```bash
+conda install -c conda-forge elapid
 ```
 
 This should suffice for most linux/mac users, as there are builds available for most of the dependencies (`numpy`, `sklearn`, `glmnet`, `geopandas`, `rasterio`).
@@ -27,14 +27,13 @@ You can avoid both of them by using [Windows Subsystem for Linux](https://docs.m
 If you have `conda` installed, use that to install elapid's dependencies:
 
 ```bash
-conda create -n elapid -python=3.8 -y
-activate elapid
-conda install -y geopandas rasterio rtree scikit-learn tqdm
+conda create -n elapid python=3.8 -y
+conda activate elapid # or just `activate elapid` on windows
+conda install -y -c conda-forge geopandas rasterio rtree scikit-learn tqdm
+pip install elapid
 ```
 
-Then you should be able to run `pip install elapid`.
-
-### Without conda
+### Installing on Windows without conda
 
 You can get Windows builds of several key geospatial packages using `pipwin`, which installs wheels from an unofficial source:
 
@@ -56,7 +55,7 @@ pip install elapid
 
 ## Installing glmnet
 
-`glmnet` needs to be manually installed on Windows. But, technically, it's not required.
+`glmnet` needs to be manually installed on Windows. But technically it's not required.
 
 `elapid` was written to try and match the modeling framework of the R version of Maxent, [maxnet][r-maxnet]. `maxnet` uses an inhomogeneous Poisson process model, which fits penalized maximum likelihood models, and is handled by the package [glmnet][glmnet-fortran].
 
