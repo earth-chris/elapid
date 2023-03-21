@@ -1,13 +1,13 @@
 """Classes for training species distribution models."""
 from typing import List, Tuple, Union
-from warnings import warn
 
 import numpy as np
 import pandas as pd
 from scipy import stats as scistats
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
 
 from elapid.config import EnsembleConfig, MaxentConfig, NicheEnvelopeConfig
 from elapid.features import (
@@ -18,8 +18,8 @@ from elapid.features import (
     compute_regularization,
     compute_weights,
 )
-from elapid.types import ArrayLike, Number, validate_feature_types
-from elapid.utils import NCPUS, make_band_labels
+from elapid.types import ArrayLike, validate_feature_types
+from elapid.utils import NCPUS
 
 # handle windows systems without functioning gfortran compilers
 FORCE_SKLEARN = False
@@ -30,7 +30,30 @@ except ModuleNotFoundError:
     FORCE_SKLEARN = True
 
 
-class MaxentModel(BaseEstimator, ClassifierMixin):
+class SDMMixin:
+    """Mixin class for SDM classifiers."""
+
+    _estimator_type = "classifier"
+
+    def score(self, x: ArrayLike, y: ArrayLike, sample_weight: ArrayLike = None) -> float:
+        """Return the mean AUC score on the given test data and labels.
+
+        Args:
+            x: test samples. array-like of shape (n_samples, n_features).
+            y: presence/absence labels. array-like of shape (n_samples,).
+            sample_weight: array-like of shape (n_samples,)
+
+        Returns:
+            AUC score of `self.predict(x)` w.r.t. `y`.
+        """
+
+        return roc_auc_score(y, self.predict(x), sample_weight=sample_weight)
+
+    def _more_tags(self):
+        return {"requires_y": True}
+
+
+class MaxentModel(BaseEstimator, SDMMixin):
     """Model estimator for Maxent-style species distribution models."""
 
     def __init__(
@@ -344,7 +367,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         )
 
 
-class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
+class NicheEnvelopeModel(BaseEstimator, SDMMixin, FeaturesMixin):
     """Model estimator for niche envelope-style models."""
 
     def __init__(
@@ -468,7 +491,7 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
         return self.predict(x)
 
 
-class EnsembleModel(BaseEstimator, ClassifierMixin):
+class EnsembleModel(BaseEstimator, SDMMixin):
     """Barebones estimator for ensembling multiple model predictions."""
 
     models: list = None
