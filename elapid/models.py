@@ -1,11 +1,13 @@
 """Classes for training species distribution models."""
 from typing import List, Tuple, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats as scistats
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
+from sklearn.inspection import partial_dependence, permutation_importance
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
@@ -19,7 +21,7 @@ from elapid.features import (
     compute_weights,
 )
 from elapid.types import ArrayLike, validate_feature_types
-from elapid.utils import NCPUS
+from elapid.utils import NCPUS, make_band_labels
 
 # handle windows systems without functioning gfortran compilers
 FORCE_SKLEARN = False
@@ -51,6 +53,74 @@ class SDMMixin:
 
     def _more_tags(self):
         return {"requires_y": True}
+
+    def permutation_importance_scores(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        sample_weight: ArrayLike = None,
+        n_repeats: int = 10,
+        n_jobs: int = -1,
+    ) -> np.ndarray:
+        """Compute a generic feature importance score by modifying feature values
+            and computing the relative change in model performance.
+
+        Permutation importance measures how much a model score decreases when a
+            single feature value is randomly shuffled. This score doesn't reflect
+            the intrinsic predictive value of a feature by itself, but how important
+            feature is for a particular model.
+
+        Args:
+            x: test samples. array-like of shape (n_samples, n_features).
+            y: presence/absence labels. array-like of shape (n_samples,).
+            sample_weight: array-like of shape (n_samples,)
+            n_repeats: number of permutation iterations.
+            n_jobs: number of parallel compute tasks. set to -1 for all cpus.
+
+        Returns:
+            importances: an array of shape (n_features, n_repeats)
+        """
+        pi = permutation_importance(self, x, y, sample_weight=sample_weight, n_jobs=n_jobs, n_repeats=n_repeats)
+
+        return pi.importances
+
+    def permutation_importance_plot(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        sample_weight: ArrayLike = None,
+        labels: list = None,
+        subplots_args: dict = {"dpi": 200},
+        **kwargs,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Boop.
+
+        Args:
+            x: test samples. array-like of shape (n_samples, n_features).
+            y: presence/absence labels. array-like of shape (n_samples,).
+            sample_weight: array-like of shape (n_samples,)
+            labels: list of band names to label the plots.
+            subplot_args: a dictionary with arguments to pass to plt.subplots()
+                e.g. sublot_args = {'figsize': (5, 5), 'dpi': 200}.
+            **kwargs: additional arguments to pass to self.permutation_importance_scores.
+
+        Returns:
+            fig, ax: matplotlib subplot figure and axes
+        """
+        importance = self.permutation_importance_scores(x, y, sample_weight=sample_weight, **kwargs)
+        rank_order = importance.mean(axis=-1).argsort()
+
+        labels = labels or make_band_labels(x.shape[-1])
+        labels = [labels[idx] for idx in rank_order]
+
+        fig, ax = plt.subplots(**subplots_args)
+        ax.boxplot(
+            importance[rank_order].T,
+            vert=False,
+            labels=labels,
+        )
+
+        return fig, ax
 
 
 class MaxentModel(BaseEstimator, SDMMixin):
