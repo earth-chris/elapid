@@ -3,7 +3,6 @@ from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from scipy import stats as scistats
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
@@ -48,7 +47,6 @@ class SDMMixin:
         Returns:
             AUC score of `self.predict(x)` w.r.t. `y`.
         """
-
         return roc_auc_score(y, self.predict(x), sample_weight=sample_weight)
 
     def _more_tags(self):
