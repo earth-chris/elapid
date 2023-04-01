@@ -11,11 +11,11 @@ authors:
     orcid: 0000-0001-7392-4368
     affiliation: "1, 2"
 affiliations:
- - name: EO Lab, Planet Labs PBC, San Francisco, CA, USA
+ - name: Earth Observation Lab, Planet Labs PBC, San Francisco, CA, USA
    index: 1
  - name: Center for Conservation Biology, Stanford University, Stanford, CA, USA
    index: 2
-date: 12 March 2023
+date: 31 March 2023
 bibliography: paper.bib
 ---
 
