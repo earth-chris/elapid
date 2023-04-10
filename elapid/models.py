@@ -149,6 +149,7 @@ class SDMMixin:
         x: ArrayLike,
         percentiles: tuple = (0.025, 0.975),
         n_bins: int = 100,
+        categorical_features: tuple = [None],
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute partial dependence scores for each feature.
 
@@ -157,6 +158,7 @@ class SDMMixin:
                 used to constrain the range of values to evaluate for each feature.
             percentiles: lower and upper percentiles used to set the range to plot.
             n_bins: the number of bins spanning the lower-upper percentile range.
+            categorical_features: a 0-based index of which features are categorical.
 
         Returns:
             bins, mean, stdv: the binned feature values and the mean/stdv of responses.
@@ -167,6 +169,8 @@ class SDMMixin:
         bins = np.zeros_like(mean)
 
         for idx in range(ncols):
+            if idx in categorical_features:
+                continue
             pd = partial_dependence(
                 self,
                 x,
@@ -186,6 +190,7 @@ class SDMMixin:
         x: ArrayLike,
         percentiles: tuple = (0.025, 0.975),
         n_bins: int = 50,
+        categorical_features: tuple = None,
         labels: list = None,
         **kwargs,
     ) -> Tuple[plt.Figure, plt.Axes]:
@@ -196,13 +201,23 @@ class SDMMixin:
                 used to constrain the range of values to evaluate for each feature.
             percentiles: lower and upper percentiles used to set the range to plot.
             n_bins: the number of bins spanning the lower-upper percentile range.
+            categorical_features: a 0-based index of which features are categorical.
             labels: list of band names to label the plots.
             **kwargs: additional arguments to pass to `plt.subplots()`.
 
         Returns:
             fig, ax: matplotlib subplot figure and axes.
         """
-        bins, mean, stdv = self.partial_dependence_scores(x, percentiles=percentiles, n_bins=n_bins)
+        # skip categorical features for now
+        if categorical_features is None:
+            try:
+                categorical_features = self.transformer.categorical_ or [None]
+            except AttributeError:
+                categorical_features = [None]
+
+        bins, mean, stdv = self.partial_dependence_scores(
+            x, percentiles=percentiles, n_bins=n_bins, categorical_features=categorical_features
+        )
 
         if labels is None:
             try:
@@ -211,16 +226,20 @@ class SDMMixin:
                 labels = make_band_labels(x.shape[-1])
 
         ncols = x.shape[1]
-        figx, figy = square_factor(ncols)
-        plot_defaults = {"dpi": 150}
-        plot_defaults.update(**kwargs)
-        fig, ax = plt.subplots(figx, figy, **plot_defaults)
+        figx = int(np.ceil(np.sqrt(ncols)))
+        figy = int(np.ceil(ncols / figx))
+        fig, ax = plt.subplots(figx, figy, **kwargs)
         ax = ax.flatten()
 
         for idx in range(ncols):
             ax[idx].fill_between(bins[idx], mean[idx] - stdv[idx], mean[idx] + stdv[idx], alpha=0.25)
             ax[idx].plot(bins[idx], mean[idx])
             ax[idx].set_title(labels[idx])
+
+        # turn off empty plots
+        for axi in ax:
+            if not axi.lines:
+                axi.set_visible(False)
 
         fig.tight_layout()
 
