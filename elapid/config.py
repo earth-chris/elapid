@@ -39,7 +39,8 @@ class MaxentConfig:
     n_lambdas: int = 100
 
     # method for weighting presence samples
-    class_weights: Union[str, float] = "balanced"
+    # set to "balanced" for nomalizing weights based on sample density
+    class_weights: Union[str, float] = 100
 
 
 # maxent default regularization parameters (from the maxnet R package)

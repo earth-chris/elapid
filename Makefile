@@ -20,7 +20,7 @@ help:
 # utils
 
 init:
-	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.8 mamba -y
+	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.8 mamba -y -c conda-forge
 	${CONDA} mamba install gdal -c conda-forge -c nodefaults
 	${CONDA} pip install pre-commit pytest pytest-xdist pytest-cov
 	${CONDA} pre-commit install

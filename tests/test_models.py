@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal
 from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -9,6 +8,7 @@ from elapid import models
 from elapid.utils import load_sample_data
 
 x, y = load_sample_data(name="ariolimax", drop_geometry=True)
+xb, yb = load_sample_data("bradypus")
 
 
 def test_MaxentModel_flow():
@@ -193,3 +193,37 @@ def test_EnsembleModel():
     mpred = ensemble.predict(x)
     assert not np.all(mpred == epred)
     assert epred.shape == mpred.shape
+
+
+def test_partial_dependence_scores():
+    ne = models.NicheEnvelopeModel()
+    me = models.MaxentModel()
+
+    # just test that these methods work with each estimator
+    ne.fit(x, y)
+    me.fit(x, y)
+    ne.partial_dependence_plot(x)
+    me.partial_dependence_plot(x)
+
+    # and with the bradypus data
+    ne.fit(xb, yb)
+    me.fit(xb, yb)
+    ne.partial_dependence_plot(xb, categorical_features=[2])
+    me.partial_dependence_plot(xb)
+
+
+def test_permutation_importance_scores():
+    ne = models.NicheEnvelopeModel()
+    me = models.MaxentModel()
+
+    # just test that these methods work with each estimator
+    ne.fit(x, y)
+    me.fit(x, y)
+    ne.permutation_importance_plot(x, y)
+    me.permutation_importance_plot(x, y)
+
+    # and with bradypus
+    ne.fit(xb, yb)
+    me.fit(xb, yb)
+    ne.permutation_importance_plot(xb, yb)
+    me.permutation_importance_plot(xb, yb)

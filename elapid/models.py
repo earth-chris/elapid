@@ -1,13 +1,14 @@
 """Classes for training species distribution models."""
 from typing import List, Tuple, Union
-from warnings import warn
 
+import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from scipy import stats as scistats
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
+from sklearn.inspection import partial_dependence, permutation_importance
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
 
 from elapid.config import EnsembleConfig, MaxentConfig, NicheEnvelopeConfig
 from elapid.features import (
@@ -18,8 +19,8 @@ from elapid.features import (
     compute_regularization,
     compute_weights,
 )
-from elapid.types import ArrayLike, Number, validate_feature_types
-from elapid.utils import NCPUS, make_band_labels
+from elapid.types import ArrayLike, validate_feature_types
+from elapid.utils import NCPUS, make_band_labels, square_factor
 
 # handle windows systems without functioning gfortran compilers
 FORCE_SKLEARN = False
@@ -30,7 +31,222 @@ except ModuleNotFoundError:
     FORCE_SKLEARN = True
 
 
-class MaxentModel(BaseEstimator, ClassifierMixin):
+class SDMMixin:
+    """Mixin class for SDM classifiers."""
+
+    _estimator_type = "classifier"
+    classes_ = [0, 1]
+
+    def score(self, x: ArrayLike, y: ArrayLike, sample_weight: ArrayLike = None) -> float:
+        """Return the mean AUC score on the given test data and labels.
+
+        Args:
+            x: test samples. array-like of shape (n_samples, n_features).
+            y: presence/absence labels. array-like of shape (n_samples,).
+            sample_weight: array-like of shape (n_samples,)
+
+        Returns:
+            AUC score of `self.predict(x)` w.r.t. `y`.
+        """
+        return roc_auc_score(y, self.predict(x), sample_weight=sample_weight)
+
+    def _more_tags(self):
+        return {"requires_y": True}
+
+    def permutation_importance_scores(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        sample_weight: ArrayLike = None,
+        n_repeats: int = 10,
+        n_jobs: int = -1,
+    ) -> np.ndarray:
+        """Compute a generic feature importance score by modifying feature values
+            and computing the relative change in model performance.
+
+        Permutation importance measures how much a model score decreases when a
+            single feature value is randomly shuffled. This score doesn't reflect
+            the intrinsic predictive value of a feature by itself, but how important
+            feature is for a particular model.
+
+        Args:
+            x: test samples. array-like of shape (n_samples, n_features).
+            y: presence/absence labels. array-like of shape (n_samples,).
+            sample_weight: array-like of shape (n_samples,)
+            n_repeats: number of permutation iterations.
+            n_jobs: number of parallel compute tasks. set to -1 for all cpus.
+
+        Returns:
+            importances: an array of shape (n_features, n_repeats).
+        """
+        pi = permutation_importance(self, x, y, sample_weight=sample_weight, n_jobs=n_jobs, n_repeats=n_repeats)
+
+        return pi.importances
+
+    def permutation_importance_plot(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        sample_weight: ArrayLike = None,
+        n_repeats: int = 10,
+        labels: list = None,
+        **kwargs,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Create a box plot with bootstrapped permutation importance scores for each covariate.
+
+        Permutation importance measures how much a model score decreases when a
+            single feature value is randomly shuffled. This score doesn't reflect
+            the intrinsic predictive value of a feature by itself, but how important
+            feature is for a particular model.
+
+        It is often appropriate to compute permuation importance scores using both
+            training and validation sets. Large differences between the two may
+            indicate overfitting.
+
+        This implementation does not necessarily match the implementation in Maxent.
+            These scores may be difficult to interpret if there is a high degree
+            of covariance between features or if the model estimator includes any
+            non-linear feature transformations (e.g. 'hinge' features).
+
+        Reference:
+            https://scikit-learn.org/stable/modules/permutation_importance.html
+
+        Args:
+            x: evaluation features. array-like of shape (n_samples, n_features).
+            y: presence/absence labels. array-like of shape (n_samples,).
+            sample_weight: array-like of shape (n_samples,)
+            n_repeats: number of permutation iterations.
+            labels: list of band names to label the plots.
+            **kwargs: additional arguments to pass to `plt.subplots()`.
+
+        Returns:
+            fig, ax: matplotlib subplot figure and axes.
+        """
+        importance = self.permutation_importance_scores(x, y, sample_weight=sample_weight, n_repeats=n_repeats)
+        rank_order = importance.mean(axis=-1).argsort()
+
+        if labels is None:
+            try:
+                labels = x.columns.tolist()
+            except AttributeError:
+                labels = make_band_labels(x.shape[-1])
+        labels = [labels[idx] for idx in rank_order]
+
+        plot_defaults = {"dpi": 150, "figsize": (5, 4)}
+        plot_defaults.update(**kwargs)
+        fig, ax = plt.subplots(**plot_defaults)
+        ax.boxplot(
+            importance[rank_order].T,
+            vert=False,
+            labels=labels,
+        )
+        fig.tight_layout()
+
+        return fig, ax
+
+    def partial_dependence_scores(
+        self,
+        x: ArrayLike,
+        percentiles: tuple = (0.025, 0.975),
+        n_bins: int = 100,
+        categorical_features: tuple = [None],
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute partial dependence scores for each feature.
+
+        Args:
+            x: evaluation features. array-like of shape (n_samples, n_features).
+                used to constrain the range of values to evaluate for each feature.
+            percentiles: lower and upper percentiles used to set the range to plot.
+            n_bins: the number of bins spanning the lower-upper percentile range.
+            categorical_features: a 0-based index of which features are categorical.
+
+        Returns:
+            bins, mean, stdv: the binned feature values and the mean/stdv of responses.
+        """
+        ncols = x.shape[1]
+        mean = np.zeros((ncols, n_bins))
+        stdv = np.zeros_like(mean)
+        bins = np.zeros_like(mean)
+
+        for idx in range(ncols):
+            if idx in categorical_features:
+                continue
+            pd = partial_dependence(
+                self,
+                x,
+                [idx],
+                percentiles=percentiles,
+                grid_resolution=n_bins,
+                kind="individual",
+            )
+            mean[idx] = pd["individual"][0].mean(axis=0)
+            stdv[idx] = pd["individual"][0].std(axis=0)
+            bins[idx] = pd["values"][0]
+
+        return bins, mean, stdv
+
+    def partial_dependence_plot(
+        self,
+        x: ArrayLike,
+        percentiles: tuple = (0.025, 0.975),
+        n_bins: int = 50,
+        categorical_features: tuple = None,
+        labels: list = None,
+        **kwargs,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Plot the response of an estimator across the range of feature values.
+
+        Args:
+            x: evaluation features. array-like of shape (n_samples, n_features).
+                used to constrain the range of values to evaluate for each feature.
+            percentiles: lower and upper percentiles used to set the range to plot.
+            n_bins: the number of bins spanning the lower-upper percentile range.
+            categorical_features: a 0-based index of which features are categorical.
+            labels: list of band names to label the plots.
+            **kwargs: additional arguments to pass to `plt.subplots()`.
+
+        Returns:
+            fig, ax: matplotlib subplot figure and axes.
+        """
+        # skip categorical features for now
+        if categorical_features is None:
+            try:
+                categorical_features = self.transformer.categorical_ or [None]
+            except AttributeError:
+                categorical_features = [None]
+
+        bins, mean, stdv = self.partial_dependence_scores(
+            x, percentiles=percentiles, n_bins=n_bins, categorical_features=categorical_features
+        )
+
+        if labels is None:
+            try:
+                labels = x.columns.tolist()
+            except AttributeError:
+                labels = make_band_labels(x.shape[-1])
+
+        ncols = x.shape[1]
+        figx = int(np.ceil(np.sqrt(ncols)))
+        figy = int(np.ceil(ncols / figx))
+        fig, ax = plt.subplots(figx, figy, **kwargs)
+        ax = ax.flatten()
+
+        for idx in range(ncols):
+            ax[idx].fill_between(bins[idx], mean[idx] - stdv[idx], mean[idx] + stdv[idx], alpha=0.25)
+            ax[idx].plot(bins[idx], mean[idx])
+            ax[idx].set_title(labels[idx])
+
+        # turn off empty plots
+        for axi in ax:
+            if not axi.lines:
+                axi.set_visible(False)
+
+        fig.tight_layout()
+
+        return fig, ax
+
+
+class MaxentModel(BaseEstimator, SDMMixin):
     """Model estimator for Maxent-style species distribution models."""
 
     def __init__(
@@ -344,7 +560,7 @@ class MaxentModel(BaseEstimator, ClassifierMixin):
         )
 
 
-class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
+class NicheEnvelopeModel(BaseEstimator, SDMMixin, FeaturesMixin):
     """Model estimator for niche envelope-style models."""
 
     def __init__(
@@ -468,7 +684,7 @@ class NicheEnvelopeModel(BaseEstimator, ClassifierMixin, FeaturesMixin):
         return self.predict(x)
 
 
-class EnsembleModel(BaseEstimator, ClassifierMixin):
+class EnsembleModel(BaseEstimator, SDMMixin):
     """Barebones estimator for ensembling multiple model predictions."""
 
     models: list = None
