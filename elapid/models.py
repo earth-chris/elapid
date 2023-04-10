@@ -149,7 +149,6 @@ class SDMMixin:
         x: ArrayLike,
         percentiles: tuple = (0.025, 0.975),
         n_bins: int = 100,
-        categorical_features: tuple = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute partial dependence scores for each feature.
 
@@ -158,7 +157,6 @@ class SDMMixin:
                 used to constrain the range of values to evaluate for each feature.
             percentiles: lower and upper percentiles used to set the range to plot.
             n_bins: the number of bins spanning the lower-upper percentile range.
-            categorical_features: a 0-based index of which features are categorical.
 
         Returns:
             bins, mean, stdv: the binned feature values and the mean/stdv of responses.
@@ -168,12 +166,6 @@ class SDMMixin:
         stdv = np.zeros_like(mean)
         bins = np.zeros_like(mean)
 
-        if categorical_features is None:
-            try:
-                categorical_features = self.transformer.categorical_
-            except AttributeError:
-                pass
-
         for idx in range(ncols):
             pd = partial_dependence(
                 self,
@@ -181,7 +173,6 @@ class SDMMixin:
                 [idx],
                 percentiles=percentiles,
                 grid_resolution=n_bins,
-                categorical_features=categorical_features,
                 kind="individual",
             )
             mean[idx] = pd["individual"][0].mean(axis=0)
@@ -195,7 +186,6 @@ class SDMMixin:
         x: ArrayLike,
         percentiles: tuple = (0.025, 0.975),
         n_bins: int = 50,
-        categorical_features: tuple = None,
         labels: list = None,
         **kwargs,
     ) -> Tuple[plt.Figure, plt.Axes]:
@@ -206,16 +196,13 @@ class SDMMixin:
                 used to constrain the range of values to evaluate for each feature.
             percentiles: lower and upper percentiles used to set the range to plot.
             n_bins: the number of bins spanning the lower-upper percentile range.
-            categorical_features: a 0-based index of which features are categorical.
             labels: list of band names to label the plots.
             **kwargs: additional arguments to pass to `plt.subplots()`.
 
         Returns:
             fig, ax: matplotlib subplot figure and axes.
         """
-        bins, mean, stdv = self.partial_dependence_scores(
-            x, percentiles=percentiles, n_bins=n_bins, categorical_features=categorical_features
-        )
+        bins, mean, stdv = self.partial_dependence_scores(x, percentiles=percentiles, n_bins=n_bins)
 
         if labels is None:
             try:
