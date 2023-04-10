@@ -76,7 +76,7 @@ class SDMMixin:
             n_jobs: number of parallel compute tasks. set to -1 for all cpus.
 
         Returns:
-            importances: an array of shape (n_features, n_repeats)
+            importances: an array of shape (n_features, n_repeats).
         """
         pi = permutation_importance(self, x, y, sample_weight=sample_weight, n_jobs=n_jobs, n_repeats=n_repeats)
 
@@ -87,36 +87,59 @@ class SDMMixin:
         x: ArrayLike,
         y: ArrayLike,
         sample_weight: ArrayLike = None,
+        n_repeats: int = 10,
         labels: list = None,
-        subplots_args: dict = {"dpi": 200},
         **kwargs,
     ) -> Tuple[plt.Figure, plt.Axes]:
-        """Boop.
+        """Create a box plot with bootstrapped permutation importance scores for each covariate.
+
+        Permutation importance measures how much a model score decreases when a
+            single feature value is randomly shuffled. This score doesn't reflect
+            the intrinsic predictive value of a feature by itself, but how important
+            feature is for a particular model.
+
+        It is often appropriate to compute permuation importance scores using both
+            training and validation sets. Large differences between the two may
+            indicate overfitting.
+
+        This implementation does not necessarily match the implementation in Maxent.
+            These scores may be difficult to interpret if there is a high degree
+            of covariance between features or if the model estimator includes any
+            non-linear feature transformations (e.g. 'hinge' features).
+
+        Reference:
+            https://scikit-learn.org/stable/modules/permutation_importance.html
 
         Args:
             x: test samples. array-like of shape (n_samples, n_features).
             y: presence/absence labels. array-like of shape (n_samples,).
             sample_weight: array-like of shape (n_samples,)
+            n_repeats: number of permutation iterations.
             labels: list of band names to label the plots.
-            subplot_args: a dictionary with arguments to pass to plt.subplots()
-                e.g. sublot_args = {'figsize': (5, 5), 'dpi': 200}.
-            **kwargs: additional arguments to pass to self.permutation_importance_scores.
+            **kwargs: additional arguments to pass to `plt.subplots()`.
 
         Returns:
-            fig, ax: matplotlib subplot figure and axes
+            fig, ax: matplotlib subplot figure and axes.
         """
-        importance = self.permutation_importance_scores(x, y, sample_weight=sample_weight, **kwargs)
+        importance = self.permutation_importance_scores(x, y, sample_weight=sample_weight, n_repeats=n_repeats)
         rank_order = importance.mean(axis=-1).argsort()
 
-        labels = labels or make_band_labels(x.shape[-1])
+        if labels is None:
+            try:
+                labels = x.columns.tolist()
+            except AttributeError:
+                labels = make_band_labels(x.shape[-1])
         labels = [labels[idx] for idx in rank_order]
 
-        fig, ax = plt.subplots(**subplots_args)
+        plot_defaults = {"dpi": 150, "figsize": (5, 4)}
+        plot_defaults.update(**kwargs)
+        fig, ax = plt.subplots(**plot_defaults)
         ax.boxplot(
             importance[rank_order].T,
             vert=False,
             labels=labels,
         )
+        fig.tight_layout()
 
         return fig, ax
 
