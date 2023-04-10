@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal
 from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -193,3 +192,25 @@ def test_EnsembleModel():
     mpred = ensemble.predict(x)
     assert not np.all(mpred == epred)
     assert epred.shape == mpred.shape
+
+
+def test_partial_dependence_scores():
+    ne = models.NicheEnvelopeModel()
+    me = models.MaxentModel()
+    ne.fit(x, y)
+    me.fit(x, y)
+
+    # just test that these methods work with each estimator
+    ne.partial_dependence_plot(x)
+    me.partial_dependence_plot(x)
+
+
+def test_permutation_importance_scores():
+    ne = models.NicheEnvelopeModel()
+    me = models.MaxentModel()
+    ne.fit(x, y)
+    me.fit(x, y)
+
+    # just test that these methods work with each estimator
+    ne.permutation_importance_plot(x, y)
+    me.permutation_importance_plot(x, y)
