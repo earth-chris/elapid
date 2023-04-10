@@ -327,3 +327,20 @@ def format_band_labels(raster_paths: list, labels: List[str] = None):
     assert n_labels == n_bands, f"number of band labels ({n_labels}) != n_bands ({n_bands})"
 
     return labels.copy()
+
+
+def square_factor(n: int) -> tuple:
+    """Compute a square form-factor to fit `n` items.
+
+    Args:
+        n: the number of items to fit into a square.
+
+    Returns:
+        (x, y) tuple of the square dimensions.
+    """
+    val = np.ceil(np.sqrt(n))
+    val2 = int(n / val)
+    while val2 * val != float(n):
+        val -= 1
+        val2 = int(n / val)
+    return int(val), int(val2)

@@ -20,7 +20,7 @@ from elapid.features import (
     compute_weights,
 )
 from elapid.types import ArrayLike, validate_feature_types
-from elapid.utils import NCPUS, make_band_labels
+from elapid.utils import NCPUS, make_band_labels, square_factor
 
 # handle windows systems without functioning gfortran compilers
 FORCE_SKLEARN = False
@@ -35,6 +35,7 @@ class SDMMixin:
     """Mixin class for SDM classifiers."""
 
     _estimator_type = "classifier"
+    classes_ = [0, 1]
 
     def score(self, x: ArrayLike, y: ArrayLike, sample_weight: ArrayLike = None) -> float:
         """Return the mean AUC score on the given test data and labels.
@@ -111,7 +112,7 @@ class SDMMixin:
             https://scikit-learn.org/stable/modules/permutation_importance.html
 
         Args:
-            x: test samples. array-like of shape (n_samples, n_features).
+            x: evaluation features. array-like of shape (n_samples, n_features).
             y: presence/absence labels. array-like of shape (n_samples,).
             sample_weight: array-like of shape (n_samples,)
             n_repeats: number of permutation iterations.
@@ -139,6 +140,101 @@ class SDMMixin:
             vert=False,
             labels=labels,
         )
+        fig.tight_layout()
+
+        return fig, ax
+
+    def partial_dependence_scores(
+        self,
+        x: ArrayLike,
+        percentiles: tuple = (0.025, 0.975),
+        n_bins: int = 100,
+        categorical_features: tuple = None,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute partial dependence scores for each feature.
+
+        Args:
+            x: evaluation features. array-like of shape (n_samples, n_features).
+                used to constrain the range of values to evaluate for each feature.
+            percentiles: lower and upper percentiles used to set the range to plot.
+            n_bins: the number of bins spanning the lower-upper percentile range.
+            categorical_features: a 0-based index of which features are categorical.
+
+        Returns:
+            bins, mean, stdv: the binned feature values and the mean/stdv of responses.
+        """
+        ncols = x.shape[1]
+        mean = np.zeros((ncols, n_bins))
+        stdv = np.zeros_like(mean)
+        bins = np.zeros_like(mean)
+
+        if categorical_features is None:
+            try:
+                categorical_features = self.transformer.categorical_
+            except AttributeError:
+                pass
+
+        for idx in range(ncols):
+            pd = partial_dependence(
+                self,
+                x,
+                [idx],
+                percentiles=percentiles,
+                grid_resolution=n_bins,
+                categorical_features=categorical_features,
+                kind="individual",
+            )
+            mean[idx] = pd["individual"][0].mean(axis=0)
+            stdv[idx] = pd["individual"][0].std(axis=0)
+            bins[idx] = pd["values"][0]
+
+        return bins, mean, stdv
+
+    def partial_dependence_plot(
+        self,
+        x: ArrayLike,
+        percentiles: tuple = (0.025, 0.975),
+        n_bins: int = 50,
+        categorical_features: tuple = None,
+        labels: list = None,
+        **kwargs,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Plot the response of an estimator across the range of feature values.
+
+        Args:
+            x: evaluation features. array-like of shape (n_samples, n_features).
+                used to constrain the range of values to evaluate for each feature.
+            percentiles: lower and upper percentiles used to set the range to plot.
+            n_bins: the number of bins spanning the lower-upper percentile range.
+            categorical_features: a 0-based index of which features are categorical.
+            labels: list of band names to label the plots.
+            **kwargs: additional arguments to pass to `plt.subplots()`.
+
+        Returns:
+            fig, ax: matplotlib subplot figure and axes.
+        """
+        bins, mean, stdv = self.partial_dependence_scores(
+            x, percentiles=percentiles, n_bins=n_bins, categorical_features=categorical_features
+        )
+
+        if labels is None:
+            try:
+                labels = x.columns.tolist()
+            except AttributeError:
+                labels = make_band_labels(x.shape[-1])
+
+        ncols = x.shape[1]
+        figx, figy = square_factor(ncols)
+        plot_defaults = {"dpi": 150}
+        plot_defaults.update(**kwargs)
+        fig, ax = plt.subplots(figx, figy, **plot_defaults)
+        ax = ax.flatten()
+
+        for idx in range(ncols):
+            ax[idx].fill_between(bins[idx], mean[idx] - stdv[idx], mean[idx] + stdv[idx], alpha=0.25)
+            ax[idx].plot(bins[idx], mean[idx])
+            ax[idx].set_title(labels[idx])
+
         fig.tight_layout()
 
         return fig, ax
