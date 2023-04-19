@@ -1,5 +1,8 @@
 <p align="center">
   <img src="https://earth-chris.github.io/elapid/img/elapid-logo.png" alt="elapid logo"/>
+</p>
+
+<p align="center">
   <em>Contemporary species distribution modeling tools for python.</em>
 </p>
 
