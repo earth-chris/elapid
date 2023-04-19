@@ -1,8 +1,5 @@
-# elapid
-
-<img src="https://earth-chris.github.io/elapid/img/amazon.jpg" alt="the amazon"/>
-
 <p align="center">
+  <img src="https://earth-chris.github.io/elapid/img/elapid-logo.jpg" alt="elapid logo"/>
   <em>Contemporary species distribution modeling tools for python.</em>
 </p>
 
@@ -11,7 +8,7 @@
 ![Anaconda version](https://anaconda.org/conda-forge/elapid/badges/version.svg)
 ![PyPI downloads](https://img.shields.io/pypi/dm/elapid)
 ![GitHub last commit](https://img.shields.io/github/last-commit/earth-chris/elapid)
-[![JOSS manuscript status](https://joss.theoj.org/papers/ac415a024261efb3b397a1bad6f9cde6/status.svg)](https://earth-chris.github.io/elapid/paper/draft-paper.pdf)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.04930/status.svg)](https://doi.org/10.21105/joss.04930)
 
 ---
 
@@ -93,6 +90,29 @@ The extra flexibility provided by `elapid` enables more control over the seeming
 
 ---
 
+## How to cite
+
+BibTeX:
+
+```
+@article{
+  Anderson2023,
+  title = {elapid: Species distribution modeling tools for Python}, journal = {Journal of Open Source Software}
+  author = {Christopher B. Anderson},
+  doi = {10.21105/joss.04930},
+  url = {https://doi.org/10.21105/joss.04930},
+  year = {2023},
+  publisher = {The Open Journal},
+  volume = {8},
+  number = {84},
+  pages = {4930},
+}
+```
+
+Or click "Cite this repository" on the [GitHub page](https://github.com/earth-chris/elapid).
+
+---
+
 ## Developed by
 
 [Christopher Anderson](https://cbanderson.info)[^1] [^2]
@@ -102,5 +122,5 @@ The extra flexibility provided by `elapid` enables more control over the seeming
 
 [home-maxent]: https://biodiversityinformatics.amnh.org/open_source/maxent/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
-[^1]: [EO Lab, Planet Labs PBC](https://www.planet.com)
+[^1]: [Earth Observation Lab, Planet Labs PBC](https://www.planet.com)
 [^2]: [Center for Conservation Biology, Stanford University](https://ccb.stanford.edu)
