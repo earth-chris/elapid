@@ -10,7 +10,6 @@ help:
 	@echo "--- [ $(NAME) developer tools ] --- "
 	@echo ""
 	@echo "make init        - initialize conda dev environment"
-	@echo "make utils       - install convenient packages"
 	@echo "make test        - run package tests"
 	@echo "make test-data   - generates new data for tests/data/"
 	@echo "make conda-clean - removes conda tempfiles"
@@ -20,14 +19,9 @@ help:
 # utils
 
 init:
-	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.8 mamba -y -c conda-forge
-	${CONDA} mamba install gdal -c conda-forge -c nodefaults
-	${CONDA} pip install pre-commit pytest pytest-xdist pytest-cov
-	${CONDA} pre-commit install
-	${CONDA} pip install -e .
-
-utils:
-	${CONDA} pip install ipython jupyter matplotlib mkdocs-material mkdocstrings[python] mkdocs-jupyter
+	conda env list | grep -q ${NAME} || conda create --name=${NAME} python=3.11 mamba -y -c conda-forge -c nodefaults
+	${CONDA} mamba install gdal poetry -c conda-forge -c nodefaults -y
+	${CONDA} poetry install
 
 test:
 	${CONDA} pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered
