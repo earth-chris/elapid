@@ -182,7 +182,7 @@ class SDMMixin:
             )
             mean[idx] = pd["individual"][0].mean(axis=0)
             stdv[idx] = pd["individual"][0].std(axis=0)
-            bins[idx] = pd["values"][0]
+            bins[idx] = pd["grid_values"][0]
 
         return bins, mean, stdv
 
