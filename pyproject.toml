@@ -20,6 +20,7 @@ rasterio = ">=1.2.1"
 tqdm = ">=4.60"
 rtree = ">=0.9"
 scikit-learn = ">=0.22.2"
+matplotlib = ">=3.7"
 
 [tool.poetry.group.dev.dependencies]
 descartes = ">=1.1"
