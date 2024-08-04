@@ -41,6 +41,11 @@ jobs:
         pipwin install rtree
         pip install geopandas
 
+    - name: 'Install osx geo dependencies'
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install gdal
+
     - name: Install package
       run: |
         poetry install
