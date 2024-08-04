@@ -1,4 +1,5 @@
 """Classes for training species distribution models."""
+
 from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -20,7 +21,7 @@ from elapid.features import (
     compute_weights,
 )
 from elapid.types import ArrayLike, validate_feature_types
-from elapid.utils import NCPUS, make_band_labels, square_factor
+from elapid.utils import NCPUS, make_band_labels
 
 # handle windows systems without functioning gfortran compilers
 FORCE_SKLEARN = False

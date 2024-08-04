@@ -1,4 +1,5 @@
 """Custom maxent and typing data types."""
+
 from typing import Any, Union
 
 import geopandas as gpd

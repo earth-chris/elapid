@@ -1,4 +1,5 @@
 """SDM model configuration parameters."""
+
 from typing import Tuple, Union
 
 
