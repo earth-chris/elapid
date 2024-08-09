@@ -349,13 +349,13 @@ class CategoricalTransformer(BaseEstimator, TransformerMixin):
         self.estimators_ = []
         x = np.array(x)
         if x.ndim == 1:
-            estimator = OneHotEncoder(dtype=np.uint8, sparse=False)
+            estimator = OneHotEncoder(dtype=np.uint8, sparse_output=False)
             self.estimators_.append(estimator.fit(x.reshape(-1, 1)))
         else:
             nrows, ncols = x.shape
             for col in range(ncols):
                 xsub = x[:, col].reshape(-1, 1)
-                estimator = OneHotEncoder(dtype=np.uint8, sparse=False)
+                estimator = OneHotEncoder(dtype=np.uint8, sparse_output=False)
                 self.estimators_.append(estimator.fit(xsub))
 
         return self

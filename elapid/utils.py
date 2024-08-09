@@ -5,7 +5,7 @@ import multiprocessing as mp
 import os
 import pickle
 import sys
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 from urllib import request
 
 import geopandas as gpd

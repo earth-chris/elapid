@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "elapid"
+version = "1.0.2"
+description = "Species distribution modeling tools"
+authors = ["Christopher Anderson <cbanderson08@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["biogeography", "ecology", "maxent", "SDM", "species distribution modeling"]
+include = [
+    { path = "elapid/data/*", format = "sdist" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+numpy = ">=1.18,<2.0"
+pandas = ">=1.0.3"
+pyproj = ">3.0"
+geopandas = ">=0.7"
+rasterio = ">=1.2.1"
+tqdm = ">=4.60"
+rtree = ">=0.9"
+scikit-learn = ">=1.2"
+matplotlib = ">=3.7"
+
+[tool.poetry.group.dev.dependencies]
+descartes = ">=1.1"
+pytest = ">=8.3"
+pytest-xdist = ">=3.6"
+pytest-cov = ">=5.0"
+pre-commit = ">=3.0"
+ipython = ">=8.0"
+jupyter = ">=1.0"
+mkdocs-material = ">=9.5"
+mkdocstrings = {extras = ["python"], version = ">=0.25"}
+mkdocs-jupyter = ">=0.24"
+
+[tool.poetry.extras]
+glmnet = ["glmnet"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

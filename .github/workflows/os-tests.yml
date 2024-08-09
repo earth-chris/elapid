@@ -15,18 +15,17 @@ jobs:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+
+    - name: Install poetry
+      run: pipx install poetry
 
     - name: Set up Python ${{ env.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.python-version }}
-        cache: 'pip'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov pytest-xdist
+        cache: 'poetry'
+        cache-dependency-path: "pyproject.toml"
 
     - name: Install windows geo dependencies
       if: matrix.os == 'windows-latest'
@@ -42,10 +41,15 @@ jobs:
         pipwin install rtree
         pip install geopandas
 
+    - name: 'Install osx geo dependencies'
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install gdal
+
     - name: Install package
       run: |
-        pip install .
+        poetry install
 
     - name: Run pytest
       run: |
-        pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered --cov-report xml:coverage.xml
+        poetry run pytest -n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered --cov-report xml:coverage.xml
