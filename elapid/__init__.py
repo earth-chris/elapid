@@ -1,6 +1,5 @@
 """User entrypoint to elapid"""
 
-from elapid.__version__ import __doc__ as __version__
 from elapid.features import (
     CategoricalTransformer,
     HingeTransformer,
@@ -27,3 +26,4 @@ from elapid.models import EnsembleModel, MaxentModel, NicheEnvelopeModel
 from elapid.stats import normalize_sample_probabilities
 from elapid.train_test_split import BufferedLeaveOneOut, GeographicKFold, checkerboard_split
 from elapid.utils import download_sample_data, load_object, load_sample_data, save_object
+from elapid.version import __version__
