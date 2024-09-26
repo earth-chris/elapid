@@ -7,6 +7,7 @@ import pickle
 import sys
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 from urllib import request
+import requests
 
 import geopandas as gpd
 import numpy as np
@@ -344,3 +345,43 @@ def square_factor(n: int) -> tuple:
         val -= 1
         val2 = int(n / val)
     return int(val), int(val2)
+
+def download_gbif_data(species_name, country_code, output_file):
+    base_url = "https://api.gbif.org/v1/occurrence/search"
+    params = {
+        "scientificName": species_name,
+        "country": country_code,
+        "hasCoordinate": "true",
+        "basisOfRecord": "HUMAN_OBSERVATION",
+        "limit": 10000,
+    }
+
+    response = requests.get(base_url, params=params)
+
+    if response.status_code == 200:
+        data = response.json()
+        if "results" in data:
+            occurrences = data["results"]
+            df = pd.json_normalize(occurrences)
+
+            df.to_csv(output_file, index=False)
+            print("Data download and storage completed:", output_file)
+        else:
+            print("No results found for the given species.")
+    else:
+        print("Failed to fetch data from GBIF API.")
+
+def csv_to_gpkg(input_csv, output_gpkg):
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(input_csv)
+
+    # Convert DataFrame to GeoDataFrame
+    gdf = gpd.GeoDataFrame(
+        df,
+        geometry=gpd.points_from_xy(df.decimalLongitude, df.decimalLatitude),
+        crs="EPSG:4326",
+    )
+
+    # Save GeoDataFrame as a GeoPackage
+    gdf.to_file(output_gpkg, driver="GPKG")
+    print("Data conversion and storage completed:", output_gpkg)
