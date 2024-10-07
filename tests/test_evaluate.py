@@ -1,137 +1,144 @@
-import numpy as np
-import pytest
-import matplotlib.pyplot as plt
-from elapid.evaluate import boycei, boyce_index
-import pandas as pd
 import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 from shapely.geometry import Point
 
+from elapid.evaluate import boyce_index, continuous_boyce_index
 
 
 # Test Case 1: Normal case with random data
 def test_normal_case():
     np.random.seed(0)
-    fit = np.random.rand(1000)
-    obs = np.random.choice(fit, size=100, replace=False)
-    results = boyce_index(fit, obs, nclass=10, PEplot=False)
-    assert 'Spearman.cor' in results
-    assert 'F.ratio' in results
-    spearman_cor = results['Spearman.cor']
-    f_ratio = results['F.ratio']
+    ypred = np.random.rand(1000)
+    yobs = np.random.choice(ypred, size=100, replace=False)
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "Spearman.cor" in results
+    assert "F.ratio" in results
+    spearman_cor = results["Spearman.cor"]
+    f_ratio = results["F.ratio"]
     assert not np.isnan(spearman_cor)
     assert -1 <= spearman_cor <= 1
     assert len(f_ratio) == 10
     assert not np.any(np.isnan(f_ratio))
     assert np.all(f_ratio >= 0)
 
-# Test Case 2: Edge case with empty 'fit' array
-def test_empty_fit():
-    fit = np.array([])
-    obs = np.array([0.5, 0.6, 0.7])
-    with pytest.raises(ValueError):
-        boyce_index(fit, obs, nclass=10, PEplot=False)
 
-# Test Case 3: Edge case with empty 'obs' array
-def test_empty_obs():
-    fit = np.random.rand(1000)
-    obs = np.array([])
+# Test Case 2: Edge case with empty 'ypred' array
+def test_empty_ypred():
+    ypred = np.array([])
+    yobs = np.array([0.5, 0.6, 0.7])
     with pytest.raises(ValueError) as exc_info:
-        boyce_index(fit, obs, nclass=10, PEplot=False)
-    assert "After removing NaNs, 'fit' or 'obs' arrays cannot be empty." in str(exc_info.value)
+        continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "'ypred' or 'yobs' arrays cannot be empty." in str(exc_info.value)
 
-# Test Case 4: 'obs' containing NaNs
-def test_obs_with_nans():
-    fit = np.random.rand(1000)
-    obs = np.random.choice(fit, size=100, replace=False)
-    obs[::10] = np.nan  # Introduce NaNs into 'obs'
-    results = boyce_index(fit, obs, nclass=10, PEplot=False)
-    spearman_cor = results['Spearman.cor']
-    assert 'Spearman.cor' in results
+
+# Test Case 3: Edge case with empty 'yobs' array
+def test_empty_yobs():
+    ypred = np.random.rand(1000)
+    yobs = np.array([])
+    with pytest.raises(ValueError) as exc_info:
+        continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "'ypred' or 'yobs' arrays cannot be empty." in str(exc_info.value)
+
+
+# Test Case 4: 'yobs' containing NaNs
+def test_yobs_with_nans(recwarn):
+    ypred = np.random.rand(1000)
+    yobs = np.random.choice(ypred, size=100, replace=False)
+    yobs[::10] = np.nan  # Introduce NaNs into 'yobs'
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    # Check for warnings
+    w = recwarn.pop(UserWarning)
+    assert "'yobs' contains NaN values, which will be ignored." in str(w.message)
+    # Ensure function outputs are as expected
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
     if not np.isnan(spearman_cor):
         assert -1 <= spearman_cor <= 1
-    f_ratio = results['F.ratio']
+    f_ratio = results["F.ratio"]
     assert len(f_ratio) == 10
 
-# Test Case 5: Invalid 'nclass' value (negative number)
-def test_invalid_nclass():
-    fit = np.random.rand(1000)
-    obs = np.random.choice(fit, size=100, replace=False)
-    with pytest.raises(ValueError):
-        boyce_index(fit, obs, nclass=-5, PEplot=False)
 
-# Test Case 6: Custom 'window' value
-def test_custom_window():
-    fit = np.random.rand(1000)
-    obs = np.random.choice(fit, size=100, replace=False)
-    results = boyce_index(fit, obs, window=0.1, PEplot=False)
-    assert 'Spearman.cor' in results
-    spearman_cor = results['Spearman.cor']
+# Test Case 5: Invalid 'nbins' value (negative number)
+def test_invalid_nbins():
+    ypred = np.random.rand(1000)
+    yobs = np.random.choice(ypred, size=100, replace=False)
+    with pytest.raises(ValueError):
+        continuous_boyce_index(yobs, ypred, nbins=-5, to_plot=False)
+
+
+# Test Case 6: Custom 'bin_size' value
+def test_custom_bin_size():
+    ypred = np.random.rand(1000)
+    yobs = np.random.choice(ypred, size=100, replace=False)
+    results = continuous_boyce_index(yobs, ypred, bin_size=0.1, to_plot=False)
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
     assert not np.isnan(spearman_cor)
     assert -1 <= spearman_cor <= 1
-    f_ratio = results['F.ratio']
+    f_ratio = results["F.ratio"]
     assert len(f_ratio) > 0
 
-# Test Case 7: 'PEplot' set to True
-def test_peplot_true():
-    fit = np.random.rand(1000)
-    obs = np.random.choice(fit, size=100, replace=False)
-    results = boyce_index(fit, obs, nclass=10, PEplot=True)
-    assert 'Spearman.cor' in results
-    spearman_cor = results['Spearman.cor']
-    assert not np.isnan(spearman_cor)
-    assert -1 <= spearman_cor <= 1
-    plt.close('all')  # Close the plot to avoid display during testing
 
-# Test Case 8: 'fit' containing NaNs
-def test_fit_with_nans():
-# In this code snippet:
-    fit = np.random.rand(1000)
-    fit[::50] = np.nan  # Introduce NaNs into 'fit'
-    obs = np.random.choice(fit[~np.isnan(fit)], size=100, replace=False)
-    results = boyce_index(fit, obs, nclass=10, PEplot=False)
-    assert 'Spearman.cor' in results
-    spearman_cor = results['Spearman.cor']
+# Test Case 7: 'ypred' containing NaNs
+def test_ypred_with_nans(recwarn):
+    ypred = np.random.rand(1000)
+    ypred[::50] = np.nan  # Introduce NaNs into 'ypred'
+    yobs = np.random.choice(ypred[~np.isnan(ypred)], size=100, replace=False)
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    # Check for warnings
+    w = recwarn.pop(UserWarning)
+    assert "'ypred' contains NaN values, which will be ignored." in str(w.message)
+    # Ensure function outputs are as expected
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
     assert not np.isnan(spearman_cor)
     assert -1 <= spearman_cor <= 1
-    f_ratio = results['F.ratio']
+    f_ratio = results["F.ratio"]
     assert len(f_ratio) == 10
 
-# Test Case 9: 'obs' values outside the range of 'fit'
-def test_obs_outside_fit_range():
-    fit = np.random.rand(1000)
-    obs = np.array([1.5, 2.0, 2.5])  # Values outside the range [0, 1]
-    results = boyce_index(fit, obs, nclass=10, PEplot=False)
-    spearman_cor = results['Spearman.cor']
-    assert 'Spearman.cor' in results
+
+# Test Case 8: 'yobs' values outside the range of 'ypred'
+def test_yobs_outside_ypred_range():
+    ypred = np.random.rand(1000)
+    yobs = np.array([1.5, 2.0, 2.5])  # Values outside the range [0, 1]
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
+    # Spearman correlation may be NaN due to insufficient valid data
     assert np.isnan(spearman_cor) or -1 <= spearman_cor <= 1
-    f_ratio = results['F.ratio']
+    f_ratio = results["F.ratio"]
     assert len(f_ratio) == 10
 
-# Test Case 10: Large dataset
+
+# Test Case 9: Large dataset
 def test_large_dataset():
-    fit = np.random.rand(1000000)
-    obs = np.random.choice(fit, size=10000, replace=False)
-    results = boyce_index(fit, obs, nclass=20, PEplot=False)
-    assert 'Spearman.cor' in results
-    spearman_cor = results['Spearman.cor']
+    ypred = np.random.rand(1000000)
+    yobs = np.random.choice(ypred, size=10000, replace=False)
+    results = continuous_boyce_index(yobs, ypred, nbins=20, to_plot=False)
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
     assert not np.isnan(spearman_cor)
     assert -1 <= spearman_cor <= 1
-    f_ratio = results['F.ratio']
+    f_ratio = results["F.ratio"]
     assert len(f_ratio) == 20
 
 
-# Test Case 11: Using Pandas Series
+# Test Case 10: Using Pandas Series
 def test_with_pandas_series():
     np.random.seed(0)
-    fit = pd.Series(np.random.rand(1000))
-    obs = fit.sample(n=100, replace=False)
-    results = boyce_index(fit, obs, nclass=10, PEplot=False)
-    assert 'Spearman.cor' in results
-    spearman_cor = results['Spearman.cor']
+    ypred = pd.Series(np.random.rand(1000))
+    yobs = ypred.sample(n=100, replace=False)
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
     assert not np.isnan(spearman_cor)
     assert -1 <= spearman_cor <= 1
 
-# Test Case 12: Using GeoPandas GeoSeries
+
+# Test Case 11: Using GeoPandas GeoSeries
 def test_with_geopandas_geoseries():
     np.random.seed(0)
     num_points = 1000
@@ -139,12 +146,41 @@ def test_with_geopandas_geoseries():
     y = np.random.uniform(-90, 90, num_points)
     suitability = np.random.rand(num_points)
     geometry = [Point(xy) for xy in zip(x, y)]
-    gdf = gpd.GeoDataFrame({'suitability': suitability}, geometry=geometry)
-    
-    fit = gdf['suitability']  # This is a Pandas Series
-    obs = fit.sample(n=100, replace=False)
-    results = boyce_index(fit, obs, nclass=10, PEplot=False)
-    assert 'Spearman.cor' in results
-    spearman_cor = results['Spearman.cor']
+    gdf = gpd.GeoDataFrame({"suitability": suitability}, geometry=geometry)
+
+    ypred = gdf["suitability"]  # This is a Pandas Series
+    yobs = ypred.sample(n=100, replace=False)
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
     assert not np.isnan(spearman_cor)
     assert -1 <= spearman_cor <= 1
+
+
+# Test Case 12: Both 'ypred' and 'yobs' containing NaNs
+def test_both_ypred_yobs_with_nans(recwarn):
+    ypred = np.random.rand(1000)
+    ypred[::50] = np.nan  # Introduce NaNs into 'ypred'
+    yobs = np.random.choice(ypred, size=100, replace=False)
+    yobs[::10] = np.nan  # Introduce NaNs into 'yobs'
+    results = continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    # Check for multiple warnings
+    warnings_list = [str(w.message) for w in recwarn.list]
+    assert "'ypred' contains NaN values, which will be ignored." in warnings_list
+    assert "'yobs' contains NaN values, which will be ignored." in warnings_list
+    # Ensure function outputs are as expected
+    assert "Spearman.cor" in results
+    spearman_cor = results["Spearman.cor"]
+    if not np.isnan(spearman_cor):
+        assert -1 <= spearman_cor <= 1
+    f_ratio = results["F.ratio"]
+    assert len(f_ratio) == 10
+
+
+# Test Case 13: Empty arrays after removing NaNs
+def test_empty_arrays_after_nan_removal():
+    ypred = np.array([np.nan, np.nan])
+    yobs = np.array([np.nan, np.nan])
+    with pytest.raises(ValueError) as exc_info:
+        continuous_boyce_index(yobs, ypred, nbins=10, to_plot=False)
+    assert "'ypred' or 'yobs' arrays cannot be empty." in str(exc_info.value)

@@ -1,32 +1,103 @@
+import math
+import warnings
+from typing import Dict, List, Tuple, Union
+
 import geopandas as gpd
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
+# implement continuous Boyce index as describe in https://www.whoi.edu/cms/files/hirzel_etal_2006_53457.pdf (Eq.4)
 
-# implement Boyce index as describe in https://www.whoi.edu/cms/files/hirzel_etal_2006_53457.pdf (Eq.4)
 
-
-def boycei(interval, obs, fit):
+def plot_PE_curve(x: Union[np.ndarray, List[float]], y: Union[np.ndarray, List[float]]) -> None:
     """
-    Calculate the Boyce index for a given interval.
-    
+    Plots the Predicted/Expected (P/E) curve for the Boyce Index.
+
     Args:
-        interval (tuple or list): Two elements representing the lower and upper bounds of the interval.
-        obs (numpy.ndarray): Observed suitability values (i.e., predictions at presence points).
-        fit (numpy.ndarray): Suitability values (e.g., from a raster), i.e., predictions at presence + background points.
-    
-    Returns:
-        float: The ratio of observed to expected frequencies, representing the Boyce index for the given interval.
-    """
-    # Boolean arrays for classification
-    fit_bin = (fit >= interval[0]) & (fit <= interval[1])
-    obs_bin = (obs >= interval[0]) & (obs <= interval[1])
+        x (array-like): Habitat suitability values (e.g., interval midpoints).
+        y (array-like): Predicted/Expected ratios corresponding to the habitat suitability intervals.
 
-    # Compute pi and ei
-    pi = np.sum(obs_bin) / len(obs_bin)
-    ei = np.sum(fit_bin) / len(fit_bin)
+    Returns:
+        None
+    """
+    plt.figure()
+    plt.plot(x, y, marker="o")
+    plt.xlabel("Habitat suitability")
+    plt.ylabel("Predicted/Expected ratio")
+    plt.title("Boyce Index")
+    plt.show()
+
+
+def get_intervals(
+    nbins: Union[int, List[float], np.ndarray] = 0,
+    bin_size: Union[float, str] = "default",
+    range: Tuple[float, float] = (0, 1),
+) -> np.ndarray:
+    """
+    Generates habitat suitability intervals for the Boyce Index calculation.
+
+    Calculates intervals based on the provided range and either the number of bins or bin size.
+
+    Args:
+        nbins (int or list or np.ndarray, optional): Number of classes or a list of class thresholds. Defaults to 0.
+        bin_size (float or str, optional): Width of the bins. Defaults to 'default', which sets the width as 1/10th of the range.
+        range (tuple or list): Two elements representing the minimum and maximum values of habitat suitability. Default : [0, 1]
+
+    Returns:
+        np.ndarray: An array of intervals, each represented by a pair of lower and upper bounds.
+
+    Raises:
+        ValueError: If invalid values are provided for nbins or bin_size.
+    """
+    mini, maxi = range
+
+    if isinstance(bin_size, float):
+        nbins = (maxi - mini) / bin_size
+        if not nbins.is_integer():
+            warnings.warn(
+                f"bin_size has been adjusted to nearest appropriate size using ceil, as range/bin_size : {(maxi - mini)} / {bin_size} is not an integer.",
+                UserWarning,
+            )
+        nbins = math.ceil(nbins)
+    elif nbins == 0 and bin_size == "default":
+        nbins = 10
+
+    if isinstance(nbins, (list, np.ndarray)):
+        if len(nbins) == 1:
+            raise ValueError("Invalid nbins value. len(nbins) must be > 1")
+        nbins.sort()
+        intervals = np.column_stack((nbins[:-1], nbins[1:]))
+    elif nbins > 1:
+        boundary = np.linspace(mini, maxi, num=nbins + 1)
+        intervals = np.column_stack((boundary[:-1], boundary[1:]))
+    else:
+        raise ValueError("Invalid nbins value. nbins > 1")
+
+    return intervals
+
+
+def boyce_index(yobs: np.ndarray, ypred: np.ndarray, interval: Union[Tuple[float, float], List[float]]) -> float:
+    """
+    Calculates the Boyce index for a given interval.
+
+    Uses the convention as defined in Hirzel et al. 2006 to compute the ratio of observed to expected frequencies.
+
+    Args:
+        yobs (np.ndarray): Suitability values at observed locations (e.g., predictions at presence points).
+        ypred (np.ndarray): Suitability values at random locations (e.g., predictions at background points).
+        interval (tuple or list): Two elements representing the lower and upper bounds of the interval (i.e., habitat suitability).
+
+    Returns:
+        float: The ratio of observed to expected frequencies for the given interval.
+
+    """
+    yobs_bin = (yobs >= interval[0]) & (yobs <= interval[1])
+    ypred_bin = (ypred >= interval[0]) & (ypred <= interval[1])
+
+    pi = np.sum(yobs_bin) / len(yobs_bin)
+    ei = np.sum(ypred_bin) / len(ypred_bin)
 
     if ei == 0:
         fi = np.nan  # Avoid division by zero
@@ -36,145 +107,83 @@ def boycei(interval, obs, fit):
     return fi
 
 
-def boyce_index(fit, obs, nclass=0, window="default", res=100, PEplot=False):
+def continuous_boyce_index(
+    yobs: Union[np.ndarray, pd.Series, gpd.GeoSeries],
+    ypred: Union[np.ndarray, pd.Series, gpd.GeoSeries],
+    nbins: Union[int, List[float], np.ndarray] = 0,
+    bin_size: Union[float, str] = "default",
+    to_plot: bool = False,
+) -> Dict[str, Union[np.ndarray, float]]:
     """
-    Compute the Boyce index to evaluate habitat suitability models.
-    
-    The Boyce index evaluates how well a model predicts species presence by comparing its predictions
-    to a random distribution of observed presences along the prediction gradients. It is specifically 
-    designed for presence-only models and serves as an appropriate metric in such cases.
-    
-    It divides the probability of species presence into ranges and, for each range, calculates the predicted-to-expected ratio (F ratio).
-    The final output is given by the Spearman correlation between the mid-point of the probability interval and the F ratio.
-    
-    Index ranges from -1 to +1:
-    - Positive values: Model predictions align with actual species presence distribution.
-    - Values near zero: Model performs similarly to random predictions.
-    - Negative values: Model incorrectly predicts low-quality areas where species are more frequently found.
-    
-    This calculation is based on the continuous Boyce index (Eq. 4) as defined in Hirzel et al. 2006.
+    Compute the continuous Boyce index to evaluate habitat suitability models.
+
+    Uses the convention as defined in Hirzel et al. 2006 to compute the ratio of observed to expected frequencies.
 
     Args:
-        fit (numpy.ndarray | pd.Series | gpd.GeoSeries): Suitability values (e.g., predictions at presence + background points).
-        obs (numpy.ndarray | pd.Series | gpd.GeoSeries): Observed suitability values, i.e., predictions at presence points.
-        nclass (int | list, optional): Number of classes or list of class thresholds. Defaults to 0.
-        window (float | str, optional): Width of the moving window. Defaults to 'default' which sets window as 1/10th of the fit range.
-        res (int, optional): Resolution, i.e., number of steps if nclass=0. Defaults to 100.
-        PEplot (bool, optional): Whether to plot the predicted-to-expected (P/E) curve. Defaults to False.
-    
+        yobs (numpy.ndarray | pd.Series | gpd.GeoSeries): Suitability values at observed location (i.e., predictions at presence points).
+        ypred (numpy.ndarray | pd.Series | gpd.GeoSeries): Suitability values at random location (i.e., predictions at background points).
+        nbins (int | list, optional): Number of classes or a list of class thresholds. Defaults to 0.
+        bin_size (float | str, optional): Width of the the bin. Defaults to 'default' which sets width as 1/10th of the fit range.
+        to_plot (bool, optional): Whether to plot the predicted-to-expected (P/E) curve. Defaults to False.
+
     Returns:
         dict: A dictionary with the following keys:
             - 'F.ratio' (numpy.ndarray): The P/E ratio for each bin.
             - 'Spearman.cor' (float): The Spearman's rank correlation coefficient between interval midpoints and F ratios.
             - 'HS' (numpy.ndarray): The habitat suitability intervals.
-    
-    Example:
-        # Predicted suitability scores (e.g., predictions at presence + background points)
-        predicted = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-
-        # Observed presence suitability scores (e.g., predictions at presence points)
-        observed = np.array([0.3, 0.7, 0.8, 0.9])
-
-        # Call the boyce_index function to calculate the Boyce index and Spearman correlation
-        results = boyce_index(fit=predicted, obs=observed, nclass=3)
-        print(results)
-
-        # Output:
-        # {'F.ratio': array([0.625, 0.625, 1.875]),
-        #  'Spearman.cor': 0.866,
-        #  'HS': array([[0.1 , 0.4 ],
-        #               [0.4 , 0.7 ],
-        #               [0.7 , 1.  ]])}
     """
-    
-    
-    # Check types of fit and obs
-    acceptable_types = (np.ndarray, pd.Series, gpd.GeoSeries)
-    if not isinstance(fit, acceptable_types):
-        raise TypeError("The 'fit' parameter must be a NumPy array, Pandas Series, or GeoPandas GeoSeries.")
-    if not isinstance(obs, acceptable_types):
-        raise TypeError("The 'obs' parameter must be a NumPy array, Pandas Series, or GeoPandas GeoSeries.")
+    if not isinstance(ypred, (np.ndarray, pd.Series, gpd.GeoSeries)):
+        raise TypeError("The 'ypred' parameter must be a NumPy array, Pandas Series, or GeoPandas GeoSeries.")
+    if not isinstance(yobs, (np.ndarray, pd.Series, gpd.GeoSeries)):
+        raise TypeError("The 'yobs' parameter must be a NumPy array, Pandas Series, or GeoPandas GeoSeries.")
+    if not isinstance(nbins, (int, list, np.ndarray)):
+        raise TypeError("The 'nbins' parameter must be a int, list, or 1-d NumPy array.")
+    if not isinstance(bin_size, (float, str)):
+        raise TypeError("The 'bin_size' parameter must be a float, or str ('default').")
 
-    
-    # Convert inputs to NumPy arrays
-    fit = np.asarray(fit)
-    obs = np.asarray(obs)
-    
-    
-    # Ensure fit and obs are one-dimensional arrays
-    if fit.ndim != 1 or obs.ndim != 1:
-        raise ValueError("Both 'fit' and 'obs' must be one-dimensional arrays.")
+    if isinstance(bin_size, float) and (isinstance(nbins, (list, np.ndarray)) or nbins > 0):
+        raise ValueError(
+            f"Ambiguous value provided. Provide either nbins or bin_size. Cannot provide both. Provided values for nbins, bin_size are: ({nbins, bin_size})"
+        )
 
+    # Check for NaN values and issue warnings
+    if np.isnan(ypred).any():
+        warnings.warn("'ypred' contains NaN values, which will be ignored.", UserWarning)
+        ypred = ypred[~np.isnan(ypred)]
+    if np.isnan(yobs).any():
+        warnings.warn("'yobs' contains NaN values, which will be ignored.", UserWarning)
+        yobs = yobs[~np.isnan(yobs)]
 
-    # Remove NaNs from fit and obs
-    fit = fit[~np.isnan(fit)]
-    obs = obs[~np.isnan(obs)]
+    ypred = np.asarray(ypred)
+    yobs = np.asarray(yobs)
 
-    if len(fit) == 0 or len(obs) == 0:
-        raise ValueError("After removing NaNs, 'fit' or 'obs' arrays cannot be empty.")
+    if ypred.ndim != 1 or yobs.ndim != 1:
+        raise ValueError("Both 'ypred' and 'yobs' must be one-dimensional arrays.")
 
-    
-    # Remove NaNs from fit
-    fit = fit[~np.isnan(fit)]
+    if len(ypred) == 0 or len(yobs) == 0:
+        raise ValueError("'ypred' or 'yobs' arrays cannot be empty.")
 
-    if window == "default":
-        window = (np.max(fit) - np.min(fit)) / 10.0
+    mini, maxi = np.min(ypred), np.max(ypred)
 
-    mini = np.min(fit)
-    maxi = np.max(fit)
+    intervals = get_intervals(nbins, bin_size, range=[mini, maxi])
+    f_scores = np.array([boyce_index(yobs, ypred, interval) for interval in intervals])
 
-    if nclass == 0:
-        vec_mov = np.linspace(mini, maxi - window, num=res+1)
-        intervals = np.column_stack((vec_mov, vec_mov + window))
-    elif isinstance(nclass, (list, np.ndarray)) and len(nclass) > 1:
-        nclass.sort()
-        if mini > nclass[0] or  maxi < nclass[-1]:
-            raise ValueError(f"The range provided via nclass is: ({nclass[0], nclass[-1]}). The range computed via fit is: ({mini, maxi}). Provided range via nclass should be in range computed via (max(fit), min(fit)).")
-        vec_mov = np.concatenate(([mini], nclass))
-        intervals = np.column_stack((vec_mov[:-1], vec_mov[1:]))
-        print(vec_mov)
-        print(intervals)
-    elif nclass > 0:
-        vec_mov = np.linspace(mini, maxi, num=nclass + 1)
-        intervals = np.column_stack((vec_mov[:-1], vec_mov[1:]))
-    else:
-        raise ValueError("Invalid nclass value.")
+    valid = ~np.isnan(f_scores)
+    f_valid = f_scores[valid]
 
-
-    # Apply boycei function to each interval
-    f_list = []
-    for inter in intervals:
-        fi = boycei(inter, obs, fit)
-        f_list.append(fi)
-    f = np.array(f_list)
-
-
-    # Remove NaNs
-    valid = ~np.isnan(f)
-    
-    # use interval midpoints to calculate the spearmanr coeff. 
     intervals_mid = np.mean(intervals[valid], axis=1)
     if np.sum(valid) <= 2:
         corr = np.nan
     else:
-        f_valid = f[valid]
         corr, _ = spearmanr(f_valid, intervals_mid)
 
-
-    if PEplot:
-        plt.figure()
-        plt.plot(intervals_mid, f[valid], marker='o')
-        plt.xlabel('Habitat suitability')
-        plt.ylabel('Predicted/Expected ratio')
-        plt.title('Boyce Index')
-        plt.show()
-
+    if to_plot:
+        plot_PE_curve(x=intervals_mid, y=f_valid)
 
     results = {
-        'F.ratio': f,
-        'Spearman.cor': round(corr, 3) if not np.isnan(corr) else np.nan,
-        'HS': intervals,
+        "F.ratio": f_scores,
+        "Spearman.cor": corr,
+        "HS": intervals,
     }
 
     return results
-
