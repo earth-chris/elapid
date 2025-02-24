@@ -8,12 +8,15 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - name: Install poetry
+        run: pipx install poetry
       - name: Python setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
-          cache: 'pip'
+          cache: 'poetry'
+          cache-dependency-path: "pyproject.toml"
       - name: Install package
         run: |
           python -m pip install --upgrade pip
