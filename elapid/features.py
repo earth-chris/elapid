@@ -586,7 +586,11 @@ def left_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     Returns:
         Array of hinge features
     """
-    return np.minimum(1, np.maximum(0, (x - mn) / (repeat_array(mx, mn.shape[-1], axis=1) - mn)))
+    rng = repeat_array(mx, mn.shape[-1], axis=1) - mn
+    valid = rng > 0
+    hinge = np.clip(np.divide((x - mn), rng, where=valid), 0, 1)
+
+    return hinge
 
 
 def right_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
@@ -600,8 +604,12 @@ def right_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     Returns:
         Array of hinge features
     """
-    mn_broadcast = repeat_array(mn, mx.shape[-1], axis=1)
-    return np.minimum(1, np.maximum(0, (x - mn_broadcast) / (mx - mn_broadcast)))
+    mnr = repeat_array(mn, mx.shape[-1], axis=1)
+    rng = mx - mnr
+    valid = rng > 0
+    hinge = np.clip(np.divide((x - mnr), rng, where=valid), 0, 1)
+
+    return hinge
 
 
 def compute_weights(y: ArrayLike, pbr: int = 100) -> np.ndarray:
