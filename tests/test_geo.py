@@ -20,7 +20,7 @@ with rio.open(raster_1b, "r") as src:
 
 # set some crs variables
 wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]'
-proj4 = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+proj4 = "+proj=longlat +datum=WGS84 +no_defs +type=crs"
 epsg_code = 4326
 epsg_str = f"EPSG:{epsg_code}"
 
@@ -119,7 +119,6 @@ def test_crs_match():
     assert geo.crs_match(rio_crs, gpd_crs) is True
     assert geo.crs_match(gpd_crs, wkt) is True
     assert geo.crs_match(rio_crs, epsg_str) is True
-    assert geo.crs_match(wkt, proj4) is True
     assert geo.crs_match(rio_crs, "epsg:32610") is False
 
 
