@@ -85,7 +85,7 @@ def stack_geodataframes(
     if crs_match(presence.crs, background.crs):
         # explicitly set the two to exactly matching crs as geopandas
         # throws errors if there's any mismatch at all
-        background.crs = presence.crs
+        background.set_crs(presence.crs, inplace=True)
     else:
         if target_crs.lower() == "presence":
             background.to_crs(crs, inplace=True)
@@ -221,7 +221,7 @@ def sample_geoseries(geoseries: gpd.GeoSeries, count: int, overestimate: float =
     if type(geoseries) is gpd.GeoDataFrame:
         geoseries = geoseries.geometry
 
-    polygon = geoseries.unary_union
+    polygon = geoseries.union_all()
     xmin, ymin, xmax, ymax = polygon.bounds
     ratio = polygon.area / polygon.envelope.area
 
@@ -824,7 +824,7 @@ def zonal_stats(
             ):
                 data = read_raster_from_polygon(src, poly)
                 for method, array in zip(stats_methods, stats_arrays):
-                    array[p, :] = method.reduce(data)
+                    array[p, :] = np.array(method.reduce(data)).astype(array.dtype)
 
         # convert each stat's array into dataframes and merge them together
         stats_dfs = [pd.DataFrame(array, columns=labels) for array, labels in zip(stats_arrays, stats_labels)]

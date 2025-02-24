@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     env:
-      python-version: 3.8
+      python-version: 3.9
     strategy:
       fail-fast: false
       matrix:

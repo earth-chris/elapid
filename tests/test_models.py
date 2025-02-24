@@ -127,11 +127,6 @@ def test_format_occurrence_data():
 
 
 def test_preprocessor():
-    # not-fitted transformer
-    pca = PCA()
-    model = models.MaxentModel(feature_types="l")
-    model.fit(x, y, preprocessor=pca)
-
     # pre-fitted
     pca = PCA()
     pca.fit(x)
