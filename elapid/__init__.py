@@ -1,5 +1,6 @@
 """User entrypoint to elapid"""
 
+from elapid.evaluate import boyce_index, continuous_boyce_index, get_intervals, plot_PE_curve
 from elapid.features import (
     CategoricalTransformer,
     HingeTransformer,
