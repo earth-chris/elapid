@@ -8,12 +8,15 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - name: Install poetry
+        run: pipx install poetry
       - name: Python setup
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.8
-          cache: 'pip'
+          python-version: 3.9
+          cache: 'poetry'
+          cache-dependency-path: "pyproject.toml"
       - name: Install package
         run: |
           python -m pip install --upgrade pip
@@ -21,7 +24,7 @@ jobs:
           pip install .
       - name: Build package
         run: |
-          python3 setup.py sdist bdist_wheel
+          poetry build -o dist
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

@@ -1,3 +1,5 @@
+import numpy as np
+
 from elapid import features
 from elapid.utils import load_sample_data
 
@@ -70,6 +72,17 @@ def test_HingeTransformer():
     n_hinges = 5
     ht = features.HingeTransformer(n_hinges=n_hinges)
     t = ht.fit_transform(x)
+    trows, tcols = t.shape
+    assert tcols == (n_hinges - 1) * 2 * ncols
+
+
+def test_HingeTransformer_divide_by_zero():
+    xc = x.copy()
+    xc["CloudCoverMean"] = np.zeros(nrows)
+
+    n_hinges = 5
+    ht = features.HingeTransformer(n_hinges=n_hinges)
+    t = ht.fit_transform(xc)
     trows, tcols = t.shape
     assert tcols == (n_hinges - 1) * 2 * ncols
 
