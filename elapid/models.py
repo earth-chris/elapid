@@ -303,6 +303,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
                 turned off by default to use `glmnet` for fitting.
                 this feature was turned on to support Windows users
                 who install the package without a fortran compiler.
+            random_state: Add random seed for reproducibility. Will be applied to both sklearn and glmnet.
         """
         self.feature_types = feature_types
         self.tau = tau
