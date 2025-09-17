@@ -73,17 +73,19 @@ def checkerboard_split(
 class GeographicKFold(BaseCrossValidator):
     """Compute geographically-clustered train/test folds using KMeans clustering"""
 
-    def __init__(self, n_splits: int = 4):
+    def __init__(self, n_splits: int = 4, random_state: int = None):
         """Cluster x/y points into separate cross-validation folds.
 
         Args:
             n_splits: Number of geographic clusters to split the data into.
+            random_state: Random seed for KMeans clustering.
         """
         self.n_splits = n_splits
+        self.random_state = random_state
 
     def _iter_test_indices(self, points: Vector, y: None = None, groups: None = None):
         """Generate indices for test data samples."""
-        kmeans = KMeans(n_clusters=self.n_splits)
+        kmeans = KMeans(n_clusters=self.n_splits, random_state=self.random_state)
         xy = np.array(list(zip(points.geometry.x, points.geometry.y)))
         kmeans.fit(xy)
         clusters = kmeans.predict(xy)

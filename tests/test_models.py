@@ -113,6 +113,22 @@ def test_sklearn_MaxentModel():
     assert ypred.max() <= 1.0
     assert ypred.min() >= 0.0
 
+def test_MaxentModel_random_state_behavior():
+    model1 = models.MaxentModel(random_state=1)
+    model2 = models.MaxentModel(random_state=1)
+    model1.fit(x, y)
+    model2.fit(x, y)
+    ypred1 = model1.predict(x)
+    ypred2 = model2.predict(x)
+    np.testing.assert_allclose(ypred1, ypred2)
+
+    model3 = models.MaxentModel(random_state=2)
+    model3.fit(x, y)
+    ypred3 = model3.predict(x)  
+    
+    if np.allclose(ypred1, ypred3):
+        import warnings
+        warnings.warn("MaxentModel predictions are identical for different random_state values; model may be deterministic for this configuration.")
 
 def test_format_occurrence_data():
     # add a trailing dimension

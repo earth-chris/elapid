@@ -270,6 +270,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
         class_weights: Union[str, float] = MaxentConfig.class_weights,
         n_cpus: int = NCPUS,
         use_sklearn: bool = FORCE_SKLEARN,
+        random_state: int = None,
     ):
         """Create a maxent model object.
 
@@ -302,6 +303,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
                 turned off by default to use `glmnet` for fitting.
                 this feature was turned on to support Windows users
                 who install the package without a fortran compiler.
+            random_state: Add random seed for reproducibility. Will be applied to both sklearn and glmnet.
         """
         self.feature_types = feature_types
         self.tau = tau
@@ -321,6 +323,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
         self.n_lambdas = n_lambdas
         self.class_weights = class_weights
         self.use_sklearn = use_sklearn
+        self.random_state = random_state
 
         # computed during model fitting
         self.initialized_ = False
@@ -356,6 +359,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
         """
+        
         # clear state variables
         self.alpha_ = 0.0
         self.entropy_ = 0.0
@@ -542,6 +546,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             scoring=self.scorer,
             n_jobs=self.n_cpus,
             tol=self.convergence_tolerance,
+            random_state=self.random_state,
         )
 
     def initialize_sklearn_model(self, C: float, fit_intercept: bool = True) -> None:
@@ -558,6 +563,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             solver="liblinear",
             tol=self.convergence_tolerance,
             max_iter=self.n_lambdas,
+            random_state=self.random_state
         )
 
 
