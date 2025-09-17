@@ -1,0 +1,36 @@
+:root {
+  --dark-blue: #0c87f2;
+  --blue:   #0ca6f2;
+  --orange: #ff9030;
+  --black:  #222222;
+  --white:  #EEEEEE;
+  --dark-grey: #303030;
+  --light-grey: #FFFFFF;
+}
+
+.md-typeset a {
+  font-weight: 600;
+}
+
+[data-md-color-scheme="earthchris-light"] {
+  --md-primary-fg-color: var(--dark-blue);
+  --md-primary-fg-color--dark: var(--black);
+  --md-default-fg-color--light: var(--black);
+  --md-default-bg-color: var(--white);
+  --md-primary-bg-color: var(--white);
+  --md-accent-fg-color:  var(--orange);
+  --md-typeset-a-color:  var(--dark-blue);
+  --md-code-bg-color: var(--light-grey);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 150; /* [0, 360] */
+  --md-primary-fg-color: var(--dark-blue);
+  --md-primary-fg-color--dark: var(--black);
+  --md-default-fg-color--light: var(--white);
+  --md-default-bg-color: var(--black);
+  --md-primary-bg-color: var(--white);
+  --md-accent-fg-color:  var(--orange);
+  --md-typeset-a-color:  var(--blue);
+  --md-code-bg-color: var(--dark-grey);
+}
