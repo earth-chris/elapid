@@ -132,6 +132,8 @@ dmypy.json
 build_artifacts
 package/
 
-
-#poetry lock file
+# poetry lock file
 poetry.lock
+
+# ignore vs code specific settings
+.vscode/
