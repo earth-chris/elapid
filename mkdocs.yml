@@ -32,6 +32,7 @@ nav:
         - elapid's Geospatial Features: 'examples/WorkingWithGeospatialData.ipynb'
         - A Simple Maxent Model: 'examples/MaxentSimpleModel.ipynb'
     - API Documentation:
+        - elapid.config: 'module/config.md'
         - elapid.features: 'module/features.md'
         - elapid.geo: 'module/geo.md'
         - elapid.models: 'module/models.md'
