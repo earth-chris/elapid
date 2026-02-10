@@ -359,7 +359,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
         """
-        
+
         # clear state variables
         self.alpha_ = 0.0
         self.entropy_ = 0.0
@@ -563,7 +563,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             solver="liblinear",
             tol=self.convergence_tolerance,
             max_iter=self.n_lambdas,
-            random_state=self.random_state
+            random_state=self.random_state,
         )
 
 
