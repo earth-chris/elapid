@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from numpy.exceptions import AxisError
 from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -113,6 +114,7 @@ def test_sklearn_MaxentModel():
     assert ypred.max() <= 1.0
     assert ypred.min() >= 0.0
 
+
 def test_MaxentModel_random_state_behavior():
     model1 = models.MaxentModel(random_state=1)
     model2 = models.MaxentModel(random_state=1)
@@ -124,11 +126,15 @@ def test_MaxentModel_random_state_behavior():
 
     model3 = models.MaxentModel(random_state=2)
     model3.fit(x, y)
-    ypred3 = model3.predict(x)  
-    
+    ypred3 = model3.predict(x)
+
     if np.allclose(ypred1, ypred3):
         import warnings
-        warnings.warn("MaxentModel predictions are identical for different random_state values; model may be deterministic for this configuration.")
+
+        warnings.warn(
+            "MaxentModel predictions are identical for different random_state values; model may be deterministic for this configuration."
+        )
+
 
 def test_format_occurrence_data():
     # add a trailing dimension
@@ -137,7 +143,7 @@ def test_format_occurrence_data():
     model.fit(x, yt)
 
     # fail on >2 dims
-    with pytest.raises(np.AxisError):
+    with pytest.raises(AxisError):
         ytt = np.concatenate((yt, yt), axis=1)
         model.fit(x, ytt)
 

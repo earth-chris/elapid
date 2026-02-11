@@ -4,6 +4,7 @@ from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.exceptions import AxisError
 from scipy import stats as scistats
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
@@ -359,7 +360,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
                 a .fit_transform() method. Some examples include a PCA() object or a
                 RobustScaler().
         """
-        
+
         # clear state variables
         self.alpha_ = 0.0
         self.entropy_ = 0.0
@@ -563,7 +564,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
             solver="liblinear",
             tol=self.convergence_tolerance,
             max_iter=self.n_lambdas,
-            random_state=self.random_state
+            random_state=self.random_state,
         )
 
 
@@ -840,14 +841,14 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
         formatted uint8 ndarray of shape (n_samples,)
 
     Raises:
-        np.AxisError: an array with 2 or more columns is passed
+        np.exceptions.AxisError: an array with 2 or more columns is passed
     """
     if not isinstance(y, np.ndarray):
         y = np.array(y)
 
     if y.ndim > 1:
         if y.shape[1] > 1 or y.ndim > 2:
-            raise np.AxisError(f"Multi-column y data passed of shape {y.shape}. Must be 1d or 1 column.")
+            raise AxisError(f"Multi-column y data passed of shape {y.shape}. Must be 1d or 1 column.")
         y = y.flatten()
 
     return y.astype("uint8")

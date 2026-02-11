@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "elapid"
-version = "1.0.2"
+version = "1.0.3"
 description = "Species distribution modeling tools"
 authors = ["Christopher Anderson <cbanderson08@gmail.com>"]
 license = "MIT"
@@ -12,14 +12,15 @@ include = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-numpy = ">=1.18,<2.0"
-pandas = ">=1.0.3"
+numpy = ">=2.0"
+pandas = ">=1.0.3,<3.0"
 pyproj = ">3.0"
 geopandas = ">=1.0"
 rasterio = ">=1.2.1"
 tqdm = ">=4.60"
 rtree = ">=0.9"
 scikit-learn = ">=1.2,<1.6"
+scipy = ">=1.13"
 matplotlib = ">=3.7"
 
 [tool.poetry.group.dev.dependencies]
