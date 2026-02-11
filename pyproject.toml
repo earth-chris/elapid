@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "elapid"
-version = "1.0.2"
+version = "1.0.3"
 description = "Species distribution modeling tools"
 authors = ["Christopher Anderson <cbanderson08@gmail.com>"]
 license = "MIT"
