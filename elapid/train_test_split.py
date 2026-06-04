@@ -1,7 +1,5 @@
 """Methods for geographlically splitting data into train/test splits"""
 
-from typing import List, Tuple
-
 import geopandas as gpd
 import numpy as np
 from shapely.geometry import box
@@ -14,8 +12,8 @@ from elapid.types import Vector
 
 
 def checkerboard_split(
-    points: Vector, grid_size: float, buffer: float = 0, bounds: Tuple[float, float, float, float] = None
-) -> Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+    points: Vector, grid_size: float, buffer: float = 0, bounds: tuple[float, float, float, float] = None
+) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Create train/test splits with a spatially-gridded checkerboard.
 
     Args:
@@ -86,7 +84,7 @@ class GeographicKFold(BaseCrossValidator):
     def _iter_test_indices(self, points: Vector, y: None = None, groups: None = None):
         """Generate indices for test data samples."""
         kmeans = KMeans(n_clusters=self.n_splits, random_state=self.random_state)
-        xy = np.array(list(zip(points.geometry.x, points.geometry.y)))
+        xy = np.array(list(zip(points.geometry.x, points.geometry.y, strict=False)))
         kmeans.fit(xy)
         clusters = kmeans.predict(xy)
         indices = np.arange(len(xy))
@@ -94,7 +92,7 @@ class GeographicKFold(BaseCrossValidator):
             test = clusters == cluster
             yield indices[test]
 
-    def split(self, points: Vector) -> Tuple[np.ndarray, np.ndarray]:
+    def split(self, points: Vector) -> tuple[np.ndarray, np.ndarray]:
         """Split point data into geographically-clustered train/test folds and
             return their array indices.
 
@@ -104,8 +102,7 @@ class GeographicKFold(BaseCrossValidator):
         Yields:
             (train_idxs, test_idxs) the train/test splits for each geo fold.
         """
-        for train, test in super().split(points):
-            yield train, test
+        yield from super().split(points)
 
     def get_n_splits(self) -> int:
         """Return the number of splitting iterations in the cross-validator.
@@ -133,7 +130,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
 
     def _group_idxs(
         self, points: Vector, class_label: str = None, groups: str = None, count: bool = False
-    ) -> List[int]:
+    ) -> list[int]:
         """Get test indices for grouped train/test splits."""
         if class_label is not None:
             in_class = points[class_label] == 1
@@ -151,7 +148,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
 
         return test_idxs
 
-    def _point_idxs(self, points: Vector, class_label: str = None, count: bool = False) -> List[int]:
+    def _point_idxs(self, points: Vector, class_label: str = None, count: bool = False) -> list[int]:
         """Get test indices for single point train/test splits."""
         if class_label is None:
             if count:
@@ -174,8 +171,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
         else:
             test_idxs = self._group_idxs(points, class_label, groups)
 
-        for indices in test_idxs:
-            yield indices
+        yield from test_idxs
 
     def _iter_test_masks(self, points: Vector, class_label: str = None, groups: str = None):
         """Generates boolean masks corresponding to test sets."""
@@ -184,7 +180,7 @@ class BufferedLeaveOneOut(BaseCrossValidator):
             test_mask[test_index] = True
             yield test_mask
 
-    def split(self, points: Vector, class_label: str = None, groups: str = None) -> Tuple[np.ndarray, np.ndarray]:
+    def split(self, points: Vector, class_label: str = None, groups: str = None) -> tuple[np.ndarray, np.ndarray]:
         """Split point data into train/test folds and return their array indices.
 
         Default behaviour is to perform leave-one-out cross-validation, meaning

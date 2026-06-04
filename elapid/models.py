@@ -1,12 +1,13 @@
 """Classes for training species distribution models."""
 
-from typing import List, Tuple, Union
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from numpy.exceptions import AxisError
 from scipy import stats as scistats
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.inspection import partial_dependence, permutation_importance
 from sklearn.linear_model import LogisticRegression
@@ -33,14 +34,22 @@ except ModuleNotFoundError:
     FORCE_SKLEARN = True
 
 
-class SDMMixin:
-    """Mixin class for SDM classifiers."""
+class SDMMixin(ClassifierMixin):
+    """Mixin class for SDM classifiers.
 
-    _estimator_type = "classifier"
-    classes_ = [0, 1]
+    Inherits from sklearn's `ClassifierMixin` so estimator-type and classifier
+    tags are wired up via `__sklearn_tags__`. Subclasses must place this mixin
+    *before* `BaseEstimator` in their bases for the tags override to take
+    precedence over `BaseEstimator.__sklearn_tags__` during MRO lookup.
+    """
+
+    classes_ = np.array([0, 1])
 
     def score(self, x: ArrayLike, y: ArrayLike, sample_weight: ArrayLike = None) -> float:
         """Return the mean AUC score on the given test data and labels.
+
+        Overrides `ClassifierMixin.score` (which uses accuracy) to score with
+        ROC AUC, the natural metric for presence/background SDMs.
 
         Args:
             x: test samples. array-like of shape (n_samples, n_features).
@@ -52,8 +61,10 @@ class SDMMixin:
         """
         return roc_auc_score(y, self.predict(x), sample_weight=sample_weight)
 
-    def _more_tags(self):
-        return {"requires_y": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.required = True
+        return tags
 
     def permutation_importance_scores(
         self,
@@ -92,8 +103,8 @@ class SDMMixin:
         sample_weight: ArrayLike = None,
         n_repeats: int = 10,
         labels: list = None,
-        **kwargs,
-    ) -> Tuple[plt.Figure, plt.Axes]:
+        **kwargs: Any,
+    ) -> tuple[plt.Figure, plt.Axes]:
         """Create a box plot with bootstrapped permutation importance scores for each covariate.
 
         Permutation importance measures how much a model score decreases when a
@@ -139,8 +150,8 @@ class SDMMixin:
         fig, ax = plt.subplots(**plot_defaults)
         ax.boxplot(
             importance[rank_order].T,
-            vert=False,
-            labels=labels,
+            orientation="horizontal",
+            tick_labels=labels,
         )
         fig.tight_layout()
 
@@ -151,8 +162,8 @@ class SDMMixin:
         x: ArrayLike,
         percentiles: tuple = (0.025, 0.975),
         n_bins: int = 100,
-        categorical_features: tuple = [None],
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        categorical_features: tuple = (None,),
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute partial dependence scores for each feature.
 
         Args:
@@ -165,15 +176,21 @@ class SDMMixin:
         Returns:
             bins, mean, stdv: the binned feature values and the mean/stdv of responses.
         """
+        # sklearn >=1.7 rejects integer-dtype feature columns in partial_dependence
+        x = _cast_integer_features_to_float(x)
+
         ncols = x.shape[1]
-        mean = np.zeros((ncols, n_bins))
-        stdv = np.zeros_like(mean)
-        bins = np.zeros_like(mean)
+        # NaN-padded so per-feature grids shorter than `n_bins` don't break the
+        # fixed-shape return contract. sklearn collapses the grid to a feature's
+        # unique values when fewer than `grid_resolution` exist.
+        mean = np.full((ncols, n_bins), np.nan)
+        stdv = np.full((ncols, n_bins), np.nan)
+        bins = np.full((ncols, n_bins), np.nan)
 
         for idx in range(ncols):
             if idx in categorical_features:
                 continue
-            pd = partial_dependence(
+            pd_result = partial_dependence(
                 self,
                 x,
                 [idx],
@@ -181,9 +198,10 @@ class SDMMixin:
                 grid_resolution=n_bins,
                 kind="individual",
             )
-            mean[idx] = pd["individual"][0].mean(axis=0)
-            stdv[idx] = pd["individual"][0].std(axis=0)
-            bins[idx] = pd["grid_values"][0]
+            grid_size = pd_result["grid_values"][0].shape[0]
+            bins[idx, :grid_size] = pd_result["grid_values"][0]
+            mean[idx, :grid_size] = pd_result["individual"][0].mean(axis=0)
+            stdv[idx, :grid_size] = pd_result["individual"][0].std(axis=0)
 
         return bins, mean, stdv
 
@@ -194,8 +212,8 @@ class SDMMixin:
         n_bins: int = 50,
         categorical_features: tuple = None,
         labels: list = None,
-        **kwargs,
-    ) -> Tuple[plt.Figure, plt.Axes]:
+        **kwargs: Any,
+    ) -> tuple[plt.Figure, plt.Axes]:
         """Plot the response of an estimator across the range of feature values.
 
         Args:
@@ -248,12 +266,12 @@ class SDMMixin:
         return fig, ax
 
 
-class MaxentModel(BaseEstimator, SDMMixin):
+class MaxentModel(SDMMixin, BaseEstimator):
     """Model estimator for Maxent-style species distribution models."""
 
     def __init__(
         self,
-        feature_types: Union[list, str] = MaxentConfig.feature_types,
+        feature_types: list | str = MaxentConfig.feature_types,
         tau: float = MaxentConfig.tau,
         transform: float = MaxentConfig.transform,
         clamp: bool = MaxentConfig.clamp,
@@ -268,7 +286,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
         convergence_tolerance: float = MaxentConfig.tolerance,
         use_lambdas: str = MaxentConfig.use_lambdas,
         n_lambdas: int = MaxentConfig.n_lambdas,
-        class_weights: Union[str, float] = MaxentConfig.class_weights,
+        class_weights: str | float = MaxentConfig.class_weights,
         n_cpus: int = NCPUS,
         use_sklearn: bool = FORCE_SKLEARN,
         random_state: int = None,
@@ -292,8 +310,11 @@ class MaxentModel(BaseEstimator, SDMMixin):
             n_hinge_features: the number of hinge features to fit in feature transformation
             n_threshold_features: the number of thresholds to fit in feature transformation
             convergence_tolerance: model convergence tolerance level
-            use_lambdas: guide for which model lambdas to select (either "best" or "last")
-            n_lambdas: number of lamba values to fit models with
+            use_lambdas: guide for which model lambdas to select (either "best" or "last").
+                Glmnet-only; ignored when `use_sklearn=True`.
+            n_lambdas: number of lambda values along the glmnet regularization path.
+                Glmnet-only; ignored when `use_sklearn=True` (the sklearn solver
+                has no regularization path, just a single C value).
             class_weights: strategy for weighting presence samples.
                 pass "balanced" to compute the ratio based on sample frequency
                 or pass a float for the presence:background weight ratio
@@ -342,7 +363,7 @@ class MaxentModel(BaseEstimator, SDMMixin):
         x: ArrayLike,
         y: ArrayLike,
         sample_weight: ArrayLike = None,
-        categorical: List[int] = None,
+        categorical: list[int] = None,
         labels: list = None,
         preprocessor: BaseEstimator = None,
     ) -> None:
@@ -368,7 +389,9 @@ class MaxentModel(BaseEstimator, SDMMixin):
         # format the input data
         y = format_occurrence_data(y)
 
-        # apply preprocessing
+        # apply preprocessing; keep the original `x` so the internal predict()
+        # call below doesn't apply the preprocessor a second time.
+        x_raw = x
         if preprocessor is not None:
             self.preprocessor = preprocessor
             try:
@@ -440,10 +463,11 @@ class MaxentModel(BaseEstimator, SDMMixin):
         # store initialization state
         self.initialized_ = True
 
-        # apply maxent-specific transformations
+        # apply maxent-specific transformations. self.predict() re-applies the
+        # preprocessor internally, so feed it the original un-preprocessed x.
         class_transform = self.get_params()["transform"]
         self.set_params(transform="raw")
-        raw = self.predict(x[y == 0])
+        raw = self.predict(x_raw[y == 0])
         self.set_params(transform=class_transform)
 
         # alpha is a normalizing constant that ensures that f1(z) integrates (sums) to 1
@@ -557,23 +581,26 @@ class MaxentModel(BaseEstimator, SDMMixin):
             C: the regularization parameter
             fit_intercept: include an intercept parameter
         """
+        # n_lambdas controls the glmnet regularization-path length; it's not a
+        # meaningful iteration cap for liblinear. Use a value generous enough
+        # to converge at the (tight) MaxentConfig.tolerance=1e-7 default.
         self.estimator = LogisticRegression(
             C=C,
             fit_intercept=fit_intercept,
-            penalty="l1",
+            l1_ratio=1.0,
             solver="liblinear",
             tol=self.convergence_tolerance,
-            max_iter=self.n_lambdas,
+            max_iter=1000,
             random_state=self.random_state,
         )
 
 
-class NicheEnvelopeModel(BaseEstimator, SDMMixin, FeaturesMixin):
+class NicheEnvelopeModel(SDMMixin, FeaturesMixin, BaseEstimator):
     """Model estimator for niche envelope-style models."""
 
     def __init__(
         self,
-        percentile_range: Tuple[float, float] = NicheEnvelopeConfig.percentile_range,
+        percentile_range: tuple[float, float] = NicheEnvelopeConfig.percentile_range,
         overlay: str = NicheEnvelopeConfig.overlay,
     ):
         """Create a niche envelope model estimator.
@@ -692,13 +719,13 @@ class NicheEnvelopeModel(BaseEstimator, SDMMixin, FeaturesMixin):
         return self.predict(x)
 
 
-class EnsembleModel(BaseEstimator, SDMMixin):
+class EnsembleModel(SDMMixin, BaseEstimator):
     """Barebones estimator for ensembling multiple model predictions."""
 
     models: list = None
     reducer: str = None
 
-    def __init__(self, models: List[BaseEstimator], reducer: str = EnsembleConfig.reducer):
+    def __init__(self, models: list[BaseEstimator], reducer: str = EnsembleConfig.reducer):
         """Create a model ensemble from a set of trained models.
 
         Args:
@@ -709,7 +736,7 @@ class EnsembleModel(BaseEstimator, SDMMixin):
         self.models = models
         self.reducer = reducer
 
-    def reduce(self, preds: List[np.ndarray]) -> np.ndarray:
+    def reduce(self, preds: list[np.ndarray]) -> np.ndarray:
         """Reduce multiple model predictions into ensemble prediction/probability scores.
 
         Args:
@@ -852,6 +879,25 @@ def format_occurrence_data(y: ArrayLike) -> ArrayLike:
         y = y.flatten()
 
     return y.astype("uint8")
+
+
+def _cast_integer_features_to_float(x: ArrayLike) -> ArrayLike:
+    """Return a copy of `x` with integer feature columns cast to float64.
+
+    sklearn>=1.7 raises on integer-dtype features in `partial_dependence`. The
+    cast is non-destructive (caller's data is untouched) and skips category and
+    float columns. Returns the input unchanged when no integer columns exist.
+    """
+    if isinstance(x, pd.DataFrame):
+        int_cols = x.select_dtypes(include="integer").columns
+        if len(int_cols) == 0:
+            return x
+        return x.assign(**{col: x[col].astype("float64") for col in int_cols})
+
+    arr = np.asarray(x)
+    if np.issubdtype(arr.dtype, np.integer):
+        return arr.astype("float64")
+    return x
 
 
 def estimate_C_from_betas(beta_multiplier: float) -> float:

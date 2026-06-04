@@ -1,7 +1,6 @@
 """Unit tests for the elapid/utils.py module"""
 
 import os
-import shutil
 import tempfile
 from copy import copy
 from glob import glob
@@ -52,13 +51,13 @@ def test_load_sample_data():
 
 
 def test_download_sample_data():
-    outdir = "tmp-download"
-    utils.download_sample_data(outdir)
-    assert os.path.exists(outdir)
-    fnames = glob(os.path.join(outdir, "*"))
-    for fname in fnames:
-        assert os.path.getsize(fname) > 0
-    shutil.rmtree(outdir)
+    with tempfile.TemporaryDirectory() as outdir:
+        utils.download_sample_data(outdir)
+        assert os.path.exists(outdir)
+        fnames = glob(os.path.join(outdir, "*"))
+        assert len(fnames) > 0, "no files were downloaded"
+        for fname in fnames:
+            assert os.path.getsize(fname) > 0
 
 
 def test_save_object():

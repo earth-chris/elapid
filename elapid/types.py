@@ -1,6 +1,6 @@
 """Custom maxent and typing data types."""
 
-from typing import Any, Union
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -8,19 +8,19 @@ import pandas as pd
 import pyproj
 
 # typing
-Number = Union[int, float]
-ArrayLike = Union[np.ndarray, pd.DataFrame]
-CRSType = Union[pyproj.CRS, str]
-Vector = Union[gpd.GeoSeries, gpd.GeoDataFrame]
+Number = int | float
+ArrayLike = np.ndarray | pd.DataFrame
+CRSType = pyproj.CRS | str
+Vector = gpd.GeoSeries | gpd.GeoDataFrame
 
 
 # maxent feature transformations
-def get_feature_types(return_string: bool = False) -> Union[list, str]:
+def get_feature_types(return_string: bool = False) -> list | str:
     feature_types = "lqpht" if return_string else ["linear", "quadratic", "product", "hinge", "threshold"]
     return feature_types
 
 
-def validate_feature_types(features: Union[str, list]) -> list:
+def validate_feature_types(features: str | list) -> list:
     """Ensures the feature classes passed are maxent-legible
 
     Args:
@@ -39,7 +39,7 @@ def validate_feature_types(features: Union[str, list]) -> list:
         for feature in features:
             if feature == "a":
                 return valid_list
-            assert feature in valid_string, "Invalid feature passed: {}".format(feature)
+            assert feature in valid_string, f"Invalid feature passed: {feature}"
             if feature == "l":
                 valid_features.append("linear")
             elif feature == "q":
@@ -56,7 +56,7 @@ def validate_feature_types(features: Union[str, list]) -> list:
         for feature in features:
             if feature == "auto":
                 return valid_list
-            assert feature in valid_list, "Invalid feature passed: {}".format(feature)
+            assert feature in valid_list, f"Invalid feature passed: {feature}"
             valid_features.append(feature)
 
     return valid_features

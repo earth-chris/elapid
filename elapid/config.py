@@ -1,7 +1,5 @@
 """SDM model configuration parameters."""
 
-from typing import Tuple, Union
-
 
 class MaxentConfig:
     # constrain feature min/max ranges
@@ -41,7 +39,7 @@ class MaxentConfig:
 
     # method for weighting presence samples
     # set to "balanced" for nomalizing weights based on sample density
-    class_weights: Union[str, float] = 100
+    class_weights: str | float = 100
 
 
 # maxent default regularization parameters (from the maxnet R package)
@@ -55,7 +53,7 @@ class RegularizationConfig:
 
 
 class NicheEnvelopeConfig:
-    percentile_range: Tuple[float, float] = [2.5, 97.5]
+    percentile_range: tuple[float, float] = (2.5, 97.5)
     overlay: str = "average"
 
 

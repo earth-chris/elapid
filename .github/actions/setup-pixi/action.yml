@@ -1,0 +1,18 @@
+name: Setup pixi
+description: |
+  Install pixi (pinned to the repo's required version) and resolve the requested
+  environment(s). Update the pixi version here — it propagates to every workflow.
+
+inputs:
+  environments:
+    description: Environment name(s) to install (comma- or newline-separated)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: prefix-dev/setup-pixi@v0.8.1
+      with:
+        pixi-version: v0.70.1
+        environments: ${{ inputs.environments }}
+        cache: true

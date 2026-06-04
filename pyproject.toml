@@ -1,43 +1,172 @@
-[tool.poetry]
+[project]
 name = "elapid"
 version = "1.0.3"
 description = "Species distribution modeling tools"
-authors = ["Christopher Anderson <cbanderson08@gmail.com>"]
-license = "MIT"
+authors = [
+    { name = "Christopher Anderson", email = "cbanderson08@gmail.com" },
+]
+license = { text = "MIT" }
 readme = "README.md"
 keywords = ["biogeography", "ecology", "maxent", "SDM", "species distribution modeling"]
-include = [
-    { path = "elapid/data/*", format = "sdist" }
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2.2",
+    "pyproj>3.0",
+    "geopandas>=1.0",
+    "rasterio>=1.2.1",
+    "tqdm>=4.60",
+    "rtree>=0.9",
+    "scikit-learn>=1.8",
+    "scipy>=1.13",
+    "matplotlib>=3.10",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9"
-numpy = ">=2.0"
-pandas = ">=1.0.3,<3.0"
-pyproj = ">3.0"
-geopandas = ">=1.0"
-rasterio = ">=1.2.1"
-tqdm = ">=4.60"
-rtree = ">=0.9"
-scikit-learn = ">=1.2,<1.6"
-scipy = ">=1.13"
-matplotlib = ">=3.7"
+[project.urls]
+Homepage = "https://github.com/earth-chris/elapid"
+Documentation = "https://earth-chris.github.io/elapid/"
 
-[tool.poetry.group.dev.dependencies]
-descartes = ">=1.1"
+######## Build (hatchling)
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "elapid/",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["elapid"]
+
+######## Pixi
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+elapid = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+python = ">=3.11"
+
+[tool.pixi.environments]
+default = { features = [], solve-group = "default" }
+dev = { features = ["dev", "lint", "py311"], solve-group = "py311" }
+dev-py312 = { features = ["dev", "lint", "py312"], solve-group = "py312" }
+dev-py313 = { features = ["dev", "lint", "py313"], solve-group = "py313" }
+dev-glmnet = { features = ["dev", "lint", "py311", "glmnet"], solve-group = "glmnet" }
+docs = { features = ["docs", "py311"], solve-group = "docs", no-default-feature = true }
+build = { features = ["build", "py311"], solve-group = "build", no-default-feature = true }
+
+######## Pixi per-Python test features
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+######## Pixi glmnet feature (conda-forge binary; no Windows build)
+
+[tool.pixi.feature.glmnet]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[tool.pixi.feature.glmnet.dependencies]
+glmnet = "*"
+# glmnet still imports `pkg_resources`, which setuptools dropped in 80.0
+setuptools = "<80"
+
+######## Pixi Dev
+
+[tool.pixi.feature.dev.pypi-dependencies]
 pytest = ">=8.3"
 pytest-xdist = ">=3.6"
 pytest-cov = ">=5.0"
-pre-commit = ">=3.0"
 ipython = ">=8.0"
 jupyter = ">=1.0"
+
+[tool.pixi.feature.dev.tasks]
+test = "pytest"
+test-data = "python tests/create_test_data.py"
+
+######## Pixi Lint (ruff)
+
+[tool.pixi.feature.lint.pypi-dependencies]
+ruff = ">=0.6"
+pre-commit = ">=3.0"
+
+[tool.pixi.feature.lint.tasks]
+lint = "ruff check elapid tests"
+format = "ruff format elapid tests"
+format-check = "ruff format --check elapid tests"
+
+######## Pixi Docs
+
+[tool.pixi.feature.docs.pypi-dependencies]
+mkdocs = "*"
 mkdocs-material = ">=9.5"
-mkdocstrings = {extras = ["python"], version = ">=0.25"}
 mkdocs-jupyter = ">=0.24"
+mkdocstrings = { version = ">=0.25", extras = ["python"] }
+livereload = "*"
 
-[tool.poetry.extras]
-glmnet = ["glmnet"]
+[tool.pixi.feature.docs.tasks]
+localdocs = "mkdocs serve"
+build-docs = "mkdocs build --strict --verbose"
+deploy-docs = "mkdocs gh-deploy --force"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+######## Pixi Build (PyPI release)
+
+[tool.pixi.feature.build.pypi-dependencies]
+hatch = "*"
+twine = "*"
+
+[tool.pixi.feature.build.tasks]
+build = "hatch build"
+deploy = { cmd = "twine upload dist/*", depends-on = ["build"] }
+
+######## PyTest
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-n auto --cov --no-cov-on-fail --cov-report=term-missing:skip-covered"
+
+[tool.coverage.run]
+source = ["elapid"]
+
+######## Ruff
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["docs/examples"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E203",  # whitespace before ':' (black-compatible)
+    "E501",  # line too long (handled by formatter)
+    "F401",  # unused imports (elapid/__init__.py re-exports)
+    "F403",  # `from x import *` (elapid/__init__.py)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B"]  # bugbear's B008/B011 are noisy in test parametrize
+
+[tool.ruff.format]
+quote-style = "double"

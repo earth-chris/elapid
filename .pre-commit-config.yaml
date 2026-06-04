@@ -2,23 +2,22 @@ default_language_version:
   python: python3.11
 
 repos:
-  - repo: https://github.com/ambv/black
-    rev: 24.8.0
+  # ruff is installed in the pixi `dev` env (see `[tool.pixi.feature.lint]`),
+  # so run that binary instead of letting pre-commit fetch a second pinned copy.
+  - repo: local
     hooks:
-      - id: black
-        args: ["elapid", "--line-length=120"]
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.1.0
-    hooks:
-      - id: flake8
-        args: ["--select=C,E,F,W,B,B950", "--max-line-length=120", "--ignore=E203,E501,W503,F401,F403"]
-
-  - repo: https://github.com/timothycrosley/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ["-l 120", "--profile", "black", "."]
+      - id: ruff
+        name: ruff (lint + autofix)
+        entry: ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff (format)
+        entry: ruff format
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

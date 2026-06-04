@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Pixi local environment cache (pixi.lock is tracked)
+.pixi/
+
 # C extensions
 *.so
 

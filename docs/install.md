@@ -55,13 +55,35 @@ pip install elapid
 
 ## Installing glmnet
 
-`glmnet` needs to be manually installed on Windows. But technically it's not required.
+`glmnet` is optional. When it's importable, `elapid` uses it to fit the Maxent
+logistic regression (matching the R [maxnet][r-maxnet] reference); when it
+isn't, `elapid` falls back to `sklearn`.
 
-`elapid` was written to try and match the modeling framework of the R version of Maxent, [maxnet][r-maxnet]. `maxnet` uses an inhomogeneous Poisson process model, which fits penalized maximum likelihood models, and is handled by the package [glmnet][glmnet-fortran].
+**Caveat — installing `glmnet` via pip is currently broken.** The [python
+wrapper][glmnet-py] hasn't been released since 2020. Its `setup.py` predates
+PEP 517 and fails to build under modern installers (`pip`, `uv`, etc.), and no
+wheels are published on PyPI. The only working install paths are:
 
-There is a python wrapper for [glmnet][glmnet-py], which is used by `elapid`. But it has no Windows build, so it has to compile some fortran code on install. This means you need to have a fortran compiler running (like [MinGW-w64][mingw] or [Cygwin](https://www.cygwin.com/)) if you want to install it (`pip install glmnet`).
+1. **conda-forge (recommended).** The conda-forge `glmnet` build is current on
+   Python 3.8–3.11 (no 3.12+ build at time of writing):
 
-You can also checkout [this GitHub issue][fortran-issue] to read about other people's solutions or contribute a better solution.
+   ```bash
+   conda install -c conda-forge glmnet
+   ```
+
+2. **The elapid `dev-glmnet` pixi environment.** Equivalent to (1) but managed
+   for you alongside the rest of the dev tooling:
+
+   ```bash
+   pixi run -e dev-glmnet test
+   ```
+
+3. **Manual Fortran build.** Install `gfortran` + `setuptools` and run
+   `pip install --no-build-isolation glmnet`. Brittle; not recommended.
+
+If `glmnet` isn't installable on your target Python, `elapid` still works —
+the `sklearn` solver path covers the same modeling surface with slightly
+different regularization handling (see [An important consideration](#an-important-consideration) below).
 
 ### An important consideration
 
@@ -78,8 +100,5 @@ The differences are relatively small. When comparing models fit in `maxnet` to `
 Still, I recommend users try their best to install `glmnet` if you're interested in maintaining fidelity to the other family of Maxent tools.
 
 
-[glmnet-fortran]: https://glmnet.stanford.edu/articles/glmnet.html
 [glmnet-py]: https://github.com/civisanalytics/python-glmnet/
-[fortran-issue]: https://github.com/earth-chris/elapid/issues/9
-[mingw]: https://www.mingw-w64.org/
 [r-maxnet]: https://github.com/mrmaxent/maxnet
