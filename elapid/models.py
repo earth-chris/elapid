@@ -176,13 +176,9 @@ class SDMMixin(ClassifierMixin):
         Returns:
             bins, mean, stdv: the binned feature values and the mean/stdv of responses.
         """
-        # sklearn >=1.7 rejects integer-dtype feature columns in partial_dependence
         x = _cast_integer_features_to_float(x)
 
         ncols = x.shape[1]
-        # NaN-padded so per-feature grids shorter than `n_bins` don't break the
-        # fixed-shape return contract. sklearn collapses the grid to a feature's
-        # unique values when fewer than `grid_resolution` exist.
         mean = np.full((ncols, n_bins), np.nan)
         stdv = np.full((ncols, n_bins), np.nan)
         bins = np.full((ncols, n_bins), np.nan)
@@ -389,8 +385,7 @@ class MaxentModel(SDMMixin, BaseEstimator):
         # format the input data
         y = format_occurrence_data(y)
 
-        # apply preprocessing; keep the original `x` so the internal predict()
-        # call below doesn't apply the preprocessor a second time.
+        # apply preprocessing
         x_raw = x
         if preprocessor is not None:
             self.preprocessor = preprocessor
@@ -463,8 +458,7 @@ class MaxentModel(SDMMixin, BaseEstimator):
         # store initialization state
         self.initialized_ = True
 
-        # apply maxent-specific transformations. self.predict() re-applies the
-        # preprocessor internally, so feed it the original un-preprocessed x.
+        # apply maxent-specific transformations
         class_transform = self.get_params()["transform"]
         self.set_params(transform="raw")
         raw = self.predict(x_raw[y == 0])
@@ -581,9 +575,6 @@ class MaxentModel(SDMMixin, BaseEstimator):
             C: the regularization parameter
             fit_intercept: include an intercept parameter
         """
-        # n_lambdas controls the glmnet regularization-path length; it's not a
-        # meaningful iteration cap for liblinear. Use a value generous enough
-        # to converge at the (tight) MaxentConfig.tolerance=1e-7 default.
         self.estimator = LogisticRegression(
             C=C,
             fit_intercept=fit_intercept,

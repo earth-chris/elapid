@@ -588,8 +588,6 @@ def left_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     """
     rng = repeat_array(mx, mn.shape[-1], axis=1) - mn
     valid = rng > 0
-    # pre-fill with 0 so cells skipped by `where=` aren't uninitialized memory;
-    # a zero-width range carries no information and the hinge contribution is 0.
     out = np.zeros_like(x - mn, dtype=np.float64)
     hinge = np.clip(np.divide((x - mn), rng, where=valid, out=out), 0, 1)
 
