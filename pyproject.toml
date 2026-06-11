@@ -49,6 +49,11 @@ only-include = ["elapid"]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 
+[tool.pixi.system-requirements]
+# pyproj's macOS arm64 wheels target macosx_14_0+; pixi's default of 13 makes
+# the solver fall back to building from sdist on Apple Silicon CI runners.
+macos = "14.0"
+
 [tool.pixi.pypi-dependencies]
 elapid = { path = ".", editable = true }
 
