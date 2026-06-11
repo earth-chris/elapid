@@ -133,6 +133,20 @@ twine = "*"
 build = "hatch build"
 deploy = { cmd = "twine upload dist/*", depends-on = ["build"] }
 
+# Simulates the conda-forge build path (`{{ PYTHON }} -m pip install . -vv`):
+# rebuilds the sdist, installs it into a fresh venv with all dependencies
+# resolved from PyPI, and imports elapid. Catches regressions where the sdist
+# is missing a required file or pip can't resolve our declared deps.
+release-check = { cmd = """
+    rm -rf dist .release-check-venv &&
+    hatch build &&
+    python -m venv .release-check-venv &&
+    .release-check-venv/bin/python -m pip install --quiet --upgrade pip &&
+    .release-check-venv/bin/python -m pip install --quiet dist/elapid-*.tar.gz &&
+    .release-check-venv/bin/python -c 'import elapid; print(\"ok:\", elapid.__version__)' &&
+    rm -rf .release-check-venv
+""" }
+
 ######## PyTest
 
 [tool.pytest.ini_options]
