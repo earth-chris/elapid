@@ -13,9 +13,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: ./.github/actions/setup-pixi
         with:
-          python-version: 3.11
-      - run: pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-jupyter livereload
-      - run: pip install .
-      - run: mkdocs gh-deploy --force
+          environments: docs
+      - run: pixi run -e docs deploy-docs

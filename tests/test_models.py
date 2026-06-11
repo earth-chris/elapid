@@ -1,8 +1,11 @@
 import numpy as np
+import pandas as pd
 import pytest
 from numpy.exceptions import AxisError
 from sklearn import metrics
+from sklearn.base import is_classifier
 from sklearn.decomposition import PCA
+from sklearn.inspection import partial_dependence
 from sklearn.linear_model import LogisticRegression
 
 from elapid import models
@@ -149,11 +152,23 @@ def test_format_occurrence_data():
 
 
 def test_preprocessor():
-    # pre-fitted
+    import warnings as _warnings
+
     pca = PCA()
     pca.fit(x)
     model = models.MaxentModel(feature_types="l")
-    model.fit(x, y, preprocessor=pca)
+
+    # the internal predict() inside fit() must not re-apply the preprocessor;
+    # if it does, PCA (fit on a DataFrame) is handed a numpy array on the
+    # second call and emits the "X does not have valid feature names" warning.
+    with _warnings.catch_warnings():
+        _warnings.filterwarnings("error", message=r"X does not have valid feature names")
+        model.fit(x, y, preprocessor=pca)
+
+    # sanity: predict round-trip works on the same DataFrame
+    ypred = model.predict(x)
+    assert ypred.shape == (len(y),)
+    assert 0.0 <= ypred.min() and ypred.max() <= 1.0
 
 
 def test_NicheEnvelopeModel():
@@ -244,3 +259,103 @@ def test_permutation_importance_scores():
     me.fit(xb, yb)
     ne.permutation_importance_plot(xb, yb)
     me.permutation_importance_plot(xb, yb)
+
+
+# Tests guarding sklearn compatibility (estimator tags, classes_, partial_dependence)
+# Pandas-touching helper tests live alongside since the integer-cast path is the
+# main pandas dtype concern in models.py.
+
+
+@pytest.mark.parametrize(
+    "model_factory",
+    [
+        models.MaxentModel,
+        models.NicheEnvelopeModel,
+        lambda: models.EnsembleModel([models.MaxentModel()]),
+    ],
+)
+def test_is_classifier(model_factory):
+    # is_classifier reads from __sklearn_tags__ in sklearn >=1.6; failing this
+    # also breaks sklearn.inspection.partial_dependence.
+    assert is_classifier(model_factory())
+
+
+@pytest.mark.parametrize(
+    "model_factory",
+    [models.MaxentModel, models.NicheEnvelopeModel],
+)
+def test_sklearn_tags(model_factory):
+    tags = model_factory().__sklearn_tags__()
+    assert tags.estimator_type == "classifier"
+    assert tags.target_tags.required is True
+    assert tags.classifier_tags is not None
+
+
+def test_classes_is_ndarray():
+    # sklearn 1.9 indexes into estimator.classes_ with numpy boolean masks;
+    # a Python list `[0, 1]` silently breaks downstream metrics.
+    assert isinstance(models.MaxentModel().classes_, np.ndarray)
+    assert list(models.MaxentModel().classes_) == [0, 1]
+
+
+def test_partial_dependence_accepts_integer_dataframe():
+    # bradypus loads as int64; sklearn>=1.7 rejects integer feature dtypes in
+    # partial_dependence unless we cast first.
+    assert pd.api.types.is_integer_dtype(xb["cld6190_ann"])
+    me = models.MaxentModel()
+    me.fit(xb, yb)
+    bins, mean, stdv = me.partial_dependence_scores(xb, categorical_features=me.transformer.categorical_ or [None])
+    assert bins.shape == mean.shape == stdv.shape
+
+    # every non-categorical feature should have at least one populated grid point
+    non_cat = [i for i in range(xb.shape[1]) if i != xb.columns.get_loc("ecoreg")]
+    for idx in non_cat:
+        assert np.isfinite(bins[idx]).any(), f"feature {idx} produced no grid points"
+        assert np.isfinite(mean[idx]).any()
+
+    # the caller's dtypes must not have been mutated by the cast
+    assert pd.api.types.is_integer_dtype(xb["cld6190_ann"])
+
+
+def test_cast_integer_features_to_float_dataframe():
+    df = pd.DataFrame(
+        {
+            "int_col": np.array([1, 2, 3], dtype="int64"),
+            "uint_col": np.array([4, 5, 6], dtype="uint8"),
+            "float_col": np.array([1.0, 2.0, 3.0]),
+            "cat_col": pd.Categorical(["a", "b", "a"]),
+        }
+    )
+    out = models._cast_integer_features_to_float(df)
+
+    assert out["int_col"].dtype == np.float64
+    assert out["uint_col"].dtype == np.float64
+    assert out["float_col"].dtype == np.float64
+    assert isinstance(out["cat_col"].dtype, pd.CategoricalDtype)
+
+    # input must not be mutated
+    assert df["int_col"].dtype == np.int64
+    assert df["uint_col"].dtype == np.uint8
+
+
+def test_cast_integer_features_to_float_numpy():
+    arr_int = np.array([[1, 2], [3, 4]], dtype="int64")
+    out = models._cast_integer_features_to_float(arr_int)
+    assert out.dtype == np.float64
+
+    arr_float = np.array([[1.0, 2.0], [3.0, 4.0]])
+    out = models._cast_integer_features_to_float(arr_float)
+    assert out is arr_float  # passthrough when no cast needed
+
+
+def test_partial_dependence_scores_matches_sklearn():
+    # the helper should produce values consistent with sklearn's underlying
+    # partial_dependence call (sanity check that our cast/loop didn't drift).
+    me = models.MaxentModel()
+    me.fit(x, y)
+    percentiles = (0.025, 0.975)
+    bins, mean, stdv = me.partial_dependence_scores(x, n_bins=20, percentiles=percentiles)
+
+    pd_result = partial_dependence(me, x, [0], grid_resolution=20, percentiles=percentiles, kind="individual")
+    np.testing.assert_allclose(bins[0], pd_result["grid_values"][0])
+    np.testing.assert_allclose(mean[0], pd_result["individual"][0].mean(axis=0))

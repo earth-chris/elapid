@@ -5,7 +5,8 @@ import multiprocessing as mp
 import os
 import pickle
 import sys
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from collections.abc import Callable, Iterable
+from typing import Any
 from urllib import request
 
 import geopandas as gpd
@@ -37,7 +38,7 @@ def repeat_array(x: np.array, length: int = 1, axis: int = 0) -> np.ndarray:
     return np.expand_dims(x, axis=axis).repeat(length, axis=axis)
 
 
-def load_sample_data(name: str = "ariolimax", drop_geometry: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_sample_data(name: str = "ariolimax", drop_geometry: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Loads example species presence/background and covariate data.
 
     Args:
@@ -155,7 +156,7 @@ def create_output_raster_profile(
     driver: str = "GTiff",
     bigtiff: bool = True,
     dtype: str = "float32",
-) -> Tuple[Iterable, Dict]:
+) -> tuple[Iterable, dict]:
     """Gets parameters for windowed reading/writing to output rasters.
 
     Args:
@@ -192,7 +193,7 @@ def create_output_raster_profile(
     return windows, dst_profile
 
 
-def get_raster_band_indexes(raster_paths: list) -> Tuple[int, list]:
+def get_raster_band_indexes(raster_paths: list) -> tuple[int, list]:
     """Counts the number raster bands to index multi-source, multi-band covariates.
 
     Args:
@@ -308,7 +309,7 @@ def make_band_labels(n_bands: int) -> list:
     return labels
 
 
-def format_band_labels(raster_paths: list, labels: List[str] = None):
+def format_band_labels(raster_paths: list, labels: list[str] = None) -> list[str]:
     """Verify the number of labels matches the band count, create labels if none passed.
 
     Args:

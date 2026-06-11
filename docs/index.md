@@ -33,7 +33,7 @@ The name is an homage to *A Biogeographic Analysis of Australian Elapid Snakes* 
 
 `pip install elapid` or `conda install -c conda-forge elapid`
 
-Installing `glmnet` is optional, but recommended. This can be done with `pip install elapid[glmnet]` or `conda install -c conda-forge elapid glmnet`. For more support, and for information on why this package is recommended, see [this page](https://elapid.org/install#installing-glmnet).
+Installing `glmnet` is optional, but recommended where it can be installed. The pip path for `glmnet` is currently broken on modern Python; use `conda install -c conda-forge elapid glmnet` instead, or the bundled `pixi run -e dev-glmnet ...` env. For more details, see [this page](https://elapid.org/install#installing-glmnet).
 
 The `conda` install is recommended for Windows users. While there is a `pip` distribution, you may experience some challenges. The easiest way to overcome them is to use [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about). Otherwise, see [this page](https://elapid.org/install) for support.
 

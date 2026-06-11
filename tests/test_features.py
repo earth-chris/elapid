@@ -121,6 +121,29 @@ def test_compute_weights():
     assert weights[y == 1].max() == 1
 
 
+def test_hinges_no_uninitialized_memory_when_range_is_zero():
+    # `np.divide(..., where=valid)` without `out=` historically left `~valid`
+    # cells uninitialized (potential NaN/Inf). HingeTransformer can hit this
+    # path when a feature has zero range (all values identical), making one
+    # hinge slot's `rng = mx - mn == 0`.
+    nsamples = 50
+    rng = np.random.default_rng(0)
+    # column 1 is constant -> zero range; columns 0 and 2 are normal
+    x_arr = np.column_stack(
+        [
+            rng.uniform(size=nsamples),
+            np.full(nsamples, 0.5),
+            rng.uniform(size=nsamples),
+        ]
+    )
+
+    ht = features.HingeTransformer(n_hinges=4)
+    out = ht.fit_transform(x_arr)
+
+    assert np.all(np.isfinite(out)), "hinge output contains NaN/Inf"
+    assert out.min() >= 0.0 and out.max() <= 1.0
+
+
 def test_compute_regularization():
     ft = features.MaxentFeatureTransformer()
     t = ft.fit_transform(x)

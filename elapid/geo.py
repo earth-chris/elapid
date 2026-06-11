@@ -2,7 +2,7 @@
 
 import os
 import warnings
-from typing import Union
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
@@ -33,7 +33,7 @@ tqdm = get_tqdm()
 
 
 def xy_to_geoseries(
-    x: Union[float, list, np.ndarray], y: Union[float, list, np.ndarray], crs: CRSType = "epsg:4326"
+    x: float | list | np.ndarray, y: float | list | np.ndarray, crs: CRSType = "epsg:4326"
 ) -> gpd.GeoSeries:
     """Converts x/y data into a geopandas geoseries.
 
@@ -50,7 +50,7 @@ def xy_to_geoseries(
     x = to_iterable(x)
     y = to_iterable(y)
 
-    points = [Point(x, y) for x, y in zip(x, y)]
+    points = [Point(x, y) for x, y in zip(x, y, strict=False)]
     gs = gpd.GeoSeries(points, crs=crs)
 
     return gs
@@ -309,8 +309,8 @@ def crs_match(crs1: CRSType, crs2: CRSType) -> bool:
 
 
 def annotate(
-    points: Union[str, gpd.GeoSeries, gpd.GeoDataFrame],
-    raster_paths: Union[str, list],
+    points: str | gpd.GeoSeries | gpd.GeoDataFrame,
+    raster_paths: str | list,
     labels: list = None,
     drop_na: bool = True,
     quiet: bool = False,
@@ -501,7 +501,7 @@ def apply_model_to_array(
     count: int = 1,
     dtype: str = "float32",
     predict_proba: bool = False,
-    **kwargs,
+    **kwargs: Any,
 ) -> np.ndarray:
     """Applies a model to an array of covariates.
 
@@ -549,7 +549,7 @@ def apply_model_to_rasters(
     predict_proba: bool = False,
     ignore_sklearn: bool = True,
     quiet: bool = False,
-    **kwargs,
+    **kwargs: Any,
 ) -> None:
     """Applies a trained model to a list of raster datasets.
 
@@ -695,14 +695,15 @@ def validate_polygons(geometry: Vector) -> pd.Index:
     if len(index) > 0:
         warnings.warn(
             f"Input geometry had {len(index)} invalid geometries. "
-            "These will be dropped, but with the original index preserved."
+            "These will be dropped, but with the original index preserved.",
+            stacklevel=2,
         )
-        geometry.drop(index=index, inplace=True)
+        geometry = geometry.drop(index=index)
 
     return geometry.index
 
 
-def read_raster_from_polygon(src: rio.DatasetReader, poly: Union[Polygon, MultiPolygon]) -> np.ma.MaskedArray:
+def read_raster_from_polygon(src: rio.DatasetReader, poly: Polygon | MultiPolygon) -> np.ma.MaskedArray:
     """Read valid pixel values from all locations inside a polygon
         Uses the polygon as a mask in addition to the existing raster mask
 
@@ -743,7 +744,7 @@ def zonal_stats(
     kurtosis: bool = False,
     mode: bool = False,
     all: bool = False,
-    percentiles: list = [],
+    percentiles: list = None,
     quiet: bool = False,
 ) -> gpd.GeoDataFrame:
     """Compute raster summary stats for each polygon in a GeoSeries or GeoDataFrame.
@@ -754,8 +755,15 @@ def zonal_stats(
         labels: band labels. must match the total number of bands for all raster_paths.
         all_touched: include all pixels that touch a polygon.
             set to False to only include pixels whose centers intersect the polygon
-        mean, min, max, count, sum, stdv, skew, kurtosis, mode:
-            set to True to compute these stats
+        mean: compute the mean of pixel values
+        stdv: compute the standard deviation of pixel values
+        min: compute the minimum pixel value
+        max: compute the maximum pixel value
+        count: count the number of pixels per polygon
+        sum: compute the sum of pixel values
+        skew: compute the skewness of pixel values
+        kurtosis: compute the kurtosis of pixel values
+        mode: compute the modal pixel value
         all: compute all of the above stats
         percentiles: list of 0-100 percentile ranges to compute
         quiet: silence progress bar output
@@ -766,6 +774,8 @@ def zonal_stats(
             to the original input.
     """
     # format the input geometries
+    if percentiles is None:
+        percentiles = []
     validate_gpd(polygons)
     valid_idx = validate_polygons(polygons)
     polygons = polygons.iloc[valid_idx]
@@ -823,11 +833,13 @@ def zonal_stats(
                 enumerate(polys), total=len(polys), desc="Polygon", leave=False, disable=quiet, **tqdm_opts
             ):
                 data = read_raster_from_polygon(src, poly)
-                for method, array in zip(stats_methods, stats_arrays):
+                for method, array in zip(stats_methods, stats_arrays, strict=False):
                     array[p, :] = np.array(method.reduce(data)).astype(array.dtype)
 
         # convert each stat's array into dataframes and merge them together
-        stats_dfs = [pd.DataFrame(array, columns=labels) for array, labels in zip(stats_arrays, stats_labels)]
+        stats_dfs = [
+            pd.DataFrame(array, columns=labels) for array, labels in zip(stats_arrays, stats_labels, strict=False)
+        ]
         raster_dfs.append(pd.concat(stats_dfs, axis=1))
 
     # merge the outputs from each raster
@@ -862,9 +874,9 @@ def nearest_point_distance(
             each point's nearest neighbor
     """
     if points1.crs.is_geographic:
-        warnings.warn("Computing distances using geographic coordinates is bad")
+        warnings.warn("Computing distances using geographic coordinates is bad", stacklevel=2)
 
-    pta1 = np.array(list(zip(points1.geometry.x, points1.geometry.y)))
+    pta1 = np.array(list(zip(points1.geometry.x, points1.geometry.y, strict=False)))
     k_offset = 1
 
     if points2 is None:
@@ -872,9 +884,9 @@ def nearest_point_distance(
         k_offset += 1
 
     else:
-        pta2 = np.array(list(zip(points2.geometry.x, points2.geometry.y)))
+        pta2 = np.array(list(zip(points2.geometry.x, points2.geometry.y, strict=False)))
         if not crs_match(points1.crs, points2.crs):
-            warnings.warn("CRS mismatch between points")
+            warnings.warn("CRS mismatch between points", stacklevel=2)
 
     if n_neighbors < 1:
         n_neighbors = len(pta2) - k_offset

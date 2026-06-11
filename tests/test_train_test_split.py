@@ -33,6 +33,7 @@ def test_GeographicKFold():
         counted_folds += 1
     assert gfolds.get_n_splits() == n_folds == counted_folds
 
+
 def test_GeographicKFold_random_state():
     n_folds = 4
 
@@ -49,8 +50,10 @@ def test_GeographicKFold_random_state():
         assert np.array_equal(a, b), "Same random_state should produce same folds"
 
     # Check different seed gives at least one different fold
-    assert any(not np.array_equal(a, c) for a, c in zip(splits_42a, splits_99)), \
+    assert any(not np.array_equal(a, c) for a, c in zip(splits_42a, splits_99)), (
         "Different random_state should produce at least one different fold"
+    )
+
 
 def test_BufferedLeaveOneOut():
     # straight leave-one-out

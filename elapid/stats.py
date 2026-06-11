@@ -1,6 +1,7 @@
 """Utilities for calculating zonal stats and other transformations"""
 
-from typing import Callable, List
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from scipy import stats as scistats
@@ -11,7 +12,7 @@ from elapid.types import ArrayLike
 class RasterStat:
     """Utility class to iterate over and apply reductions to multiband arrays"""
 
-    def __init__(self, name: str, method: Callable, dtype: str = None, **kwargs):
+    def __init__(self, name: str, method: Callable, dtype: str = None, **kwargs: Any):
         """Create a RasterStat object
 
         Args:
@@ -111,10 +112,12 @@ def get_raster_stats_methods(
     skew: bool = False,
     kurtosis: bool = False,
     mode: bool = False,
-    percentiles: list = [],
+    percentiles: list = None,
     all: bool = False,
-) -> List[RasterStat]:
+) -> list[RasterStat]:
     """Return RasterStat configs for the requested stats calculations"""
+    if percentiles is None:
+        percentiles = []
     methods = []
 
     if mean or all:

@@ -1,6 +1,6 @@
 """Functions to transform covariate data into complex model features."""
 
-from typing import Any, List, Tuple, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ from elapid.utils import make_band_labels, repeat_array
 class FeaturesMixin:
     """Methods for formatting x data and labels"""
 
-    def _format_covariate_data(self, x: ArrayLike) -> Tuple[np.array, np.array]:
+    def _format_covariate_data(self, x: ArrayLike) -> tuple[np.array, np.array]:
         """Reads input x data and formats it to consistent array dtypes.
 
         Args:
@@ -65,7 +65,7 @@ class FeaturesMixin:
             self.continuous_ = continuous
 
         elif isinstance(x, pd.DataFrame):
-            x.drop(["geometry"], axis=1, errors="ignore", inplace=True)
+            x = x.drop(["geometry"], axis=1, errors="ignore")
             self.labels_ = labels or list(x.columns)
 
             # store both pandas and numpy indexing of these values
@@ -86,7 +86,7 @@ class LinearTransformer(MinMaxScaler):
     def __init__(
         self,
         clamp: bool = MaxentConfig.clamp,
-        feature_range: Tuple[float, float] = (0.0, 1.0),
+        feature_range: tuple[float, float] = (0.0, 1.0),
     ):
         self.clamp = clamp
         self.feature_range = feature_range
@@ -99,7 +99,7 @@ class QuadraticTransformer(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         clamp: bool = MaxentConfig.clamp,
-        feature_range: Tuple[float, float] = (0.0, 1.0),
+        feature_range: tuple[float, float] = (0.0, 1.0),
     ):
         self.clamp = clamp
         self.feature_range = feature_range
@@ -165,7 +165,7 @@ class ProductTransformer(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         clamp: bool = MaxentConfig.clamp,
-        feature_range: Tuple[float, float] = (0.0, 1.0),
+        feature_range: tuple[float, float] = (0.0, 1.0),
     ):
         self.clamp = clamp
         self.feature_range = feature_range
@@ -409,7 +409,7 @@ class MaxentFeatureTransformer(BaseEstimator, TransformerMixin, FeaturesMixin):
 
     def __init__(
         self,
-        feature_types: Union[str, list] = MaxentConfig.feature_types,
+        feature_types: str | list = MaxentConfig.feature_types,
         clamp: bool = MaxentConfig.clamp,
         n_hinge_features: int = MaxentConfig.n_hinge_features,
         n_threshold_features: int = MaxentConfig.n_threshold_features,
@@ -588,7 +588,8 @@ def left_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     """
     rng = repeat_array(mx, mn.shape[-1], axis=1) - mn
     valid = rng > 0
-    hinge = np.clip(np.divide((x - mn), rng, where=valid), 0, 1)
+    out = np.zeros_like(x - mn, dtype=np.float64)
+    hinge = np.clip(np.divide((x - mn), rng, where=valid, out=out), 0, 1)
 
     return hinge
 
@@ -607,7 +608,8 @@ def right_hinge(x: ArrayLike, mn: float, mx: float) -> np.ndarray:
     mnr = repeat_array(mn, mx.shape[-1], axis=1)
     rng = mx - mnr
     valid = rng > 0
-    hinge = np.clip(np.divide((x - mnr), rng, where=valid), 0, 1)
+    out = np.zeros_like(x - mnr, dtype=np.float64)
+    hinge = np.clip(np.divide((x - mnr), rng, where=valid, out=out), 0, 1)
 
     return hinge
 
@@ -629,7 +631,7 @@ def compute_weights(y: ArrayLike, pbr: int = 100) -> np.ndarray:
 def compute_regularization(
     y: ArrayLike,
     z: np.ndarray,
-    feature_labels: List[str],
+    feature_labels: list[str],
     beta_multiplier: float = MaxentConfig.beta_multiplier,
     beta_lqp: float = MaxentConfig.beta_lqp,
     beta_threshold: float = MaxentConfig.beta_threshold,
