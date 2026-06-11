@@ -282,6 +282,7 @@ class MaxentModel(SDMMixin, BaseEstimator):
         convergence_tolerance: float = MaxentConfig.tolerance,
         use_lambdas: str = MaxentConfig.use_lambdas,
         n_lambdas: int = MaxentConfig.n_lambdas,
+        max_iter: int = MaxentConfig.max_iter,
         class_weights: str | float = MaxentConfig.class_weights,
         n_cpus: int = NCPUS,
         use_sklearn: bool = FORCE_SKLEARN,
@@ -311,6 +312,10 @@ class MaxentModel(SDMMixin, BaseEstimator):
             n_lambdas: number of lambda values along the glmnet regularization path.
                 Glmnet-only; ignored when `use_sklearn=True` (the sklearn solver
                 has no regularization path, just a single C value).
+            max_iter: maximum iterations for the sklearn liblinear solver.
+                Sklearn-only; ignored when `use_sklearn=False`. The default
+                is generous enough to converge at `convergence_tolerance=2e-6`
+                on the feature matrices elapid typically produces.
             class_weights: strategy for weighting presence samples.
                 pass "balanced" to compute the ratio based on sample frequency
                 or pass a float for the presence:background weight ratio
@@ -339,6 +344,7 @@ class MaxentModel(SDMMixin, BaseEstimator):
         self.n_cpus = n_cpus
         self.use_lambdas = use_lambdas
         self.n_lambdas = n_lambdas
+        self.max_iter = max_iter
         self.class_weights = class_weights
         self.use_sklearn = use_sklearn
         self.random_state = random_state
@@ -581,7 +587,7 @@ class MaxentModel(SDMMixin, BaseEstimator):
             l1_ratio=1.0,
             solver="liblinear",
             tol=self.convergence_tolerance,
-            max_iter=1000,
+            max_iter=self.max_iter,
             random_state=self.random_state,
         )
 

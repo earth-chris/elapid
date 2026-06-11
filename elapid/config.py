@@ -37,6 +37,10 @@ class MaxentConfig:
     use_lambdas: str = "best"
     n_lambdas: int = 100
 
+    # sklearn-only iteration cap for the liblinear solver (the glmnet path
+    # uses n_lambdas to control its regularization path length instead)
+    max_iter: int = 1000
+
     # method for weighting presence samples
     # set to "balanced" for nomalizing weights based on sample density
     class_weights: str | float = 100
